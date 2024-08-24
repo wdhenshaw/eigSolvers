@@ -1,0 +1,629 @@
+\section{Motivational examples} 
+
+What are some good motivational examples that can make use of the method?
+
+\begin{enumerate}
+  \item Acoustics: Given a structure (or under-water vehicle,say), compute the maximum pressure
+    on the structure for pressure sources located at different locations around the structure. Structure is
+      fixed but solutions to many initial value problems are desired.
+  \item Electromagnetics : inverse design of the dispersive properties of meta-atoms in a dispersive
+      material. Geometry of meta-atoms is fixed but dispersive properties can vary. Far field response
+      for a broad-band signal is desired.
+  \item Elasticity: similar problem to acoustics -- find maximum stress on a elastic structure due
+    to different source terms.
+  \item Seismic applications : 
+\end{enumerate}
+
+
+
+% ==========================================================================================================
+\clearpage
+\section{Computing eigenfunctions and fitting functions}
+
+
+The routine {\tt genEigs.bC} and class {\tt Ogev} can be used to compute discrete
+approximations to eigenfunctions on overset grids using the {\tt SLEPc} solver.
+
+\mni
+\textbf{ Notes:}
+\begin{enumerate}
+  \item SLEPc does not generally return orthogonal eigenvectors
+      for the eigenspace of a multiple eigenvalue. 
+  \item The eigenvectors for a multiple eigenvalue can be orthogonalized (e.g. using a QR algorithm).
+   However, it appears that sometimes SLEPc 
+   returns essentially the same eigenvector more than once for a multiple eigenvalue. In this
+   case the  orthogonalization fails -- need to fix this. May be able to provide SLEPc with
+   some starting guesses. 
+\end{enumerate}
+
+% --------------------------------------------------
+\clearpage
+\subsection{Timings to compute eigenvalues and eigenvectors}
+
+Here are some timings for computing the eigenvalues/eigenvectors of the RPI grid (serial, cg6). 
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=rpi -g=rpiGride4pn.order2.hdf -eigOption=1 
+-eps_s=largest_magnitude -numEigenValues=260 -numEigenVectors=256 -tol=1.e-12 -bc5=n -bc6=n -bc7=n 
+
+--------------- Ogev : computeEigenvalues --------------------
+   numberOfGridPoints=81975, numEigenvalues=260, numEigenVectors=256
+      total cpu =  1.04e+02 (s) (includes build matrix)
+ cpu/eigenvalue =  4.02e-01 (s)
+ Number of iterations of the method: 2
+ Number of linear iterations of the method: 665
+ Solution method: krylovschur
+
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=rpi -g=rpiGride4pn.order2.hdf -eigOption=1 
+-eps_s=largest_magnitude -numEigenValues=130 -numEigenVectors=128 -tol=1.e-12 -bc5=n -bc6=n -bc7=n 
+
+--------------- Ogev : computeEigenvalues --------------------
+   numberOfGridPoints=81975, numEigenvalues=130, numEigenVectors=128
+      total cpu =  3.62e+01 (s) (includes build matrix)
+ cpu/eigenvalue =  2.78e-01 (s)
+ Number of iterations of the method: 2
+ Number of linear iterations of the method: 337
+ Solution method: krylovschur
+
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=rpi -g=rpiGride4pn.order2.hdf -eigOption=1
+ -eps_s=largest_magnitude -numEigenValues=20 -numEigenVectors=16 -tol=1.e-12 -bc5=n -bc6=n -bc7=n 
+
+--------------- Ogev : computeEigenvalues --------------------
+   numberOfGridPoints=81975, numEigenvalues=20, numEigenVectors=16
+      total cpu =  1.24e+01 (s) (includes build matrix)
+ cpu/eigenvalue =  6.20e-01 (s)
+ Number of iterations of the method: 3
+ Number of linear iterations of the method: 67
+ Solution method: krylovschur
+
+
+\end{Verbatim}
+
+
+% --------------------------------------------------
+\subsection{Computed eigenfunctions of a square}
+
+Here are some computed eigenvalues for a square. It looks like high-order accurate schemes are
+useful if a high degree of accuracy is needed. Even double eigenvalues can be computed accurately in this case.
+
+\mni
+ORDER=4
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -g=square64.order4 -eigOption=1 -eps_s=largest_magnitude 
+-numEigenValues=70  -numEigenVectors=64 -tol=1.e-12 -bc1=d -show=squareEigs64.show
+Eigenvalue   0 : k=   19.7392082729 + (-0) I,  true=1.97392088021787e+01, err=5.29e-07, rel-err=2.68e-08
+Eigenvalue   1 : k=   49.3480045834 + (-0) I,  true=4.93480220054468e+01, err=1.74e-05, rel-err=3.53e-07
+Eigenvalue   2 : k=   49.3480045834 + (-0) I,  true=4.93480220054468e+01, err=1.74e-05, rel-err=3.53e-07
+Eigenvalue   3 : k=   78.9568008939 + (-0) I,  true=7.89568352087149e+01, err=3.43e-05, rel-err=4.35e-07
+Eigenvalue   4 : k=   98.6958441746 + (-0) I,  true=9.86960440108936e+01, err=2.00e-04, rel-err=2.02e-06
+Eigenvalue   5 : k=   98.6958441746 + (-0) I,  true=9.86960440108936e+01, err=2.00e-04, rel-err=2.02e-06
+Eigenvalue   6 : k=  128.3046404852 + (-0) I,  true=1.28304857214162e+02, err=2.17e-04, rel-err=1.69e-06
+Eigenvalue   7 : k=  128.3046404852 + (-0) I,  true=1.28304857214162e+02, err=2.17e-04, rel-err=1.69e-06
+Eigenvalue   8 : k=  167.7821211200 + (-0) I,  true=1.67783274818519e+02, err=1.15e-03, rel-err=6.88e-06
+Eigenvalue   9 : k=  167.7821211200 + (-0) I,  true=1.67783274818519e+02, err=1.15e-03, rel-err=6.88e-06
+Eigenvalue  10 : k=  177.6524800764 + (-0) I,  true=1.77652879219608e+02, err=3.99e-04, rel-err=2.25e-06
+Eigenvalue  11 : k=  197.3909174305 + (-0) I,  true=1.97392088021787e+02, err=1.17e-03, rel-err=5.93e-06
+Eigenvalue  12 : k=  197.3909174305 + (-0) I,  true=1.97392088021787e+02, err=1.17e-03, rel-err=5.93e-06
+Eigenvalue  13 : k=  246.7387570217 + (-0) I,  true=2.46740110027234e+02, err=1.35e-03, rel-err=5.48e-06
+Eigenvalue  14 : k=  246.7387570217 + (-0) I,  true=2.46740110027234e+02, err=1.35e-03, rel-err=5.48e-06
+Eigenvalue  15 : k=  256.6051595574 + (-0) I,  true=2.56609714428323e+02, err=4.55e-03, rel-err=1.78e-05
+\end{Verbatim}
+
+\mni
+ORDER=4 : Finer grid. Note quite 4th-order convergence. *check me*
+\begin{Verbatim}[fontsize=\footnotesize]
+ genEigs -noplot eigs.cmd -problem=laplace -g=square128.order4 -eigOption=1 -eps_s=largest_magnitude 
+  -numEigenValues=70  -numEigenVectors=64 -tol=1.e-14 -bc1=d 
+
+Eigenvalue   0 : k=   19.7392087459 + (-0) I,  true=1.97392088021787e+01, err=5.63e-08, rel-err=2.85e-09
+Eigenvalue   1 : k=   49.3480201749 + (-0) I,  true=4.93480220054468e+01, err=1.83e-06, rel-err=3.71e-08
+Eigenvalue   2 : k=   49.3480201749 + (-0) I,  true=4.93480220054468e+01, err=1.83e-06, rel-err=3.71e-08
+Eigenvalue   3 : k=   78.9568316039 + (-0) I,  true=7.89568352087149e+01, err=3.60e-06, rel-err=4.57e-08
+Eigenvalue   4 : k=   98.6960234232 + (-0) I,  true=9.86960440108936e+01, err=2.06e-05, rel-err=2.09e-07
+Eigenvalue   5 : k=   98.6960234232 + (-0) I,  true=9.86960440108936e+01, err=2.06e-05, rel-err=2.09e-07
+Eigenvalue   6 : k=  128.3048348522 + (-0) I,  true=1.28304857214162e+02, err=2.24e-05, rel-err=1.74e-07
+Eigenvalue   7 : k=  128.3048348522 + (-0) I,  true=1.28304857214162e+02, err=2.24e-05, rel-err=1.74e-07
+Eigenvalue   8 : k=  167.7831590477 + (-0) I,  true=1.67783274818519e+02, err=1.16e-04, rel-err=6.90e-07
+Eigenvalue   9 : k=  167.7831590477 + (-0) I,  true=1.67783274818519e+02, err=1.16e-04, rel-err=6.90e-07
+Eigenvalue  10 : k=  177.6528381005 + (-0) I,  true=1.77652879219608e+02, err=4.11e-05, rel-err=2.31e-07
+Eigenvalue  11 : k=  197.3919704767 + (-0) I,  true=1.97392088021787e+02, err=1.18e-04, rel-err=5.95e-07
+Eigenvalue  12 : k=  197.3919704767 + (-0) I,  true=1.97392088021787e+02, err=1.18e-04, rel-err=5.95e-07
+Eigenvalue  13 : k=  246.7399737250 + (-0) I,  true=2.46740110027234e+02, err=1.36e-04, rel-err=5.52e-07
+Eigenvalue  14 : k=  246.7399737250 + (-0) I,  true=2.46740110027234e+02, err=1.36e-04, rel-err=5.52e-07
+Eigenvalue  15 : k=  256.6092717758 + (-0) I,  true=2.56609714428323e+02, err=4.43e-04, rel-err=1.73e-06
+
+\end{Verbatim}
+
+% Finer grid. 
+% \begin{Verbatim}[fontsize=\footnotesize]
+% genEigs -noplot eigs.cmd -problem=laplace -g=square256.order4 -eigOption=1 -eps_s=largest_magnitude
+%  -numEigenValues=70 -numEigenVectors=64 -tol=1.e-14 -bc1=d -show=squareEigs64.show
+% Eigenvalue   0 : k=   19.7392087980 + (-0) I,  true=1.97392088021787e+01, err=4.22e-09, rel-err=2.14e-10
+% Eigenvalue   1 : k=   49.3480218675 + (-0) I,  true=4.93480220054468e+01, err=1.38e-07, rel-err=2.80e-09
+% Eigenvalue   2 : k=   49.3480218675 + (-0) I,  true=4.93480220054468e+01, err=1.38e-07, rel-err=2.80e-09
+% Eigenvalue   3 : k=   78.9568349370 + (-0) I,  true=7.89568352087149e+01, err=2.72e-07, rel-err=3.44e-09
+% Eigenvalue   4 : k=   98.6960424611 + (-0) I,  true=9.86960440108936e+01, err=1.55e-06, rel-err=1.57e-08
+% Eigenvalue   5 : k=   98.6960424611 + (-0) I,  true=9.86960440108936e+01, err=1.55e-06, rel-err=1.57e-08
+% \end{Verbatim}
+
+\mni 
+ORDER=8 -- this seems like a good way to get accurate eigenvalues
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -g=square128.order8 -eigOption=1 -eps_s=largest_magnitude 
+  -numEigenValues=70  -numEigenVectors=64 -tol=1.e-14 -bc1=d 
+
+Eigenvalue   0 : k=   19.7392088022 + (-0) I,  true=1.97392088021787e+01, err=9.44e-12, rel-err=4.78e-13
+Eigenvalue   1 : k=   49.3480220055 + (-0) I,  true=4.93480220054468e+01, err=6.97e-12, rel-err=1.41e-13
+Eigenvalue   2 : k=   49.3480220055 + (-0) I,  true=4.93480220054468e+01, err=1.10e-11, rel-err=2.22e-13
+Eigenvalue   3 : k=   78.9568352087 + (-0) I,  true=7.89568352087149e+01, err=1.43e-11, rel-err=1.81e-13
+Eigenvalue   4 : k=   98.6960440110 + (-0) I,  true=9.86960440108936e+01, err=1.44e-10, rel-err=1.46e-12
+Eigenvalue   5 : k=   98.6960440110 + (-0) I,  true=9.86960440108936e+01, err=1.55e-10, rel-err=1.57e-12
+Eigenvalue   6 : k=  128.3048572143 + (-0) I,  true=1.28304857214162e+02, err=1.49e-10, rel-err=1.16e-12
+Eigenvalue   7 : k=  128.3048572143 + (-0) I,  true=1.28304857214162e+02, err=1.54e-10, rel-err=1.20e-12
+Eigenvalue   8 : k=  167.7832748210 + (-0) I,  true=1.67783274818519e+02, err=2.45e-09, rel-err=1.46e-11
+Eigenvalue   9 : k=  167.7832748210 + (-0) I,  true=1.67783274818519e+02, err=2.45e-09, rel-err=1.46e-11
+Eigenvalue  10 : k=  177.6528792199 + (-0) I,  true=1.77652879219608e+02, err=2.94e-10, rel-err=1.66e-12
+Eigenvalue  11 : k=  197.3920880242 + (-0) I,  true=1.97392088021787e+02, err=2.45e-09, rel-err=1.24e-11
+Eigenvalue  12 : k=  197.3920880242 + (-0) I,  true=1.97392088021787e+02, err=2.45e-09, rel-err=1.24e-11
+
+\end{Verbatim}
+
+
+
+Figure~\ref{} shows some computed eigenfunctions of a square.
+
+
+% -------------------------------------------------------------------------------------------
+\subsection{Computed eigenfunctions of a disk}
+
+
+There are many multiplicity-two eigenvalues for the disk dues to the angular symmetry; 
+these correspond to eigenfunctions
+of the forms
+\ba
+     \phi_1(r,\theta) &= J_n(\kappa r) \cos(n\theta) , \\
+     \phi_2(r,\theta) &= J_n(\kappa r) \sin(n\theta) ,
+\ea
+
+
+Here are some computed eigenvalues for a disk.
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=disk -g=sice4.order4 -eigOption=1 -eps_s=largest_magnitude
+ -numEigenValues=40 -numEigenVectors=32 -tol=1.e-12 -bc1=d
+Eigenvalue   0 : k=    5.7831856376 + (-0) I,  true=5.78318596294677e+00, err=3.25e-07, rel-err=5.63e-08
+Eigenvalue   1 : k=   14.6819663423 + (-0) I,  true=1.46819706421239e+01, err=4.30e-06, rel-err=2.93e-07
+Eigenvalue   2 : k=   14.6819663423 + (-0) I,  true=1.46819706421239e+01, err=4.30e-06, rel-err=2.93e-07
+Eigenvalue   3 : k=   26.3745765958 + (-0) I,  true=2.63746164271634e+01, err=3.98e-05, rel-err=1.51e-06
+Eigenvalue   4 : k=   26.3746064090 + (-0) I,  true=2.63746164271634e+01, err=1.00e-05, rel-err=3.80e-07
+Eigenvalue   5 : k=   30.4712325478 + (-0) I,  true=3.04712623436621e+01, err=2.98e-05, rel-err=9.78e-07
+Eigenvalue   6 : k=   40.7063642227 + (-0) I,  true=4.07064658182003e+01, err=1.02e-04, rel-err=2.50e-06
+Eigenvalue   7 : k=   40.7063642227 + (-0) I,  true=4.07064658182003e+01, err=1.02e-04, rel-err=2.50e-06
+Eigenvalue   8 : k=   49.2183375312 + (-0) I,  true=4.92184563216946e+01, err=1.19e-04, rel-err=2.41e-06
+\end{Verbatim}
+
+Figure~\ref{fig:diskEigenfunctions} shows some computed eigenfunctions of a disk, arranged by magnitude of the
+  eigenvalues.
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{4cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
+  \begin{scope}[yshift=3*\width]   
+    \figByWidthb{       0}{0}{fig/diskEigenVector0}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/diskEigenVector1}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/diskEigenVector2}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/diskEigenVector3}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=2*\width]   
+    \figByWidthb{       0}{0}{fig/diskEigenVector4}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/diskEigenVector5}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/diskEigenVector6}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/diskEigenVector7}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=1*\width]   
+    \figByWidthb{       0}{0}{fig/diskEigenVector8}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/diskEigenVector9}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/diskEigenVector10}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/diskEigenVector11}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=0*\width]   
+    \figByWidthb{       0}{0}{fig/diskEigenVector12}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/diskEigenVector13}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/diskEigenVector14}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/diskEigenVector15}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}      
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,16);
+\end{tikzpicture}
+\end{center}
+\caption{Computed eigenfunctions of a disk, arranged by magnitude of the eigenvalues.}
+\label{fig:diskEigenfunctions}
+\end{figure}
+}
+% -------------------------------------------------------------------------------------------------
+
+
+% -------------------------------------------------------------------------------------------
+\clearpage
+\subsection{Computed eigenfunctions of an ellipse in a box}
+
+Here are some computed eigenvalues for the ellipse in a box. There seem to be no multiple eigenvalues.
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=disk -g=ellipsee4.order4.s1.5.hdf -eigOption=1 
+  -eps_s=largest_magnitude -numEigenValues=68 -numEigenVectors=64 -tol=1.e-6 -bc1=d -show=eib64.show
+
+Eigenvalue   0 : k=    3.3579349838 + (-0) I,  
+Eigenvalue   1 : k=    3.7172899474 + (-0) I,  
+Eigenvalue   2 : k=    4.2746640412 + (-0) I,  
+Eigenvalue   3 : k=    5.1551742507 + (-0) I,  
+Eigenvalue   4 : k=    6.7306843897 + (-0) I,  
+Eigenvalue   5 : k=    8.3202600219 + (-0) I,  
+Eigenvalue   6 : k=    8.8427800346 + (-0) I,  
+Eigenvalue   7 : k=   10.3307519679 + (-0) I,  
+Eigenvalue   8 : k=   12.3634449757 + (-0) I,  
+Eigenvalue   9 : k=   12.5520770161 + (-0) I,  
+Eigenvalue  10 : k=   12.9907804080 + (-0) I,  
+Eigenvalue  11 : k=   13.4171548012 + (-0) I,  
+Eigenvalue  12 : k=   14.6996193850 + (-0) I,  
+Eigenvalue  13 : k=   16.9199964707 + (-0) I,  
+Eigenvalue  14 : k=   17.3127037296 + (-0) I,  
+Eigenvalue  15 : k=   18.1024666484 + (-0) I,  
+Eigenvalue  16 : k=   18.5014568730 + (-0) I,  
+Eigenvalue  17 : k=   20.6358025973 + (-0) I,  
+Eigenvalue  18 : k=   21.0111189039 + (-0) I,  
+Eigenvalue  19 : k=   21.4286701882 + (-0) I,  
+Eigenvalue  20 : k=   23.2851814358 + (-0) I,  
+Eigenvalue  21 : k=   24.7564697513 + (-0) I,  
+Eigenvalue  22 : k=   24.9029841436 + (-0) I,  
+
+\end{Verbatim}
+
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{4cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
+  \begin{scope}[yshift=3*\width]   
+    \figByWidthb{       0}{0}{fig/ellipseEigenVector0}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/ellipseEigenVector1}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/ellipseEigenVector2}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/ellipseEigenVector3}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=2*\width]   
+    \figByWidthb{       0}{0}{fig/ellipseEigenVector4}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/ellipseEigenVector5}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/ellipseEigenVector6}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/ellipseEigenVector7}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=1*\width]   
+    \figByWidthb{       0}{0}{fig/ellipseEigenVector8}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/ellipseEigenVector9}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/ellipseEigenVector10}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/ellipseEigenVector11}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=0*\width]   
+    \figByWidthb{       0}{0}{fig/ellipseEigenVector12}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/ellipseEigenVector13}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/ellipseEigenVector14}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/ellipseEigenVector15}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}      
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,16);
+\end{tikzpicture}
+\end{center}
+\caption{Computed eigenfunctions of an ellipse in a box, arranged by magnitude of the eigenvalues.}
+\label{fig:ellipseInABoxEigenfunctions}
+\end{figure}
+}
+
+
+
+% -------------------------------------------------------------------------------------------
+\clearpage
+\subsection{Computed eigenfunctions for some shapes in a box}
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{4cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
+  \begin{scope}[yshift=3*\width]   
+    \figByWidthb{       0}{0}{fig/shapesEigenVector0}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/shapesEigenVector1}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/shapesEigenVector2}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/shapesEigenVector3}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=2*\width]   
+    \figByWidthb{       0}{0}{fig/shapesEigenVector4}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/shapesEigenVector5}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/shapesEigenVector6}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/shapesEigenVector7}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=1*\width]   
+    \figByWidthb{       0}{0}{fig/shapesEigenVector8}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/shapesEigenVector9}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/shapesEigenVector10}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/shapesEigenVector11}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=0*\width]   
+    \figByWidthb{       0}{0}{fig/shapesEigenVector12}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/shapesEigenVector13}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/shapesEigenVector14}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/shapesEigenVector15}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}      
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,16);
+\end{tikzpicture}
+\end{center}
+\caption{Computed eigenfunctions of some shapes in a box, arranged by magnitude of the eigenvalues.}
+\label{fig:shapesInABoxEigenfunctions}
+\end{figure}
+}
+% -------------------------------------------------------------------------------------------------------
+
+
+% -------------------------------------------------------------------------------------------
+\clearpage
+\subsection{Scattering from a cylinder}
+
+We consider scattering of a Gaussian plane wave from a cylinder (periodic in y).
+Figure~\ref{fig:cicEigenfunctions} shows some eigenfunctions.
+
+
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{4cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
+  \begin{scope}[yshift=3*\width]   
+    \figByWidthb{       0}{0}{fig/cicEigenVector0}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/cicEigenVector1}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/cicEigenVector2}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/cicEigenVector3}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=2*\width]   
+    \figByWidthb{       0}{0}{fig/cicEigenVector4}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/cicEigenVector5}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/cicEigenVector6}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/cicEigenVector7}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=1*\width]   
+    \figByWidthb{       0}{0}{fig/cicEigenVector8}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/cicEigenVector9}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/cicEigenVector10}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/cicEigenVector11}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=0*\width]   
+    \figByWidthb{       0}{0}{fig/cicEigenVector12}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/cicEigenVector13}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/cicEigenVector14}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/cicEigenVector15}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}      
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,16);
+\end{tikzpicture}
+\end{center}
+\caption{Computed eigenfunctions of a cylinder in a box, arranged by magnitude of the eigenvalues.
+    }
+\label{fig:cicEigenfunctions}
+\end{figure}
+}
+% -------------------------------------------------------------------------------------------------------
+
+\clearpage
+Here are commands to compute the scattering of a Gaussian plane wave from the cylinder.
+\begin{Verbatim}[fontsize=\footnotesize]
+eveSolver square.cmd -eigFile=cicEigs1024.show -beta=40 -x0=-1.25 -y0=0.5 -k0=0 -ic=gpw
+Errors in u0 fit: max-err=1.28e-03, l2-err=3.78e-04
+Errors in u1 fit: max-err=4.13e-02, l2-err=1.28e-02
+\end{Verbatim}
+
+2048 modes: 
+\begin{Verbatim}[fontsize=\footnotesize]
+eveSolver square.cmd -eigFile=cicEigs2048.show -beta=40 -x0=-1.25 -y0=0.5 -k0=0 -ic=gpw
+Errors in u0 fit: max-err=2.68e-04, l2-err=3.79e-05
+Errors in u1 fit: max-err=3.97e-03, l2-err=7.25e-04
+\end{Verbatim}
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{8cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (16,8);  % set the bounding box (so we have less surrounding white space)
+
+     \figByWidthb{0*\width}{0}{fig/cicScatteringt1p5}{\width}[0.1][0.0][0.1][0.1]   
+     \figByWidthb{1*\width}{0}{fig/cicScat2048Modest1p5}{\width}[0.1][0.0][0.1][0.1]   
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,16);
+\end{tikzpicture}
+\end{center}
+\caption{Scattering from a cylinder using 1024 eigenfunctions, $t=1.5$. Left: 1024 modes, right 2048 modes.}
+\label{fig:cicScattering}
+\end{figure}
+}
+% -------------------------------------------------------------------------------------------------------
+
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{8cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (16,8);  % set the bounding box (so we have less surrounding white space)
+
+     \figByWidthb{0*\width}{0}{fig/cicScatteringNeumann1024}{\width}[0.1][0.0][0.1][0.1]   
+  %   \figByWidthb{1*\width}{0}{fig/cicScat2048Modest1p5}{\width}[0.1][0.0][0.1][0.1]   
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,16);
+\end{tikzpicture}
+\end{center}
+\caption{Neumann BC: scattering from a cylinder, $t=1.5$. Left: 1024 modes, right 2048 modes.}
+\label{fig:cicScatteringNeumann}
+\end{figure}
+}
+% -------------------------------------------------------------------------------------------------------
+
+
+
+% -------------------------------------------------------------------------------------------
+\clearpage
+\subsection{RPI Scattering}
+
+We consider scattering of a Gaussian plane wave from three bodies with shapes of the letters R, P and I.
+Figure~\ref{fig:rpiEigenfunctions} shows some eigenfunctions.
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{8cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (16,8);  % set the bounding box (so we have less surrounding white space)
+
+     \figByWidthb{0*\width}{0}{fig/rpiScat1024t1p5}{\width}[0.1][0.0][0.1][0.1]   
+     \figByWidthb{1*\width}{0}{fig/rpiScat1024t2p0}{\width}[0.1][0.0][0.1][0.1]   
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,16);
+\end{tikzpicture}
+\end{center}
+\caption{Scattering from the letters RPI, $t=1.5$, 1024 modes.
+    Neumann BCs on letters. Gaussian plane wave travels upward from the bottom.}
+\label{fig:rpiScatteringNeumann}
+\end{figure}
+}
+% -------------------------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{8cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (16,8);  % set the bounding box (so we have less surrounding white space)
+
+     \figByWidthb{0*\width}{0}{fig/rpiScat4096t1p5}{\width}[0.1][0.0][0.1][0.1]   
+     \figByWidthb{1*\width}{0}{fig/rpiScat4096t2p0}{\width}[0.1][0.0][0.1][0.1]   
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,16);
+\end{tikzpicture}
+\end{center}
+\caption{Scattering from the letters RPI, $t=1.5$, 4096 modes.
+    Neumann BCs on letters. Modulated Gaussian plane wave travels upward from the bottom.}
+\label{fig:rpiScattering4096Neumann}
+\end{figure}
+}
+% -------------------------------------------------------------------------------------------------------
+
+
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{4cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
+  \begin{scope}[yshift=3*\width]   
+    \figByWidthb{       0}{0}{fig/rpiEigenVector0}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/rpiEigenVector1}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/rpiEigenVector2}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/rpiEigenVector3}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=2*\width]   
+    \figByWidthb{       0}{0}{fig/rpiEigenVector4}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/rpiEigenVector5}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/rpiEigenVector6}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/rpiEigenVector7}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=1*\width]   
+    \figByWidthb{       0}{0}{fig/rpiEigenVector8}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/rpiEigenVector9}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/rpiEigenVector10}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/rpiEigenVector11}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=0*\width]   
+    \figByWidthb{       0}{0}{fig/rpiEigenVector12}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/rpiEigenVector13}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/rpiEigenVector14}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/rpiEigenVector15}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}      
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,16);
+\end{tikzpicture}
+\end{center}
+\caption{Computed eigenfunctions for the letters RPI, arranged by magnitude of the eigenvalues.
+     Outer boundary is periodic in x and Dirichlet on top/bottom, Neumann BCs on the letters.
+    }
+\label{fig:rpiEigenfunctions}
+\end{figure}
+}
+% -------------------------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{4cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
+  \begin{scope}[yshift=3*\width]   
+    \figByWidthb{       0}{0}{fig/rpiSelectedEigenVector64}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/rpiSelectedEigenVector128}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/rpiSelectedEigenVector192}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/rpiSelectedEigenVector256}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=2*\width]   
+    \figByWidthb{       0}{0}{fig/rpiSelectedEigenVector320}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/rpiSelectedEigenVector384}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/rpiSelectedEigenVector448}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/rpiSelectedEigenVector512}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=1*\width]   
+    \figByWidthb{       0}{0}{fig/rpiSelectedEigenVector576}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/rpiSelectedEigenVector640}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/rpiSelectedEigenVector704}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/rpiSelectedEigenVector768}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=0*\width]   
+    \figByWidthb{       0}{0}{fig/rpiSelectedEigenVector832}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/rpiSelectedEigenVector896}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/rpiSelectedEigenVector960}{\width}[0.08][0.11][0.1][0.1]
+   %  \figByWidthb{3*\width}{0}{fig/rpiSelectedEigenVector15}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}      
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,16);
+\end{tikzpicture}
+\end{center}
+\caption{Selected computed eigenfunctions for the letters RPI, arranged by magnitude of the eigenvalues.
+     Outer boundary is periodic in x and Dirichlet on top/bottom, Neumann BCs on the letters.
+     Modes 64, 128, ...
+    }
+\label{fig:rpiSelectedEigenfunctions}
+\end{figure}
+}
+% -------------------------------------------------------------------------------------------------------

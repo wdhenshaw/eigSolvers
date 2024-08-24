@@ -1,0 +1,1719 @@
+% CMAME or JCP
+% \documentclass{article}
+\documentclass[preprint,11pt]{elsarticle}
+% \documentclass[3p,twocolumn]{elsarticle}
+\usepackage[bookmarks=true,colorlinks=true,linkcolor=blue]{hyperref}
+
+\pdfoutput=1
+
+%% \biboptions{sort&compress}% compress bibtex entries
+%\documentclass{article}
+\newcommand{\old}[1]{{\color{red}old: #1}}
+\newcommand{\wdh}[1]{{\color{blue}wdh: #1}}
+\newcommand{\dws}[1]{{\color{orange}dws: #1}}
+\usepackage{soul}% defines \st for strike-through
+
+% \usepackage{url}	% if your citations have any \url{} commands
+
+% \usepackage{ifpdf}
+% \ifpdf
+%    \usepackage[pdftex]{graphicx}
+%    \usepackage{epstopdf}
+%    \pdfcompresslevel=9
+%    \pdfpagewidth=8.5 true in
+%    \pdfpageheight=11 true in
+%    \pdfhorigin=1 true in
+%    \pdfvorigin=1.25 true in
+% \else
+%    \usepackage{graphicx}
+% \fi
+\usepackage[usenames,dvipsnames,svgnames,table]{xcolor}
+\usepackage{color}
+\usepackage{amssymb,amsmath}
+\usepackage{amsthm}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usetikzlibrary{decorations.pathreplacing}
+\usepackage{accents}% for under-bar
+
+% \newtheorem{theorem}{Theorem}
+% \newtheorem{algorithm}{Algorithm}
+
+
+\hbadness=10000 
+\sloppy \hfuzz=30pt
+
+\usepackage{calc}
+
+\usepackage[margin=1.in]{geometry}
+
+\usepackage{fancyvrb}% fancy verbatim
+
+% for fancy coloured boxes: 
+\usepackage{empheq}
+\usepackage[most]{tcolorbox}
+
+\newtcbox{\mymath}[1][]{%
+    nobeforeafter, math upper, tcbox raise base,
+    enhanced, colframe=blue!60!black,
+    colback=blue!20, boxrule=1pt,
+    #1}
+
+%\usepackage[ruled]{algorithm2e}% http://ctan.org/pkg/algorithm2e
+%\usepackage{algcompatible}
+\usepackage{algorithm}
+\usepackage[compatible]{algpseudocode}
+%\usepackage{algorithm}% http://ctan.org/pkg/algorithms
+%\usepackage{algpseudocode}% http://ctan.org/pkg/algorithmicx
+
+\usepackage{listings}
+\usepackage{color}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{tabularx}
+\usepackage{commath}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{multirow}
+
+
+\lstset{
+basicstyle=\footnotesize\ttfamily,
+columns=flexible,
+breaklines=true,
+commentstyle=\color{red},
+keywordstyle=\color{black}\bfseries
+}
+
+
+\definecolor{NBoxColor}{named}{LightSkyBlue}
+\definecolor{DBoxColor}{named}{MediumTurquoise}
+
+\newcommand{\NBox}[1]{\colorbox{NBoxColor!30}{$\displaystyle #1$}}
+\newcommand{\DBox}[1]{\colorbox{DBoxColor!30}{$\displaystyle #1$}}
+
+\usepackage{empheq}
+
+\newcommand*\widefbox[1]{\fbox{\hspace{2em}#1\hspace{2em}}}
+
+\input tex/defs
+\input tex/trimFig.tex
+
+\usepackage{xargs}% for optional args to \newcommandx
+\input tex/plotFigureMacros.tex
+
+
+\newcommand{\ignore}[1]{}
+\newcommand{\nobibentry}[1]{{\let\nocite\ignore\bibentry{#1}}}
+
+\begin{document}
+\small
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\lstdefinestyle{myc}{
+basicstyle=\footnotesize\ttfamily,
+keywordstyle=\bfseries\color{mygreen}
+}
+\lstset{style=myc}
+
+%\maketitle
+\begin{frontmatter}
+\title{
+eveSolver: Eigenvalue Expansion Solver. \\
+User Guide and Reference Manual
+}
+
+\author[rpi]{W.~D.~Henshaw\corref{cor1}\fnref{NSFgrantNew}}
+\ead{henshw@rpi.edu}
+
+\address[rpi]{Department of Mathematical Sciences, Rensselaer Polytechnic Institute, Troy, NY 12180, USA}
+
+\cortext[cor1]{Department of Mathematical Sciences, Rensselaer Polytechnic Institute, 110 8th Street, Troy, NY 12180, USA.}
+
+\fntext[DOEThanks]{This work was performed under DOE contracts from the ASCR Applied Math Program.}
+
+\fntext[NSFgrantNew]{Research supported by the National Science Foundation under grant DMS-1519934.}
+
+\fntext[PECASEThanks]{Research supported by a U.S. Presidential Early Career Award for Scientists and Engineers.}
+
+
+% ----------------------------------
+\begin{abstract}
+
+Here is the user guide and reference manual for the eveSolver.
+
+\end{abstract}
+
+\begin{keyword}
+Eigenfunctions; Wave equation;
+\end{keyword}
+
+\end{frontmatter}
+
+
+% ------------- Table of contents
+%\clearpage
+\tableofcontents
+%
+
+% -------------------------------------------------------------------------------------------------------------
+\section{Introduction}
+
+\noindent {\red \textbf{Note:} This is a work in progress. Note all features are implemented. yet. }
+
+\bigskip 
+Here is the user guide and reference manual for CgWave, a composite grid wave equation solver based
+on Overture. CgWave solves the wave equation in second-order form using overset grids.
+CgWave solves problems in two and three space dimensions. 
+
+Here is a citation~\cite{pog2008a}.
+
+\noindent\textbf{Things to do:}
+\begin{enumerate}
+   \item Add 4th order compatibility conditions.
+   \item Sixth and eight-order accurate BCs.
+   \item Finish 3D version of CgWave.
+   \item Finish upwind-dissipation for implicit time-stepping   
+\end{enumerate}  
+
+% -------------------------------------------------------------------------------------------------------
+\section{Governing Equations} \label{sec:governing}
+
+CgWave solves the initial boundary-value problem
+for the wave equation in second-order form for $u=u(\xv,t)$, 
+\bse
+\label{eq:WaveIBVP} 
+\bat
+& \p_t^2 u = c^2 \Delta u + f(\xv,t),  && \text{for $\xv\in\Omega$, $t>0$}, \\
+& B u = g                             && \text{for $\xv\in\partial\Omega$, $t>0$}, \\
+& u(x,0) = u_0(\xv), \quad \p_t u(\xv,0) = u_1(\xv),   && \text{for $\xv\in\partial\Omega$}. 
+\eat
+\ese
+Here $Bu=g$ denotes some boundary conditions.
+Boundary conditions include
+\begin{itemize}
+  \item Dirichlet
+  \item Neumann 
+  \item Mixed
+  \item Even symmetry
+  \item Radiation boundaries (far field) -- to-do. 
+\end{itemize}   
+
+% -------------------------------------------------------------------------------------------------------
+\section{Numerical Scheme} \label{sec:numericalcheme}
+
+The equations~\ref{eq:WaveIBVP} are advanced using a modified equation approach~\cite{max2006b}.
+Second and fourth-order accurate schemes are currently available.
+
+At fourth-order accuracy the scheme takes the form
+\bas
+\Dpt\Dmt U_\iv^n = c^2 \Delta_{4h} U_\iv^n + \f{\dt^2}{12}\, (c^2\Delta_{2h})^2 U_\iv^n  + f(\xv_\iv,t^n)  
+                   + \f{\dt^2}{12}\Big( c^2\Delta_{2h} f(\xv_\iv,t^n)  + \p_t^2 f(\xv_\iv,t^n) \Big)
+\eas
+where $\Delta_{ph}$ is a p-th order accurate approximation to $\Delta$. 
+
+
+% -------------------------------------------------------------------------------------------------------
+\input tex/upwindDissipation
+
+\input tex/numericalResults
+
+
+
+% \clearpage
+\bibliographystyle{elsart-num}
+\bibliography{bib/journal-ISI,bib/henshaw,bib/henshawPapers}
+
+\end{document}
+% ******************************* END ********************************
+% ******************************* END ********************************
+% ******************************* END ********************************
+% ******************************* END ********************************
+% ******************************* END ********************************
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\clearpage
+% -------------------------------------------------------------------------------------------------------------
+\section{Oblique incidence scattering}
+
+\noindent Runs done in \texttt{runs/mx/dielectricBodies} on cg6.
+
+\noindent Matlab plots from \texttt{runs/mx/dielectricBodies/compareProbes.m} on the Mac.
+
+\bigskip
+We consider oblique incidence scattering from a finite-array of bodies as an approximation
+to a periodic array.
+
+
+Figure~\ref{fig:ellipseScat} shows scattering from 1, 2, and 3 ellipses as an approximation to
+a periodic array of ellipses. The incident Gaussian pulse travels in direction $\kv=[1,1]^T$,
+ie upward at a 45 degree angle.
+
+Figure~\ref{fig:obliqueEllipse} shows results from an integral probe along a vertical line close to the
+target ellipse (right side).
+The results for two and three ellipses are relatively close. Is this good enough?
+Maybe even one ellipse is good enough for our purposes.
+
+% =================== START FIGURE =========
+{% ------ GRIDS ------
+% --------- START drawContour -----------
+\newcommand{\drawContour}[7]{%
+\begin{scope}[#1]
+\draw(0.0,0) node[anchor=south west,xshift=-4pt,yshift=+0pt] {\trimfig{fig/#2}{\figWidth}};
+  \draw(.75,.5) node[draw,fill=white,anchor=west,xshift=8pt,yshift=20pt] {\scriptsize #3};
+ % colour bar:
+\begin{scope}[xshift=6pt,yshift=-4pt]
+  \draw (\xcb,\ycb) node[anchor=south west,xshift=0.25cm,yshift=.5cm,rotate=-90] {\trimfigcb{fig/colourBarLines}{\cbWidth}{\cbHeight}};
+  \draw (.8,0) node[anchor=north,xshift=+3pt,yshift=+2pt] {\scriptsize $#6$};
+  \draw (4.8,0) node[anchor=north,xshift=+0pt,yshift=+2pt] {\scriptsize $#7$};
+\end{scope}
+\end{scope}
+}
+% --------- END drawContour -----------
+% -- for colour bar ----
+\newcommand{\cbWidth}{.2cm}% colour bar width
+\newcommand{\cbHeight}{4cm}% colour bar height
+\newcommand{\xcb}{.5cm}% colour bar lower left corner
+\newcommand{\ycb}{-.2cm}% colour bar lower left corner
+\setlength{\ycbTop}{\ycb+\cbHeight}% colour bar top label position
+\setlength{\ycbMid}{\ycb+\cbHeight*\real{.5}}% colour bar top label position
+\newcommand{\trimfigcb}[3]{\includegraphics[width=#2, height=#3, clip, trim=17cm 2.35cm 1.65cm 2.35cm]{#1}}
+%
+% ========================= DRAW ================
+%
+\newcommand{\figWidth}{5.25cm}
+\newcommand{\trimfig}[2]{\trimw{#1}{#2}{.12}{.12}{.12}{.12}}
+% 
+\begin{figure}[htb]
+\begin{center}
+% \resizebox{16cm}{!}{% START resize box
+\begin{tikzpicture}[scale=1]
+  \useasboundingbox (0.,0.2) rectangle (16,6);  % set the bounding box (so we have less surrounding white space)
+% 
+  \drawContour{xshift= -.5cm,yshift=0.0cm}{ellipseOneAngle45Ex}{$E_x$}{$\Ev$}{$t=0.3$}{$0$}{$0.8$};
+
+  \draw[-,blue,very thick,xshift=4cm,yshift=2.8cm]  (0,-1) -- (0,1); 
+  \draw[-,blue,very thick,xshift=1.2cm,yshift=2.8cm]  (0,-1) -- (0,1); 
+
+
+  \drawContour{xshift=  5.cm,yshift=0.0cm}{ellipseTwoAngle45Ex}{$E_x$}{$\Ev$}{$t=0.3$}{$0$}{$0.8$};
+  \begin{scope}[xshift=6.1cm,yshift=.7cm,scale=.75]
+    \draw[-,blue,very thick,xshift=4cm,yshift=2.8cm]  (0,-1) -- (0,1); 
+    \draw[-,blue,very thick,xshift=1.2cm,yshift=2.8cm]  (0,-1) -- (0,1); 
+  \end{scope} 
+  \drawContour{xshift=10.5cm,yshift=0.0cm}{ellipseThreeAngle45Ex}{$E_x$}{$\Ev$}{$t=0.3$}{$0$}{$.8$};
+%   \drawContour{xshift= 0cm,yshift=4.5cm}{baMatInt2dEy}{$E_y$}{$\Ev$}{$t=0.3$}{$-.61$}{$.61$};
+%   \drawContour{xshift= 0cm,yshift=0.0cm}{baMatInt2dEzRotated}{$E_z$}{$\Ev$}{$t=0.3$}{$-.44$}{$.44$};
+%   \begin{scope}[xshift=8cm]
+%     \drawContour{xshift= 0cm,yshift=9.0cm}{baMatInt2dExErrRotated}{$E_x$-err}{$\Hv$}{$t=0.3$}{$-.039$}{$.038$};
+%     \drawContour{xshift= 0cm,yshift=4.5cm}{baMatInt2dEyErrRotated}{$E_y$-err}{$\Hv$}{$t=0.3$}{$-.0087$}{$.0099$};
+%     \drawContour{xshift= 0cm,yshift=0.0cm}{baMatInt2dEzErr}{$E_z$-err}{$\Hv$}{$t=0.3$}{$-.00251$}{$.0032$};
+%   \end{scope}
+% 
+% 
+% grid:
+% \draw[step=1cm,gray] (0,0) grid (16,5);
+\end{tikzpicture}
+% }% end resize box
+\end{center}
+\caption{ Oblique scattering from one or more ellipses. Blue lines on figures show locations of integral probes (approx).
+    Super-grid used on all boundaries.
+    }
+\label{fig:ellipseScat}
+\end{figure}
+}
+%========================= END FIGURE ===============
+
+
+{% -------------------
+%
+\newcommand{\figWidth}{6cm}% height 
+\newcommand{\trimfig}[2]{\trimh{#1}{#2}{.0}{.0}{.0}{.0}}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}[scale=1]
+  \useasboundingbox (0,0.5) rectangle (16,6.5);  % set the bounding box (so we have less surrounding white space)
+
+  \draw(0.0,0.0) node[anchor=south west,xshift=-15pt,yshift=-8pt] {\trimfig{fig/obliqueScatteringEllipseEx}{\figWidth}};
+
+  \draw(8,0.0) node[anchor=south west,xshift=-15pt,yshift=-8pt] {\trimfig{fig/obliqueScatteringEllipseEy}{\figWidth}};
+%  \draw(7.0,0.0) node[anchor=south west,xshift=-15pt,yshift=-8pt] {\trimfig{fig/surfaceWaveSpacePeriodicRK42Ddiss}{\figWidth}};
+%   \draw(7.0,0.0) node[anchor=south west,xshift=-15pt,yshift=-8pt] {\trimfig{fig/sphereScat}{\figWidth}};
+% grid:
+ %  \draw[step=1cm,gray] (0,0) grid (15,6);
+\end{tikzpicture}
+\end{center}
+\caption{Oblique incidence scattering from an ellipse...}
+  \label{fig:obliqueEllipse}
+\end{figure}
+}
+
+
+
+% \clearpage
+\bibliographystyle{elsart-num}
+\bibliography{bib/journal-ISI,bib/adegdm,bib/jwb,bib/jba,bib/henshaw,bib/henshawPapers,bib/DMX,bib/AVKrefs,bib/myrefs}
+
+\end{document}
+% ******************************* END ********************************
+
+
+
+
+
+% ==============================================================================================
+\section{First-order system Maxwell's equations in one-dimension} \label{sec:fosMaxwell1d} 
+
+To help understand properties of the more complex BA-Maxwell equations we first start with a simple model problem.
+We consider the solution of the non-dispersive
+Maxwell equations in one-dimension written
+as a first-order system, ( TE-z mode with $v=E_y$, $w=H_z$) 
+\bse
+\label{eq:fosMaxwell1d}
+\bat
+& \eps \p_t  v = - \p_x w , \qquad&& x\in[0,1], \\
+& \mu \p_t  w = - \p_x v    \qquad&& x\in[0,1].
+\eat
+\ese
+This is a hyperbolic system for $v$ and $w$ with wave speeds $\lambda_\pm = \pm c$ with $c = 1/\sqrt{\eps\mu}$.
+The characteristic variables are
+\bas
+& \chi_\pm = v + \eta w,   \qquad \text{(Constant along $dx/dt=\pm c$)}, \\
+& \eta = \mu c = \sqrt{\f{\mu}{\eps}},  \qquad \text{(Electric impedance)}.
+\eas
+Well posed boundary conditions would be to assign the incoming characteristic variable,
+\bas
+  \chi_+(a,t) = g_a(t) , \qquad  \chi_-(b,t) = g_a(t) .
+\eas
+More generally one could assign the incoming characteristic in terms of the outgoing, e.g. 
+\bas
+  \chi_+(a,t) = \alpha \chi_-(a,t) + g_a(t)
+\eas
+so that one could, for example set $v(a,t)=g_a(t)$. 
+
+Both $v$ and $w$ satisfy the second-order wave equation
+\bas
+     u_{tt} - c^2 u_{xx} = 0 .
+\eas
+
+\bigskip 
+We discretize the equations with a method of lines approach:
+\ba
+ \eps \p_t V_i  &= - D_{x,m}  W_i , \\
+ \mu \p_t W_i   &= - D_{x,m} V_i , 
+\ea
+where $V_i(t) \approx v(x_i,t)$, and $D_{x,m}$ is an m$^{th}$-order accurate centered approximation,
+\bas
+ &    D_{x,2} = \Dzx, \\ 
+ &    D_{x,4} = \Dzx( I - \f{h^2}{6} \Dpx\Dmx) . 
+\eas
+Note that, neglecting boundaries, both $V_i(t)$ and $W_i(t)$ satisfy second-order semi-discrete
+wave equations with wide stencils:
+\ba
+ \p_t^2 V_i  &= c^2  D_{x,m}^2  W_i , \\
+ \p_t^2 W_i   &= c^2 D_{x,m}^2 V_i .
+\ea
+Note that a plus-minus mode $V_i(t) = (-1)^i v(t)$ is in the null-space of $\Dzx^2$ and hence of $D_{x,m}^2$.
+This means the solution without dissipation will allow plus-minus waves (neglecting boundary effects).
+
+\bigskip\noindent 
+We consider various time-stepping approaches
+\begin{itemize}
+  \item RKn : some Runge Kutta scheme of order n, $n=1,2,3,4$.
+  \item AB2 : second-order explicit Adams-Bashforth. 
+  \item PC2 : second-order Adams predictor corrector.
+  \item LF : Leap-frog.
+  \item T : Taylor time-stepping of order $2$ or $4$.
+\end{itemize}
+
+\noindent
+\textbf{Notes on Taylor time-stepping:}
+The Taylor time-stepping is based on Taylor series in time,
+\bas
+    u(t+\dt) = u(t) + \dt \p_t u + \f{\dt^2}{2!} \p_t^2 u   + \f{\dt^3}{3!} \p_t^3 u + \ldots
+\eas
+For a general system
+\bas
+   \p_t \uv = A \uv 
+\eas
+this could be implemented as
+\bas
+    \uv(t+\dt) = \uv(t) + \dt A \uv + \f{\dt^2}{2!} A^2 \uv   + \f{\dt^3}{3!} A^3 \uv + \ldots
+\eas
+by taking powers of the operator $A$. At the spatially discrete level it is not necessary to
+take powers of A. 
+Consider time-derivatives of $v$ in~\eqref{eq:fosMaxwell1d}, 
+\bas
+ &     \p_t v = - \f{1}{\eps} \p_x w, \quad 
+    \p_t^2 v = c^2 \p_x^2 v , \quad 
+    \p_t^3 v = - \f{c^2}{\eps} \p_x^3 w .
+\eas
+We have a choice in approximating the higher spatial derivatives to either use a wide stencil (taking
+a power of the discrete operator) or
+a compact stencil, e.g. at second-order accuracy we could choose,  
+\bas
+& \p_x^2 \approx \Dzx^2, \\
+\text{or} \quad & \p_x^2  \approx \Dpx\Dmx 
+\eas
+Currently we choose the compact approximation.
+\textbf{Note} that the compact approximation will not have the plus-minus wave in the null-space.
+
+\medskip
+\noindent\textbf{Artificial dissipation.}
+We add some artificial dissipation to suppress wiggles. Option I for dissipation
+is a high-order filter
+that is added at the end of each step (i.e. once per-time step),
+\ba
+   U_i^{n} \leftarrow  U_i^{n} - \f{\sigma_1}{2^{2p}} (- h^2\Dpx\Dmx)^p U_i^{n}, 
+\ea
+where a value of $\sigma_1=1$ will cause the plus-minus mode $U_i=(-1)^i$ to be eliminated. 
+For second-order accuracy we take $p=2$ which gives a fourth-order dissipation that is globally $\Oc(h^3)$.
+For fourth-order accuracy we take $p=3$ which gives a sixth-order dissipation that is globally $\Oc(h^5)$.
+
+
+
+% \clearpage
+%  \bibliographystyle{elsart-num}
+% \bibliography{journal-ISI,champ,ins,waveFourierAnalysis,jwb,henshaw,henshawPapers,fsi,imex}
+
+\subsection{Numerical results}
+
+The Matlab code \texttt{fos.m} can be used to test the discrete approximation.
+
+\noindent Manufactured solutions:
+\begin{itemize}
+ %  \item Trigonometric 
+  \item Polynomial 
+\end{itemize}
+
+\noindent Exact solutions:
+\begin{itemize}
+\item Traveling sine wave:
+    \bas
+      & v_e = \sin( k_x (x - c_0 t) ) , \\
+      & w_e = \f{1}{\mu c_0} v_e(x,y) . 
+    \eas
+  \item Pulse: 
+    \bas
+      & v_e = e^{-\beta (x - x_0 - c_0 t)^2} , \\
+      & w_e = \f{1}{\mu c_0} v_e(x,y) . 
+    \eas
+\end{itemize}
+where $c_0=\pm c$. 
+
+\bigskip\noindent\textbf{Taylor, trig, order=4:}
+\begin{Verbatim}[fontsize=\scriptsize]
+>> fos -tf=.5 -ts=T4 -orderInSpace=4 -sol=trig -numResolutions=6 -movie=1 -bc1=d -bc2=d -kx=2 -sigma1=1
+fos: ts=T4 ms=trig, eps=1, mu=1, c=1, orderInSpace=4, cfl=0.9 kx=2, kt=2, bc1=d, bc2=d
+   Nx=-1, numResolutions=6, degreex=2, degreet=2, plotOption=1, plotErrors=0, numGhostToPlot=0
+sigma1=1, xPulse=0.25, pulseDir=1
+T44 t=5.00e-01: Nx=  20 Nt=  17 dt=2.941e-02 max-Error=6.29e-04
+T44 t=5.00e-01: Nx=  40 Nt=  33 dt=1.515e-02 max-Error=3.68e-05 ratio=17.11, rate=4.10
+T44 t=5.00e-01: Nx=  80 Nt=  67 dt=7.463e-03 max-Error=2.34e-06 ratio=15.72, rate=3.97
+T44 t=5.00e-01: Nx= 160 Nt= 133 dt=3.759e-03 max-Error=1.46e-07 ratio=16.06, rate=4.01
+T44 t=5.00e-01: Nx= 320 Nt= 267 dt=1.873e-03 max-Error=9.16e-09 ratio=15.89, rate=3.99
+T44 t=5.00e-01: Nx= 640 Nt= 533 dt=9.381e-04 max-Error=5.71e-10 ratio=16.03, rate=4.00
+done
+\end{Verbatim}
+
+
+\bigskip\noindent\textbf{RK4, trig, order=4: (periodic BC's)}
+\begin{Verbatim}[fontsize=\scriptsize]
+  >> fos -tf=.2 -ts=RK4 -orderInSpace=4 -sol=trig -numResolutions=6 -movie=0 -bc1=p -bc2=p -kx=2 -sigma1=1
+fos: ts=RK4 ms=trig, eps=1, mu=1, c=1, orderInSpace=4, cfl=0.9 kx=2, kt=2, bc1=p, bc2=p
+   Nx=-1, numResolutions=6, degreex=2, degreet=2, plotOption=1, plotErrors=0, numGhostToPlot=0
+varCoeff=0, sigma1=1, xPulse=0.25, pulseDir=1, plotSurface=0
+  c1=-1.000000e+00, c2=1.000000e+00
+  M = [ 1.000,  0.000 ],  A=[ 0.000,  1.000]  V=[-0.707,  0.707]  W^T=[-0.707,  0.707] 
+      [ 0.000,  1.000 ],    [ 1.000,  0.000]    [ 0.707,  0.707]      [ 0.707,  0.707] 
+RK44 t=2.00e-01: Nx=  20 Nt=   2 dt=1.000e-01 cpu=2.00e-02 max-Error=1.98e-03
+RK44 t=2.00e-01: Nx=  40 Nt=   5 dt=4.000e-02 cpu=0.00e+00 max-Error=6.70e-05 ratio=29.55, rate=4.89
+RK44 t=2.00e-01: Nx=  80 Nt=  10 dt=2.000e-02 cpu=0.00e+00 max-Error=4.20e-06 ratio=15.95, rate=4.00
+RK44 t=2.00e-01: Nx= 160 Nt=  20 dt=1.000e-02 cpu=1.00e-02 max-Error=2.63e-07 ratio=15.99, rate=4.00
+RK44 t=2.00e-01: Nx= 320 Nt=  40 dt=5.000e-03 cpu=2.00e-02 max-Error=1.64e-08 ratio=16.00, rate=4.00
+RK44 t=2.00e-01: Nx= 640 Nt=  79 dt=2.532e-03 cpu=7.00e-02 max-Error=1.06e-09 ratio=15.50, rate=3.95
+done
+\end{Verbatim}
+
+\bigskip\noindent\textbf{RK4, trig, order=4: Dirichlet BC's (RK disease)}
+\begin{Verbatim}[fontsize=\scriptsize]
+>> fos -tf=.5 -ts=RK4 -orderInSpace=4 -sol=trig -numResolutions=6 -movie=1 -bc1=d -bc2=d -kx=2 -sigma1=1
+fos: ts=RK4 ms=trig, eps=1, mu=1, c=1, orderInSpace=4, cfl=0.9 kx=2, kt=2, bc1=d, bc2=d
+   Nx=-1, numResolutions=6, degreex=2, degreet=2, plotOption=1, plotErrors=0, numGhostToPlot=0
+sigma1=1, xPulse=0.25, pulseDir=1
+RK44 t=5.00e-01: Nx=  20 Nt=   6 dt=8.333e-02 max-Error=5.32e-03
+RK44 t=5.00e-01: Nx=  40 Nt=  12 dt=4.167e-02 max-Error=5.04e-04 ratio=10.55, rate=3.40
+RK44 t=5.00e-01: Nx=  80 Nt=  25 dt=2.000e-02 max-Error=6.49e-05 ratio=7.77, rate=2.96
+RK44 t=5.00e-01: Nx= 160 Nt=  49 dt=1.020e-02 max-Error=1.52e-05 ratio=4.26, rate=2.09
+RK44 t=5.00e-01: Nx= 320 Nt=  99 dt=5.051e-03 max-Error=3.56e-06 ratio=4.27, rate=2.09
+RK44 t=5.00e-01: Nx= 640 Nt= 198 dt=2.525e-03 max-Error=8.83e-07 ratio=4.03, rate=2.01
+done
+\end{Verbatim}
+
+\noindent 
+\begin{Verbatim}[fontsize=\scriptsize]
+blah
+\end{Verbatim}
+
+
+% ----------------------------------------------------------------------------------
+\subsection{Engquist-Majda Radiation Boundary Conditions}
+
+In one-dimension, the second-order Engquist-Majda radiation boundary conditions (EM2) are
+\ba
+   \p_x\p_t u - c\, \p_x^2 u = 0  \label{eq:EM2}
+\ea
+for an artificial boundary at $x=0$ (change c to $-c$ for a BC at $x=1$).
+Substituting an incoming (right-moving) wave of the form $u=f(x-ct)$ into
+this formula implies $\p_xf'=f''=0$ which suggests that no incoming waves are allowed except
+when $f(\xi)= a_0 + a_1 \xi$. Note that $u=a_0 + a_1 x + a_2 t $ is also a solution to ~\eqref{eq:EM2}
+
+We can discretize~\eqref{eq:EM2} to second-order accuracy using the trapezoidal rule in time, 
+\ba
+  \Dpt\Dzx U_i^n -  c\, \Dpx\Dpx\Big( \f{U_i^{n+1} + U_i^{n}}{2} \Big) = 0 .  \label{eq:EM2}
+\ea
+This formula can be solved for the value at the ghost point in terms of known values,
+\bas
+   U_{-1}^{n+1} = \text{Stuff} .
+\eas
+The value on the second ghost line is assigned by re-writting~\eqref{eq:EM2} on a grid with twice the grid
+spacing ($h \rightarrow 2h$) and solving for $U_{-2}^{n+1}$.
+Similarly for the the 3rd ghost line. 
+
+
+\bigskip\noindent
+\textbf{Notes: on EM2 radiation BC's}
+\begin{enumerate}
+  \item EM2 BC's were tested with the pulse exact solution. 
+  \item Taylor time-steppers work fine with or without dissipation.
+  \item All other time-steppers have poor behaviour with no-dissipation: $\sigma_1=0$. Reflected high-frequency errors
+    generated at one end are amplified into low frequency errors at the other end! Slow decay of errors after bouncing
+     back and forth (See Figure~\ref{fig:fosEM2}).
+  \item All other time-steppers work ok with $\sigma_1>0$ and work best with $\sigma_1=1$. 
+\end{enumerate}
+% 
+{% -------------------
+%
+\newcommand{\figWidth}{8cm}% height 
+\newcommand{\trimfig}[2]{\trimh{#1}{#2}{.0}{.0}{.0}{.0}}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}[scale=1]
+  \useasboundingbox (0,0.5) rectangle (16,9);  % set the bounding box (so we have less surrounding white space)
+
+   \draw(0.0,0.0) node[anchor=south west,xshift=-15pt,yshift=-8pt] {\trimfig{fig/fosEM2}{\figWidth}};
+   \draw(8.5,0.0) node[anchor=south west,xshift=-15pt,yshift=-8pt] {\trimfig{fig/fosEM2RK44sigma1}{\figWidth}};
+
+%%    \draw(8.5,0.0) node[anchor=south west,xshift=-15pt,yshift=-8pt] {\trimfig{fig/interfaceGDM3d}{\figWidth}};
+% grid:
+% \draw[step=1cm,gray] (0,0) grid (9,9);
+\end{tikzpicture}
+\end{center}
+\caption{Propagating pulse with EM2 BC's on both sides. Left: RK44 with no dissipation.
+  Right: RK44 with dissipation.
+  Lines coloured by magnitude.}
+  \label{fig:fosEM2}
+\end{figure}
+}
+
+Figure~\ref{fig:fosEM2} (left) shows results for RK44 (RK : 4th order in time, 4th order in space)
+with no dissipation, using the command 
+\begin{Verbatim}[fontsize=\scriptsize]
+fos -tf=5 -ts=RK4 -orderInSpace=4 -sol=pulse -Nx=100 -movie=1 -bc1=r -bc2=r -kx=2 -sigma1=0 -pulseDir=1 -xPulse=.5
+\end{Verbatim}
+and showing the initial (pink) pulse of magnitude 1 moving to the right. 
+As it exits on the right it generating a small (dark blue) left moving high-frequency wave which 
+propagates left, hits the left boundary and is converted in a larger (green) right-moving low frequency pulse ...
+
+
+Figure~\ref{fig:fosEM2} (right) shows results for RK44 with dissipation. The pulse exits at the right boundary and
+the solution quickly decays to size $10^{-10}$ by time $t=1$ with no reflected waves detected.
+
+\noindent \textbf{Question:} Can we explain these behaviours? 
+
+
+% ----------------------------------------------------------------------------------
+\subsection{Engquist-Majda Radiation Boundary Conditions Version 2}
+
+Following JWB's suggestion we can discretize the EM2 radiation BC~\eqref{eq:EM2}
+\bas
+   \p_x\p_t u - c\, \p_x^2 u = 0  , 
+\eas
+by introducing a new variable equal to the x-derivative of $u$  on the boundary $\phi(t) = u_x(0,t)$,
+and solve
+\bas
+    \p_t \phi(t) = c \Dpx\Dmx U_0(t) 
+\eas
+as part of our MOL time-stepping scheme. At second-order accuracy, we then define
+ghost points from
+\bas
+&    \Dpx U_i^n = \phi^n , \\
+ \implies \quad &  U_{-1}^n = U_1^n - 2 \dx \phi^n . 
+\eas
+A second ghost line could be obtained using a $2\dx$ centered approximation
+\bas
+\implies \quad &  U_{-2}^n = U_2^n - 2 (2\dx) \phi^n . 
+\eas
+For fourth-order accuracy we could also evolve $\psi(t) = u_{xxx}(0,t)$ and
+use
+\bas
+&    \Dzx(1-\f{\dx^2}{6}\Dpx\Dmx)  U_i^n = \phi^n , \\
+&    \Dzx\Dpx\Dmx  U_i^n = \psi^n , \\
+\implies\quad& \Dzx  U_i^n = \phi^n + \f{\dx^2}{6} \psi^n
+\eas
+to get the ghost point values.
+
+\noindent
+\textbf{Remark:} For our FOS, using $\eps v_t = - w_x$, the condition
+\bas
+&   \p_x\p_t v - c\, \p_x^2 v = 0  ,  
+\eas
+becomes, 
+\bas
+& - \f{1}{\eps} \p_x^2 w_{xx} - c \p_x^2 v = 0 , \\
+& \p_x^2( v + \eta  w ) = 0 
+\eas
+where $\eta=1/(c \eps) = \mu c$ is the impedance and $\chi_+=v + \eta w$ is the incoming characteristic variable. 
+Similarly , using $\mu w_t = - v_x$, 
+\bas
+&   \p_x\p_t w - c\, \p_x^2 w = 0  , 
+\eas
+becomes
+\bas
+& - \f{1}{\mu} \p_x^2 v_{xx} - c \p_x^2 w = 0 , \\
+& \p_x^2( v + \eta w ) = 0 
+\eas
+
+A typical characteristic boundary condition would set the incoming and extrapolate the outgoing characteristic 
+\bas
+&    v_{-1} + \eta w_{-1} = 0 , \\
+& \Dpx^2( v_{-1} - \eta w_{-1} ) =  (v_{-1} - \eta w_{-1}) -2( v_0 - \eta w_0) + (v_1 - \eta w_1) =0
+\eas
+giving 
+\bas
+v_{-1}  = ( v_0 - \eta w_0) -\half  (v_1 - \eta w_1), \\
+\eta w_{-1}  = - ( v_0 - \eta w_0) + \half  (v_1 - \eta w_1), \\
+\eas
+
+\bigskip
+\noindent
+\textbf{Results}:  Second-order inmplementation works but requires a reduced CFL:
+
+\bigskip\noindent\textbf{RK4, pulse, order=4: RK4 needs cfl=.25}
+\begin{Verbatim}[fontsize=\scriptsize]
+>> fos -tf=.7 -ts=PC2 -orderInSpace=4 -sol=pulse -numResolutions=8 -movie=0 -bc1=r -bc2=r -kx=2 -sigma1=0 -xPulse=.5 -radbcOpt=1 -cfl=.25
+fos: ts=PC2 ms=trig, eps=1, mu=1, c=1, orderInSpace=4, cfl=0.25 kx=2, kt=2, bc1=r, bc2=r radbcOpt=1
+   Nx=-1, numResolutions=8, degreex=2, degreet=2, plotOption=1, plotErrors=0, numGhostToPlot=0
+varCoeff=0, sigma1=0, xPulse=0.5, pulseDir=1, plotSurface=0
+  c1=-1.000000e+00, c2=1.000000e+00
+  M = [ 1.000,  0.000 ],  A=[ 0.000,  1.000]  V=[-0.707,  0.707]  W^T=[-0.707,  0.707] 
+      [ 0.000,  1.000 ],    [ 1.000,  0.000]    [ 0.707,  0.707]      [ 0.707,  0.707] 
+PC24 t=7.00e-01: Nx=  20 Nt=  65 dt=1.077e-02 cpu=4.00e-02 max-Error=4.45e-01
+PC24 t=7.00e-01: Nx=  40 Nt= 129 dt=5.426e-03 cpu=4.00e-02 max-Error=3.85e-02 ratio=11.54, rate=3.53
+PC24 t=7.00e-01: Nx=  80 Nt= 258 dt=2.713e-03 cpu=8.00e-02 max-Error=6.05e-04 ratio=63.72, rate=5.99
+PC24 t=7.00e-01: Nx= 160 Nt= 517 dt=1.354e-03 cpu=2.00e-01 max-Error=6.78e-05 ratio=8.92, rate=3.16
+PC24 t=7.00e-01: Nx= 320 Nt=1034 dt=6.770e-04 cpu=9.60e-01 max-Error=8.23e-06 ratio=8.24, rate=3.04
+PC24 t=7.00e-01: Nx= 640 Nt=2068 dt=3.385e-04 cpu=1.33e+00 max-Error=1.02e-06 ratio=8.05, rate=3.01
+PC24 t=7.00e-01: Nx=1280 Nt=4135 dt=1.693e-04 cpu=3.75e+00 max-Error=2.41e-07 ratio=4.24, rate=2.08
+PC24 t=7.00e-01: Nx=2560 Nt=8271 dt=8.463e-05 cpu=1.14e+01 max-Error=5.95e-08 ratio=4.05, rate=2.02
+done
+\end{Verbatim}
+
+
+\clearpage
+
+% ==============================================================================================
+\section{Simple BA-Mawell equations in one-dimension}
+
+Consider the first-order BA-type Maxwell system in one space dimension,
+\bat
+&    K \qv_t + C \qv_x =0 , \\
+& K = \begin{bmatrix} m_{11} & m_{12} \\
+  m_{21} & m_{22} \end{bmatrix},
+\qquad 
+ C = \begin{bmatrix} 0 & 1 \\
+   1 & 0 \end{bmatrix},
+\qquad
+\qv = \begin{bmatrix} v \\ w \end{bmatrix} . 
+\eat
+where we assume $K\in\Real^{2\times2}$. 
+This reduces to~\eqref{eq:fosMaxwell1d} when $m_{11} = \eps$, $m_{22}=\mu$, $m_{12}=m_{21}=0$.
+Note that $C^{-1}=C$. 
+Setting $A=K^{-1} C$ gives the FOS 
+\ba
+   \qv_t + A \qv_x =0 .  \label{eq:bafos1d}
+\ea
+   
+\noindent Question: What are allowable $K$ ? 
+To be well posed we at least need the system
+to be hyperbolic and thus we need the matrix $A=K^{-1} C$ or $A^{-1}=C^{-1} K=CK$ to have real eigenvalues.
+The brute force answer:
+\bas
+C^{-1} K = \begin{bmatrix}
+    m_{21} & m_{22} \\
+    m_{11} & m_{12} \end{bmatrix},
+\eas
+and the eigvalues satisfy
+\bas
+&    (\lambda-m_{21})(\lambda- m_{12}) - m_{11} m_{22}  = 0  \\
+\implies &    \lambda^2 - (m_{21}+ m_{21})\lambda  + m_{12} m_{21}- m_{11} m_{22}  = 0, \\
+\implies & \lambda = \f{ m_{21}+ m_{21} \pm \sqrt{ (m_{21}+ m_{21})^2 - 4 ( m_{12} m_{21}- m_{11} m_{22} )}}{2}  , \\
+\implies & \lambda = \f{ m_{21}+ m_{21} \pm \sqrt{ 4 m_{11} m_{22} + (m_{21}- m_{21})^2 }}{2}  , 
+\eas
+For real eigenvalues we need the discriminant to be non-negative, 
+\ba
+4 m_{11} m_{22} + (m_{21}- m_{21})^2 \ge 0 .  \label{eq:fosDiscriminant}
+\ea
+This would be the necessary and sufficient condition for the system~\eqref{eq:bafos1d} to be hyperbolic.
+
+
+
+% Combining a time-derivative and space-derivative of~\eqref{eq:bafos1d} 
+% leads to the second-order system
+% \bas
+%   \qv_{tt} - A^2 \qv_{xx} = \qv_{tt} - M^{-1} C M^{-1} C \qv_{xx} 
+% \eas
+% If $M=M^*$ then $C M C= M$ 
+% \bas
+%    \qv_{tt} - A^2 \qv_{xx} = \qv_{tt} - M^{-2} \qv_{xx} =0
+% \eas
+% which has twice as many eigenvalues as ~\eqref{eq:bafos1d}. This shows the eigenvalues of $A$ are the square root of the
+% eigenvalues of $M^{-2}$ or $M^2$.
+% 
+% \noindent \textbf{Result:} System~\eqref{eq:bafos1d} is hyperbolic if and only if $M^2$ has real non-negative eigenvalues. 
+
+
+\bigskip\noindent
+If $K=K^*$ is positive definite then we have an energy estimate:
+\bas
+\f{d}{dt} (\qv,K\qv) & = (\qv_t,K\qv) + (\qv,K\qv_t)  \\ 
+    &= (K\qv_t,\qv) + (\qv,K\qv_t) \\
+    &= (A\qv_x,\qv)+ (\qv,A\qv_x) \\
+    & \stackrel{\rm IBP}{=} -(\qv,A\qv_x)+ (\qv,K\qv_x) = 0 
+\eas
+so that
+\bas
+   \f{d}{dt} \| K^{1/2} \qv \| = 0 , \implies \Ec(t) = \half \| K^{1/2} \qv(t) \|^2 = \text{constant}. 
+\eas
+
+\noindent Question: If $K$ is SPD, why does $C K$ have real eigenvalues?
+
+\noindent
+Answer 1: If $K$ is SPD then $m_{11}>0$ and $m_{22}>0$ and from~\eqref{eq:fosDiscriminant} we see the eigenvalues are real. 
+
+\noindent
+Answer 2: (brute force) Matrix $C$ is symmetric with eigenvalues $\pm1$. Let 
+\bas
+    C = V^* E V, \qquad E = \begin{bmatrix} 1 & 0 \\
+                                            0 & -1 \end{bmatrix},
+\eas
+Let $\xv$ be an eigenvector of $C^{-1}K= C K$, 
+\bas
+ &   CK \xv =    V E V^* K x = \lambda \xv, \\
+\implies   & E  V^* K V (V^* \xv) = \lambda V^* \xv, \\
+\implies   &  V^* K V \yv  = \lambda E \yv, 
+\eas
+where $\yv=V^*\xv$. 
+If $K$ is SPD then so is $P=V^* K V$, whence
+\bas
+   \yv^* P \yv = \lambda \yv^*E\yv = \lambda ( |y_1|^2 - |y_2|^2 )
+\eas
+The left-hand-side is positive which implies $\lambda\in\Real$.     
+
+\medskip\noindent
+Note: As long as $\yv^* P \yv \in \Real$ then the eigenvalues are real and we have a hyperbolic system.
+Thuis if $K$ is symmetric negative definite then the system is  hyperbolic.
+
+
+% \medskip\noindent
+% Note: If $K=-K^*$ is skew-symmetric then $\lambda \in \Im$ and the problem is not well posed.
+
+\medskip\noindent
+\textbf{Question:} suppose K has a non-real complex eigenvalue -- is the problem always ill-posed ? 
+Answer: No: 
+the eigenvalues $\mu$ of $K$ satisfy,
+\bas
+   &    (\mu-m_{11})(\mu- m_{22}) - m_{12} m_{21}  = 0  \\
+% \implies &    \mu^2 - (m_{11}+ m_{22})\mu  + m_{11} m_{22}- m_{12} m_{21}  = 0, \\
+% \implies & \mu = \f{ m_{11}+ m_{22} \pm \sqrt{ (m_{11}+ m_{22})^2 - 4 ( m_{11} m_{22}- m_{12} m_{21} )}}{2}  , \\
+\implies & \mu = \f{ m_{11}+ m_{22} \pm \sqrt{ 4 m_{12} m_{21} + (m_{22}- m_{11})^2 }}{2}  , 
+\eas
+The eigenvalues have an imaginary part when
+\bas
+         &     4 m_{12} m_{21} + (m_{22}- m_{11})^2  < 0 , \\
+\implies &     m_{12} m_{21} < - \f{(m_{22}- m_{11})^2 }{4} 
+\eas
+It is certainly possible that the eigenvalues of $A$ are real (and the problem is well posed)
+but the eigenvalues of $K$ are complex,
+take e.g. $m_{11}=m_{22} >0 $ and $m_{12} = -m_{21} \ne 0$.
+
+
+\bigskip\noindent 
+Return now to the FOS.
+\ba
+   \p_t \qv + \p_x A \qv =0 , 
+\ea
+which we now assume to be a strongly
+hyperbolic system so that $A$ has real eigenvalues and and a complete set of eigenvectors. 
+Let $\lambda_k\in\Real$ and $\vv_k$  denote the eigenvalues and eigenvectors of $A$,
+\bas
+   A \vv_k = \lambda_k \vv_k  .
+\eas
+The general solution to the initial value problem is
+\bas
+  \qv(x,t) = \sum_k f_k(x-\lambda_k t) \vv_k 
+\eas
+for arbitrary functions $f_k(\xi)$.
+
+\medskip\noindent 
+\textbf{Note:} The BA-Maxwell system~\eqref{eq:bafos1d} may two positive or two negative eigenvalues
+so that both fundamental waves travel in the same direction.
+
+\medskip\noindent 
+The characteristic variables are
+\bas
+& \chi_k(x,t) = \lv_k^T\qv(x,t) ,   \qquad \text{(constant along $dx/dt=\lambda_k$)},
+\eas
+where $\lv_k$ are the left eigenvectors of $A$, 
+\bas
+     \lv_k^T A = \lambda_k \lv_k^T 
+\eas
+Also define the matrix of left eigenvectors, $L$,
+and the vector of characteristic variables $\chiv=[\chi_1, \chi_2]^T$, satisfying 
+\bas
+&      L = \begin{bmatrix} \lv_1 &  \lv_2 \end{bmatrix} , \\ 
+&      A^T L = L \Lambda , \\
+&      \chiv = L^T \qv , 
+\eas
+     
+  
+% ==============================================================================================
+\subsection{Discrete approximations and boundary conditions}
+
+Following the discussion in
+Section~\ref{sec:fosMaxwell1d}, we discretize the equations in space with a method of lines approach, 
+\ba
+    & \p_t \qv_i  + A \, D_{x,m} \qv_i  = 0 ,  \\
+\text{or}\quad  & \p_t \qv_i  + K^{-1} C \, D_{x,m} \  \qv_i  = 0 . 
+\ea
+\textbf{Note:} In multiple space dimensions with variable coefficients the system would be of the form
+\bas
+    & \p_t \qv_i  + A_x(\xv) \, D_{x,m} \qv_i + A_y(\xv) \, D_{y,m} \qv_i  = 0 ,  \\
+\text{or}\quad    & \p_t \qv_i  + K^{-1}(\xv) C_x \, D_{x,m} \qv_i + K^{-1}(\xv) C_y \, D_{y,m} \qv_i  = 0 ,  
+\eas
+and it would make sense to store $K^{-1}(\xv)$ rather than storing $A_x(\xv)$ and $A_y(\xv)$. 
+Also \textbf{note} that in multiple space dimensions $A_x$ and $A_y$ are no independent, the material degrees
+of freedom only come from $K\in\Real^{6\times 6}$. 
+
+\medskip\noindent
+Well posed boundary conditions would be to set the incoming characteristics. The number of
+boundary conditions thus depends on the signs of $\lambda_k$. 
+
+\bigskip
+The radiation boundary conditions should be imposed
+on the characteristic variables.
+For example, the EM2 BC for
+$ \chi_{k,i}^n \approx \chi_k(x_i,t^n)$ could be discretized as 
+\ba
+& \Dpt\Dzx \chi_{k,i}^n -  \lambda_k \, \Dpx\Dpx\Big( \f{\chi_{k,i}^{n+1} + \chi_{k,i}^{n}}{2} \Big) = 0 ,
+\ea
+to define the value on the ghost point, 
+\bas
+   \chi_{k,-1}^{n+1} = \text{stuff}. 
+\eas
+Then $q$ on the ghost point is set from 
+\bas
+    \qv_{-1}^{n+1} = L^{-T} \chiv_{-1}^{n+1}
+\eas
+where $\chiv_{-1}^{n+1}$ is the vector with components $\chi_{k,-1}^{n+1}$. 
+
+\textbf{Is this really true?}
+
+\textbf{Not clear how to generalize to BA case ??}
+
+
+\clearpage 
+% -------------------------------------------------------------------
+\subsection{Exact solutions - eigenmodes of a one-dimensional box}
+
+
+Consider the IBVP for a hyperbolic system  in 1D, 
+\bats
+& \qv_t + A \qv_x = 0     \qquad&&  x\in[a,b], \quad t>0  \\
+&  B_l^T\qv(a,t) = 0, \qquad B_r^T\qv(b,t)=0 , \qquad&&  t>0 \\
+& \qv(x,0) = \qv_0, \qquad&&   x\in[a,b]
+\eats 
+where $A\in\Real^{m\times m}$, and 
+where $B_l\in\Real^{p_1\times m} $ and $B_r\in\Real^{p_1\times m}$ are matrices (generally rectangular) that define the boundary conditions
+and whose dimensions $p_1$ and $p_2$ depends on the number of incoming characteristics at the respective boundaries.
+
+Let us look for time periodic solutions of the form 
+\bas
+    \qv = e^{i(k x -\omega t)} \vv. 
+\eas
+This leads to the eigenvalue condition, 
+\bas
+     A \vv = \f{\omega}{k} \vv 
+\eas
+Assume $A$ has real eigenvalues and a complete set of eigenvectors,
+\bas
+   A \vv_j = \lambda_j \vv_j 
+\eas
+then
+\bas
+    \f{\omega}{k_j} = \lambda_j
+\eas 
+The general solution is then 
+\bas
+  \qv &= \sum_j c_j e^{i k_j ( x  -\lambda_j t)} \vv_j  \quad 
+      = \sum_j c_j e^{i (\omega/\lambda_j) ( x  -\lambda_j t)} \vv_j ,
+      = \sum_{j=1}^m c_j e^{i  \omega ( x/\lambda_j  - t)} \vv_j ,
+\eas
+where $\omega$ is yet to be determined.
+Applying the boundary conditions gives
+\bas
+  \sum_j c_j e^{i  \omega ( a/\lambda_j  )} B_l \vv_j  = 0 ,\\ 
+  \sum_j c_j e^{i  \omega ( b/\lambda_j  )} B_r \vv_j  = 0 
+\eas
+which gives the system for $c_j$ 
+\bas
+  B \cv = 0 , \qquad \cv = \begin{bmatrix} c_1 \\ c_2 \\ \vdots \\ c_m \end{bmatrix}.
+\eas
+For non-trivial solutions we require $\det(B)=0$.
+
+\bigskip\noindent
+Example: Take $m=2$, $a=0$, $b=2\pi$,  and boundary conditions
+\bas
+  q_1(a,t)=0, \qquad q_1(b,t)=0, 
+\eas
+To be well posed this implies $\lambda_1>0$ and $\lambda_2 < 0$ (or vice versa) and
+$\ev_1^T\vv_1 \ne 0$ and $\ev_1^T\vv_2 \ne 0 $. 
+Then
+\bas
+B = \begin{bmatrix} v_{11} & v_{21} \\
+  e^{2\pi k_1} v_{11} & e^{2\pi k_2} v_{21}
+    \end{bmatrix}.
+\eas
+where $\vv_j = [ v_{j1}, ~ v_{j2} ]^T$. 
+Setting $\det(B)=0$ gives
+\bas
+&    e^{2\pi(k_2-k_1)} = 1 , 
+\eas
+so that
+\bas
+   k_2 - k_1 = n, \qquad n=0,\pm1,\pm2, \ldots , 
+\eas
+or
+\bas
+  \omega_n \Big( \f{1}{\lambda_2} - \f{1}{\lambda_1}\Big)  = n , \qquad n\in\Integers , 
+\eas
+which defines $\omega_n$. We also have
+\bas
+   \cv_n = \begin{bmatrix} -v_{21}  \\  v_{11} \end{bmatrix}.
+\eas
+which implies that we need at least one of $v_{11}$ or $v_{21}$ to be non-zero.
+
+The solution takes the form  **check me* 
+\bas
+q_1(x,t) & = -v_{21} e^{i  ( k_1 x   - \omega t)} v_{11} + v_{11} e^{i  ( k_2 x  - \omega t)} v_{21},  \\ 
+       &= v_{11}v_{21} \Big(  e^{i  \half ( k_2-k_1) x } -  e^{ -i\half  ( k_2-k_1) x }   \Big) e^{ i( \half(k_2+ k_1) x  - \omega t)} , \\
+       &= 2 i v_{11}v_{21} \sin( \half ( k_2-k_1) x) ~ e^{ i( \half(k_2+ k_1) x  - \omega t)} , \\
+       &= 2 i v_{11}v_{21} \sin( \f{n}{2} x) ~ e^{ i( \half(k_2+ k_1) x  - \omega t)} , 
+\eas
+It can be seen that $q_1(x,t)$ consists of a traveling wave with wave-number $\half(k_2+ k_1)$ embedded within an envelope $\sin( \f{n}{2} x)$
+which clearly satisfies the boundary conditions.
+
+Summary:
+\bas
+& \omega_n \Big( \f{1}{\lambda_2} - \f{1}{\lambda_1}\Big)  = n , \qquad n\in\Integers , \\
+& k_j = \f{\omega_n}{\lambda_j}, \\
+& q_1(x,t) = \alpha \sin( \f{n}{2} x) ~ e^{ i( \half(k_2+ k_1) x  - \omega t)} ,  \\
+& q_2(x,t) = ??
+\eas
+    
+
+\newcommand{\ExEyHz}{\begin{bmatrix}
+   E_x \\ E_y  \\ H_z
+\end{bmatrix}}
+% ==============================================================================================
+\section{BA-Mawell equations: reduction to a two-dimensional model}
+
+The non-dispersive BA-Maxwell equations in three-dimensions are
+\bas
+   \Am_0  \f{\p}{\p t} \EHv = \begin{bmatrix} \grad\times\Hv \\ -\grad\times\Ev \end{bmatrix}
+   = C_x \p_x \EHv + C_y \p_y \EHv + C_z \p_z \EHv, \\
+   \grad\cdot\Dv=0, \qquad \grad\cdot\Bv=0 
+\eas
+where the constant matrices $C_k$ have entries $-1$, $0$ or $1$. 
+
+What is the simplest 2D model ? 
+\bas
+\Am_0  \f{\p}{\p t} \EHv =
+\begin{bmatrix}
+     \p_y H_z - \p_z H_y \\
+     \p_z H_x - \p_x H_z \\
+     \p_x H_y - \p_y H_x \\
+   - \p_y E_z + \p_z E_y \\
+   - \p_z E_x + \p_x E_z \\
+   - \p_x E_y + \p_y E_x 
+\end{bmatrix}
+\eas
+Setting $\p_z$ to zero, 
+\bas
+\Am_0  \f{\p}{\p t}
+\begin{bmatrix}
+   E_x \\ E_y \\ E_z \\ H_x \\ H_y \\ H_z
+\end{bmatrix}
+= 
+\begin{bmatrix}
+     \p_y H_z            \\
+              - \p_x H_z \\
+     \p_x H_y - \p_y H_x \\
+   - \p_y E_z            \\
+              + \p_x E_z \\
+   - \p_x E_y + \p_y E_x 
+\end{bmatrix}, \\
+ \p_x E_x + \p_y E_y =0, \qquad \p_x H_x + \p_y H_y =0,
+\eas
+Here is a subset involving $E_x$, $E_y$ and $H_z$, 
+\bas
+& M   \f{\p}{\p t}
+\ExEyHz
+= 
+\begin{bmatrix}
+     \p_y H_z            \\
+              - \p_x H_z \\
+    -\p_x E_y + \p_y E_x 
+\end{bmatrix}
+=
+\begin{bmatrix}
+  0 & 0 & 0 \\
+  0 & 0 &-1 \\
+  0 &-1 & 0 
+\end{bmatrix}
+\p_x \ExEyHz
++ 
+\begin{bmatrix}
+  0 & 0 & 1 \\
+  0 & 0 & 0 \\
+  1 & 0 & 0 
+\end{bmatrix}
+\p_y \ExEyHz
+, \\
+&\p_x E_x + \p_y E_y =0, 
+\eas
+
+
+% ==============================================================================================
+\section{Model BA-Mawell equations in two-dimensions}
+
+% \newcommand{\kHat}{\hat{k}}
+\newcommand{\kHatv}{\mathbf{\kHat}}
+% \newcommand{\kvHat}{\kHatv}
+% 
+\newcommand{\uvw}{\begin{bmatrix}
+   u \\ v  \\ w
+\end{bmatrix}}
+
+
+
+Consider the following system in two space dimensions, 
+% ------------------ BA FOS 2D -------------
+\ba
+ K   \f{\p}{\p t}
+\uvw
++ 
+\begin{bmatrix}
+  0 & 0 & 0 \\
+  0 & 0 & 1 \\
+  0 & 1 & 0 
+\end{bmatrix}
+\p_x \uvw
++ 
+\begin{bmatrix}
+  0 & 0 &-1 \\
+  0 & 0 & 0 \\
+ -1 & 0 & 0 
+\end{bmatrix}
+\p_y \uvw
+= 0 , 
+ \label{eq:baFos2d} 
+\ea
+or
+\bas
+&   K  \f{\p}{\p t} \uvw + C_x \p_x \uvw + C_y \p_y \uvw =0 ,
+\eas
+or
+\ba
+ K   \f{\p}{\p t}
+\uvw
+=
+\begin{bmatrix} 
+  \p_y w\\
+  -\p_x w \\
+   \p_y u  - \p_x v 
+\end{bmatrix}
+\ea
+with $\grad\cdot\Ev=0$
+\textbf{ This is wrong -- should be $\grad\cdot\Dv=0$ FIX ME.}
+implying 
+\bas
+& \p_x u + \p_y v = 0 .  
+\eas
+ \textbf{Question:} Under what conditions on $K\in\Real^{3\times3}$ is this
+  problem well posed?
+Looking for solutions of the form
+\bas
+   \qv(x,y,t) = \qv_0 \, e^{i( \kv\cdot\xv - \omega t)} 
+\eas
+where $\kv\in\Real^3$, leads to 
+\bas
+& \Big(-\omega K  + k_x C_x   + k_y C_y\Big) \qv_0 = 0 , 
+\eas
+and we require the x and y components of $\qv_0=[u_0,v_0,w_0]^T$ to satisfy
+\bas 
+ k_x u_0 + k_y v_0=0.
+\eas
+Subsituting $k=|\kv|$, $c=\omega/k$, and $\kvHat=\kv/k$ gives 
+\bas
+    B \qv_0=0 
+\eas
+where 
+\bas
+B = - c K  + \kHat_x  C_x   +  \kHat_y C_y = - c K + 
+\begin{bmatrix}
+  0 & 0 & -\kHat_y \\
+  0 & 0 & \kHat_x \\
+  -\kHat_y &\kHat_x  & 0 
+\end{bmatrix}
+\eas
+
+\medskip\noindent
+\textbf{Note:} This can be simplified using $k_x u_0 + k_y v_0=0$ to a 2 by 2 system.
+The matrix $\kHat_x  C_x   + \kHat_y C_y$ is singular and so there is always
+a zero eigenvalue. The eigenvector for $c=0$ is $\qv_0=[\kHat_x, \kHat_y,0]$. 
+
+
+
+\medskip\noindent
+For non-trivial solutions we require
+\ba
+  \det\Big( - c K  + \kHat_x  C_x   + \kHat_y C_y\Big) = 0 ,  \\  \label{eq:wellPosed2d} 
+  \det\Big( - c I  + K^{-1}(\kHat_x  C_x   + \kHat_y C_y) \Big) = 0 . 
+\ea
+We require that for all $\kvHat\in\Real^3$, $|\kHatv|=1$,
+the roots $c$ to~\eqref{eq:wellPosed2d} must be real. 
+Thus it is necessary, for example, that
+$K_{-1}C_x$ and $K^{-1} C_y$ and $K^{-1}( C_x + C_y)$  have real eigenvalues.
+
+
+
+% ==============================================================================================
+\section{BA-Mawell equations: plane wave solutions}
+
+We can look for plane wave solutions of the form
+\bas
+\qv = e^{ i (\kv\cdot\xv - \omega t) } \qv_0 = e^{s t} e^{ i \kv\cdot\xv }
+\eas
+where in general $\omega\in\Complex$ (or $s=-i\omega \in\Complex$) and $\kv\in\Complex^3$. Physics/engineers often like
+to think of $\omega\in\Real$, $\omega\ge 0$,  (Fourier transform in time). 
+Substituting this form
+into Maxwell's equations 
+leads to the eigenvalue problem
+\bas
+& \left\{ \omega \Km + \begin{bmatrix} 0 & \kv\times \\
+  - \kv\times & 0 \end{bmatrix} \right\} \qv_0 = \zerov  , \\
+& \left\{ i s \Km(s) + \begin{bmatrix} 0 & \kv\times \\
+  - \kv\times & 0 \end{bmatrix} \right\} \qv_0 = \zerov  , 
+\eas
+Let $k\in\Complex$, and $\kvHat$ be a unit vector satisfying 
+\bas
+& \kv = k \kvHat , \\
+& |\kvHat|=1, 
+\eas
+so that $k = e^{i\theta} |\kv|$.
+The eigenvalue problem becomes
+\bas
+% &
+%\left\{ \omega M +
+%\begin{bmatrix}
+%      0 &  0 &  0 &  0 &  0 & k_y  \\
+%      0 &  0 &  0 &  0 &  0 &-k_x  \\
+%      0 &  0 &  0 &-k_y& k_x&  0  \\
+%      0 &  0 &-k_y&  0 &  0 &  0  \\
+%      0 &  0 & k_x&  0 &  0 &  0  \\
+%     k_y&-k_x&  0 &  0 &  0 &  0
+%\end{bmatrix}       \right\} \qv_0 = \zerov  \\
+&
+\left\{ \f{\omega}{k} \Km +
+\begin{bmatrix}
+      0 &  0 &  0 &  0 &  -\kHat_z & \kHat_y  \\
+      0 &  0 &  0 &  \kHat_z &  0 &-\kHat_x  \\
+      0 &  0 &  0 &-\kHat_y& \kHat_x&  0  \\
+      0 &  \kHat_z &-\kHat_y&  0 &  0 &  0  \\
+      - \kHat_z & 0  & \kHat_x&  0 &  0 &  0  \\
+     \kHat_y&-\kHat_x&  0 &  0 &  0 &  0
+\end{bmatrix}       \right\} \qv_0 = \zerov , \\
+\eas
+or
+\ba
+& \left\{ \lambda \Km + C(\kvHat)  \right\} \qv_0 = \zerov,   \\
+& \left\{ \lambda I  + \Km^{-1} C(\kvHat)  \right\} \qv_0 = \zerov,   \label{eq:BAeigenavlue} 
+\ea
+where
+\bas
+   \lambda = \f{\omega}{k}
+\eas
+is the wave speed.
+
+\medskip 
+\noindent
+\textbf{Note:} Given $\omega$ (or $s$) equation~\eqref{eq:BAeigenavlue} is a regular eigenvalue problem for $1/k$,
+  even in the dispersive case (after dividing the equation by $\omega$).
+
+\medskip 
+For any direction $\kvHat$ there will be six eigenvalues $\lambda_j$ which can be thought
+of determining $\omega_j$ given $k$ or $k_j$ given $\omega$. 
+Since $\grad\cdot\Dv=0$ and $\grad\cdot\Bv=0$, it follows that there will be two zero eigenvalues $\lambda=0$,
+with corresponding eigenvectors given by 
+\bas
+\lambda_{5,6}=0, \qquad  \qv_5 = \begin{bmatrix} \kHatv \\ \zerov \end{bmatrix} , \quad
+      \qv_5 = \begin{bmatrix} \zerov \\ \kHatv  \end{bmatrix} .
+\eas
+This leaves four additional eigenvalues $\lambda_j$, $j=1,2,3,4$.
+After removing the two zero roots, the determinant condition,
+\bas
+    \det\Big( \lambda \Km + C(\kvHat) \Big) = 0 ,
+\eas
+defines a degree four polynomial in $\lambda$ (or $\omega$ or $k$),
+\bas
+     a_4 \lambda^4 + a_3 \lambda^3 + a_2\lambda^2 + a_1 \lambda + a_0=0.
+\eas
+For a given $\omega$ and a given $\kvHat$, these four eigenvalues $\lambda_j$ will define four $k_j$,
+\bas
+   k_j = k_j(\Km,\omega,\kvHat). 
+\eas
+Alternatively, given $k$ and $\kvHat$ the solution to the eigenvalue problem will define 4 values for $\omega$,
+\bas
+   \omega_j = \omega_j(\Km,k,\kvHat). 
+\eas
+
+For certain classes of BA materials the determinant is a degree 2 polynomial in $k^2$
+\bas
+    \alpha_2 (k^2)^2 + \alpha_1 (k^2) + \alpha_0 = 0, 
+\eas
+so that
+the solutions pair up with $k_1=-k_2$ and $k_3=-k_4$. In other cases, there can be four distinct roots.
+
+Normally we might expect two $\lambda_j $ to have real-part bigger than zero and two to be less than zero so that there
+are two plane wave solutions moving in the positive direction and two in the negative direction. 
+\textbf{Question:} is this always true ? Maybe, see BA book for a partial answer.
+
+
+\bigskip
+\textbf{Note:} If we instead define
+\bas
+    \kvHat = \f{\kv}{|\kv|} 
+\eas
+then
+\bas
+   \lambda_j = \f{\omega_j}{|\kv|} 
+\eas
+denotes the phase speed in direction $\kv$ (or $\kvHat$). Positive (negative) values for $\Re(\lambda_j)$ imply motion
+in the positive (negative) $\kv$ direction.
+
+\bigskip
+The general plane-wave solution will consist of the sum of these four solutions,
+\bas
+&     \qv = \sum_j c_j e^{i( \kv_j\cdot\xv - \omega t)} \qv_j     
+\eas
+assuming there is a complete set of eigenvectors. If there is not a complete set of eigenvectors
+(this can happen, see BA book ) then we need to adjust ...
+
+% -----------------------------------------
+\subsection{Growth or decay of plane wave solutions}
+
+Consider a model problem
+\bas
+    u_t + c u_x = - \alpha u
+\eas
+with $c\in\Real$ and $\alpha\in\Complex$. 
+The IVP has no growth in time provided
+\bas
+    \Re(\alpha) \ge 0 ,
+\eas
+which can be seen by Fourier transforming in space, $u(x,t) = \uHat(t) e^{i kx }$, or from an energy estimate
+\bas
+ \f{d}{dt} \| u \|^2 = (u,u_t) + (u_t,u) & = - (u,c u_x) - (c u_x,u) - (u,\alpha u) - (\alpha u,u ) \\
+                  &=  -( u, (\alpha^*+\alpha) u) = - 2 \Re(\alpha) \| u\|^2 
+\eas
+
+For a half-plane problem on $x \ge 0$ with boundary condition at $x=0$ (signaling problem)
+\bas
+     u(x,0) = e^{st} , 
+\eas
+we can look for solutions
+\bas
+u(x,t) = e^{s t} e^{i k x}
+\eas
+which leads to the dispersion relation
+\bas
+   s + i c k = -\alpha 
+\eas
+which implies
+\bas
+ -2 \Re(\alpha) &= -\alpha + -\alpha ^* =  (s+ic k) + (s+ick)^* , \\
+&= s+s^* + ik - i k^* = 2\Re(s) -  2c \Im(k) , \\
+\implies & \Re(\alpha) =  c \Im(k) - \Re(s)
+\eas
+We also have the relationship
+\bas
+ &    \Im(s) +  c \Re(k) = - \Im(\alpha), \\
+\implies  & c = -\f{ \Im(s) +\Im(\alpha)}{\Re(k)}  
+\eas
+Whence,
+\bas
+  \Re(\alpha) =  -\f{ (\Im(s) +\Im(\alpha))}{\Re(k)} \Im(k) - \Re(s) 
+\eas
+For no growth we still have the condition $\Re(\alpha) \ge 0$ which corresponds to
+\bas
+   -\f{ (\Im(s) +\Im(\alpha))}{\Re(k)} \Im(k) \ge \Re(s)
+\eas
+We should be able to absorb $\Im(\alpha)$ into $c$ and get the general condition (indepenedent of $c$) that
+for no growth we require 
+\ba
+   -\f{ \Im(s)}{\Re(k)} \Im(k) \ge \Re(s)  \label{eq:stabCondition}
+\ea
+% This may actually be growth relative to $\Re(s)$ ?
+
+\medskip\noindent 
+The solution for $s=s_r + i s_i$ and $k=k_r + i k_i$ is given by
+\bas
+   u(x,t) = e^{ s_r t - k_i x} \, e^{ i ( k_r x + s_i t )} 
+\eas
+Along the characteristic $ k_r x + s_i t = \phi$ we have
+\bas
+   u = e^{ s_r t - k_i (\phi-s_i t)/k_r} e^{i\phi} = e^{ (s_r + s_i k_i/k_r )t  } e^{i\phi- (k_i/k_r) \phi}
+\eas
+which for no growth implies
+\bas
+  \boxed{  s_r + s_i \f{k_i}{k_r} \le 0 . } 
+\eas
+This agrees with~\eqref{eq:stabCondition}.
+
+
+
+
+% ==============================================================================================
+\section{BA-Mawell equations: exact solution for scattering from a planar interface}
+
+Consider a BA plane wave  (given from the the previous section) incident
+on a planar interface at $x=0$, 
+\bas
+ % &   \qv^i = e^{i( \kv\cdot\xv - \omega t)} \qv_0^i, \\
+ &   \qv^i = e^{st} e^{i \kv\cdot\xv} \qv_0^i
+\eas 
+We assume the incident wave has $\omega$ and $\kv$ that satisfy the dispersion relation for the material in
+the domain $x<0$ and that $\qv_0^i$ is an
+eigenvector of the system. 
+Let us assume that there are two transmitted waves and two reflected waves (there are always 4 waves,
+but but maybe there can be 3 transmitted and one reflected or some other combination ?) 
+The transmitted wave is thus of the form
+\bas
+%    \qv^t = \sum_{j=1}^2 \tau_j e^{i( \kvt_j\cdot\xv - \omega t)} \qv_j^t
+   \qv^t = \sum_{j=1}^2 \tau_j e^{st} e^{i  \kvt_j\cdot\xv } \qv_j^t
+\eas 
+while the reflected wave is
+\bas
+%    \qv^r = \sum_{j=1}^2 r_j e^{i( \kvr_j\cdot\xv - \omega t)} \qv_j^r
+   \qv^r = \sum_{j=1}^2 r_j  e^{st} e^{i \kvr_j\cdot\xv} \qv_j^r
+\eas 
+The full solution takes the form
+\bats
+\qv(\xv,t) = 
+\begin{cases} 
+\displaystyle  e^{st} e^{i \kv\cdot\xv} \qv_0^i + \sum_{j=1}^2 r_j e^{st} e^{i \kvr_j\cdot\xv} \qv_j^r & \text{for $x<0$}, \\
+\displaystyle    \sum_{j=1}^2 \tau_j e^{st} e^{i  \kvt_j\cdot\xv} \qv_j^t  & \text{for $x>0$} , 
+  \end{cases} 
+\eats 
+The interface conditions $[ \nv\times\Ev]=0$ and $[\nv\times\Hv]=0$ at $x=0$ imply
+\ba
+e^{st} e^{i\kv\cdot\xv} \tv_m^T \qv_0^i + \sum_{j=1}^2 r_j e^{st} e^{i \kvr_j\cdot\xv} \tv_m^T\qv_j^r
+   = \sum_{j=1}^2 \tau_j e^{st} e^{i \kvt_j\cdot\xv}  \tv_m^T\qv_j^t,  \qquad m=1,2, \quad x=0,  \label{eq:interfaceTangential}
+\ea
+where $\tv_m$, $m=1,2$ are tangent vectors, and where for $\qv=[ \Ev, \Hv]^T$, 
+\bas
+   \tv_m\qv \eqdef \begin{bmatrix} \tv_m^T\Ev \\ \tv_m^T \Hv \end{bmatrix}
+\eas
+Note that~\eqref{eq:interfaceTangential} represents four equations for the four unknowns $r_j$ and $\tau_j$. 
+Note that we do NOT explicitly impose the jump conditions $[\nv\cdot\Dv]=0$ and $[\nv\cdot\Bv]=0$. 
+Since~\eqref{eq:interfaceTangential} holds for all $(y,z)$,
+it follows that the tangential components of the
+wave vectors must match, 
+\bas
+   k_y = \kr_{y,j} = \kt_{y,j}, \\
+   k_z = \kr_{z,j} = \kt_{z,j}
+\eas
+for $j=1,2$. 
+To determine $\kr_{x,j}$ and $\kt_{x,j}$ we must satisfy the plane wave dispersion relations in
+the respective domains.
+
+%- \noindent\textbf{Old way:} 
+%- For example, given $\kr_{y,j}=k_y$ and $\kr_{z,j}=k_z$, the values for $\kr_{x,j}$, $j=1,2$
+%- can be determined from two solutions to
+%- the dispersion relation 
+%- \ba
+%- \omega =  \Omega_j(k_{x,j}) =
+%-      \lambda_i(\kvr_j)  | \kvr_j | = \lambda_i(\kvr) \sqrt{ |k_{k,j}|^2 + |k_y|^2 + |k_z|^2 } . \label{eq:omegaBA}
+%- \ea
+%- or we need to find a root to 
+%- \bas
+%-      f(k_x) = \omega - \lambda_i(k_x) ~ k(k_x) = 0 
+%- \eas
+%- Note that this is a nonlinear equation in general and so we need to use a root finding algorithm it seems.
+%- Since we want a wave propagating away from the interface we want $\kr_{x,j}<0$ (assuming $k_x>0$) and
+%- $\Re(\lambda_i(\kvr_j)) >0$ (see note above about the sign of $\lambda_i$ vis-\`a-vis propagation direction). 
+%- % We can choose the root that corresponds to waves propagating away from the interface.
+%- The values for $\kt_{x,j}$ can be found in a similar way.
+
+We can compute $\kr_{x,j}$ directly by solving the following generalized
+eigenvalue problem for $k_x$ given $s$, $k_y$ and $k_z$, 
+\bas
+ &   \Big( i s\, \Km(s) + k_x C_x + k_y C_y + k_z C_z \Big) \wv = 0 .
+\eas
+This can be turned into a regular eignvalue problem for $1/k_x$, 
+\bas
+%      & -(  i s\, \Km(s) +  k_y C_y + k_z C_z ) \wv =  k_x C_x \wv , \qquad B \eqdef -(  i s\, \Km(s) +  k_y C_y + k_z C_z ),  \\
+\implies &  B  \wv =  k_x C_x \wv , \qquad B \eqdef -(  i s\, \Km(s) +  k_y C_y + k_z C_z ),  \\
+\implies &  B^{-1}C_x  \wv =  \f{1}{k_x} \wv \eqdef \lambda \wv ,
+\eas
+assuming the matrix $B$ is invertible. After finding the four relevant values for $k_x$ we choose the two that correspond
+to outgoing waves, e.g. $\Re(k_x^r) <0 $ if $\Re(k_x^i>0)$. 
+
+\bigskip The polarization vector $\pv=[\Pv, \Mv]^T$  is determined from 
+\bas
+   \pv(\xv,t) = \chimHat(s)\, \qv(\xv,t) ,
+\eas
+that is 
+\bats
+\pv(\xv,t) = 
+\begin{cases} 
+\displaystyle  e^{st} e^{i \kv\cdot\xv} \chimHat(s)\qv_0^i + \sum_{j=1}^2 r_j e^{st} e^{i \kvr_j\cdot\xv} \chimHat(s)\qv_j^r & \text{for $x<0$}, \\
+\displaystyle    \sum_{j=1}^2 \tau_j e^{st} e^{i  \kvt_j\cdot\xv} \chimHat(s)\qv_j^t  & \text{for $x>0$} , 
+  \end{cases} 
+\eats 
+The individual polarization terms used in the ADE scheme are
+\bas
+V_m^{ij} & =    \f{ a_{0,m}^{ij} + a_{1,m}^{ij} s }{ b_{0,m}^{ij} + b_{1,m}^{ij} s + s^2} \, q_j(\xv,t) , \\
+W_m^{ij} & = \f{\p V_m^{ij}}{\p t} = s V_m^{ij} , 
+\eas
+where
+\bas
+   \chimHat_{ij} = \sum_{m=1}^{N_p^{ij}} \f{ a_{0,m}^{ij} + a_{1,m}^{ij} s }{ b_{0,m}^{ij} + b_{1,m}^{ij} s + s^2}
+\eas
+
+\bigskip 
+\noindent Results from \texttt{baMatInterface.m}. There are two reflected and two transmitted waves.
+\begin{Verbatim}[fontsize=\tiny]
+>> baMatInterface -medium=FaradayChiral -kx=2 -ky=1 -medium2=uniaxial -plotIncident=0 -savePlot=1
+Input medium=FaradayChiral, mode=-1, plotIncident=0, plotSurf=0, savePlot=1, computeOption=0 (0=s, 1=k) 
+Incident direction:  [kx,ky,kz]=[2,1,0] 
+
+---------- Left Medium=FaradayChiral -------------- 
+
+Ks =
+
+   2.0000 + 0.0000i   0.0000 - 0.1000i   0.0000 + 0.0000i   0.0000 - 0.2000i  -0.2000 + 0.0000i   0.0000 + 0.0000i
+   0.0000 + 0.1000i   2.0000 + 0.0000i   0.0000 + 0.0000i   0.2000 + 0.0000i   0.0000 - 0.2000i   0.0000 + 0.0000i
+   0.0000 + 0.0000i   0.0000 + 0.0000i   0.5000 + 0.0000i   0.0000 + 0.0000i   0.0000 + 0.0000i   0.0000 - 0.0500i
+   0.0000 + 0.2000i   0.2000 + 0.0000i   0.0000 + 0.0000i   1.0000 + 0.0000i   0.0000 - 0.1000i   0.0000 + 0.0000i
+  -0.2000 + 0.0000i   0.0000 + 0.2000i   0.0000 + 0.0000i   0.0000 + 0.1000i   1.0000 + 0.0000i   0.0000 + 0.0000i
+   0.0000 + 0.0000i   0.0000 + 0.0000i   0.0000 + 0.0500i   0.0000 + 0.0000i   0.0000 + 0.0000i   0.7500 + 0.0000i
+
+>>>> Compute s from k: Possible incident waves:
+ omega(1)=  3.287e+00 + -2.306e-17 I,   s(1)=-2.306e-17 + -3.287e+00 I
+ omega(2)=  1.820e+00 +  4.264e-17 I,   s(2)= 4.264e-17 + -1.820e+00 I
+ omega(3)= -1.820e+00 +  1.547e-17 I,   s(3)= 1.547e-17 +  1.820e+00 I
+ omega(4)= -3.287e+00 + -2.653e-16 I,   s(4)=-2.653e-16 +  3.287e+00 I
+Choosing mode=1: s= -2.31e-17 +  -3.29e+00 I
+
+>>> Compute complex wave-numbers given s=-2.306e-17 + -3.287e+00 I, kv=[ 2.000e+00, 1.000e+00, 0.000e+00]
+ kc(1)=( -1.0000e+00, -5.3898e-17), qI=[ 0.04, 0.02, 0.80,-0.26, 0.51,-0.00]+I [-0.05, 0.09, 0.00, 0.02, 0.01,-0.15]
+ kc(2)=( -1.8066e+00, -1.9997e-17), qI=[ 0.23,-0.46, 0.00, 0.10, 0.05, 0.83]+I [-0.02,-0.01,-0.15, 0.04,-0.08, 0.00]
+ kc(3)=(  1.8066e+00,  6.1011e-19), qI=[-0.23, 0.46,-0.00,-0.10,-0.05, 0.83]+I [ 0.02, 0.01,-0.15,-0.04, 0.08, 0.00]
+ kc(4)=(  1.0000e+00, -7.8690e-18), qI=[-0.04,-0.02, 0.80, 0.26,-0.51, 0.00]+I [ 0.05,-0.09, 0.00,-0.02,-0.01,-0.15]
+Choosing mode=4 : kc= 1.000e+00 + -7.869e-18 I
+
+ >>> incident wave vector: kxi= 2.000e+00 + -1.574e-17 I, kyi= 1.000e+00 + -7.869e-18 I, kyi= 0.000e+00 +  0.000e+00 I
+Incident wave vector: qvi=[-0.23, 0.46,-0.00,-0.10,-0.05, 0.83]+ [ 0.02, 0.01,-0.15,-0.04, 0.08, 0.00] I
+
+ +++++ reflected waves : solve for kxr given ky and kz
+ lambda(1)=1/kxr = (  0.0000e+00,  0.0000e+00) (skipped).
+ lambda(2)=1/kxr = (  0.0000e+00,  0.0000e+00) (skipped).
+ kxr(3)=( -2.0000e+00,  4.1742e-17), qr=[ 0.04,-0.02, 0.80, 0.26, 0.51,-0.00]+I [ 0.05, 0.09, 0.00, 0.02,-0.01,-0.15]
+ kxr(4)=( -3.9139e+00,  3.2068e-16), qr=[-0.13,-0.50, 0.00, 0.10,-0.03, 0.83]+I [-0.02, 0.01,-0.15,-0.02,-0.09, 0.00]
+ kxr(5)=(  2.0000e+00, -6.9043e-17), qr=[-0.04,-0.02, 0.80, 0.26,-0.51,-0.00]+I [ 0.05,-0.09, 0.00,-0.02,-0.01,-0.15]
+ kxr(6)=(  3.9139e+00,  2.8783e-16), qr=[-0.13, 0.50, 0.00,-0.10,-0.03, 0.83]+I [ 0.02, 0.01,-0.15,-0.02, 0.09, 0.00]
+
+ +++++ There were 2 reflected waves.
+
+ ============== Right Medium = uniaxial =====================
+
+Ks2 =
+
+     2     0     0     0     0     0
+     0     1     0     0     0     0
+     0     0     1     0     0     0
+     0     0     0     3     0     0
+     0     0     0     0     1     0
+     0     0     0     0     0     1
+
+
+ +++++ transmitted waves : solve for kxt given ky and kz
+ lambda(1)=1/kxt = (  0.0000e+00,  0.0000e+00) (skipped).
+ lambda(2)=1/kxt = (  0.0000e+00,  0.0000e+00) (skipped).
+ kxt(3)=(  3.2362e+00, -2.2614e-17), qr=[-0.00,-0.00, 0.71, 0.07,-0.70,-0.00]+I [ 0.00, 0.00, 0.00,-0.00,-0.00, 0.00]
+ kxt(4)=( -3.2362e+00,  2.2614e-17), qr=[-0.00,-0.00, 0.71, 0.07, 0.70,-0.00]+I [ 0.00, 0.00, 0.00,-0.00, 0.00, 0.00]
+ kxt(5)=(  3.2103e+00, -2.2387e-17), qr=[-0.11, 0.69, 0.00, 0.00,-0.00, 0.71]+I [ 0.00, 0.00, 0.00, 0.00,-0.00, 0.00]
+ kxt(6)=( -3.2103e+00,  2.2387e-17), qr=[-0.11,-0.69, 0.00, 0.00, 0.00, 0.71]+I [ 0.00,-0.00, 0.00, 0.00, 0.00, 0.00]
+
+ +++++ There were 2 transmitted waves.
+
+ ----------------- Summary -------------------
+Incident     : kxi = 2.00+-0.00I qvi=[-0.23, 0.46,-0.00,-0.10,-0.05, 0.83]+ [ 0.02, 0.01,-0.15,-0.04, 0.08, 0.00] I
+reflected   1: kvrx=-2.00+ 0.00I qvr=[ 0.04,-0.02, 0.80, 0.26, 0.51,-0.00]+ [ 0.05, 0.09, 0.00, 0.02,-0.01,-0.15] I
+reflected   2: kvrx=-3.91+ 0.00I qvr=[-0.13,-0.50, 0.00, 0.10,-0.03, 0.83]+ [-0.02, 0.01,-0.15,-0.02,-0.09, 0.00] I
+transmitted 1: kvtx= 3.24+-0.00I qvt=[-0.00,-0.00, 0.71, 0.07,-0.70,-0.00]+ [ 0.00, 0.00, 0.00,-0.00,-0.00, 0.00] I
+transmitted 2: kvtx= 3.21+-0.00I qvt=[-0.11, 0.69, 0.00, 0.00,-0.00, 0.71]+ [ 0.00, 0.00, 0.00, 0.00,-0.00, 0.00] I
+
+ +++++ reflection and transmission coefficients +++++
+ r1  =[ 0.029 + -0.001 I], r2  =[-0.270 +  0.012 I], 
+ tau1=[ 0.035 + -0.153 I], tau2=[ 0.855 +  0.008 I]
+Saved plot baMatInterfaceFaradayChiraluniaxial.eps
+\end{Verbatim}
+
+{% -------------------
+%
+\newcommand{\figWidth}{9cm}% height 
+\newcommand{\trimfig}[2]{\trimh{#1}{#2}{.0}{.0}{.0}{.0}}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}[scale=1]
+  \useasboundingbox (0,0.5) rectangle (16,9);  % set the bounding box (so we have less surrounding white space)
+
+   \draw(0.0,0.0) node[anchor=south west,xshift=-15pt,yshift=-8pt] {\trimfig{fig/baMatInterfaceFaradayChiraluniaxial}{\figWidth}};
+   \draw(8.5,0.0) node[anchor=south west,xshift=-15pt,yshift=-8pt] {\trimfig{fig/baMatInterfaceFaradayChiraluniaxialScat}{\figWidth}};
+
+%%    \draw(8.5,0.0) node[anchor=south west,xshift=-15pt,yshift=-8pt] {\trimfig{fig/interfaceGDM3d}{\figWidth}};
+% grid:
+% \draw[step=1cm,gray] (0,0) grid (9,9);
+\end{tikzpicture}
+\end{center}
+\caption{Scattering from a BA material interface. Left total fields. Right: scattered fields. Matlab results from baMatInterface.m}
+  \label{fig:scatMatBA}
+\end{figure}
+}
+
+%- Given $\omega$, we have found $\kvr_j$ and $\kvt_j$ and we also know the eigenvectors $\qv_j^r$.
+%- Equation~\eqref{eq:interfaceTangential} defines four equations for the four unknowns $\tau_j$ and $r_j$. 
+%- 
+%- 
+%- \bigskip 
+%- Question: How do we compute $\p f/\p k_x$ so that we can use Newton's method
+%- for a root finder?
+%- \bas
+%-    f'(k_x) = - \f{\p \lambda}{\p k_x} k - \lambda \f{\p k}{\p k_x}  = - \f{\p \lambda}{\p k_x} k - \lambda \f{k_x}{k}
+%- \eas
+%- % $\p\lambda/\p k_x$ For fixed $\omega$, we have from~\eqref{eq:omegaBA}, $\omega = \lambda k$, 
+%- % and at least for $k_x\in\Real$, **check me**
+%- % \bas
+%- %  & \f{\p\lambda}{\p k_x} k + \lambda \f{\p k}{\p k_x} = 0  , \\
+%- % \implies~ &  \f{\p\lambda}{\p k_x} k = - \lambda \f{k_x}{k}  , \\
+%- % \implies~ &  \f{\p\lambda}{\p k_x} = - \lambda \f{k_x}{k^2}  .
+%- % \eas
+%- 
+%- Question: Given an eigenvalue and eigenvector, can we compute $\p\lambda/\p k_x$ ?
+%- Taking the derivative of the eigenvalue equation w.r.t $x_k$ gives 
+%- \bas
+%- \Big\{  \f{\p\lambda}{\p k_x} I + \Km^{-1} \p_{k_x} C(\kvHat) \Big\} \qv_0 +
+%-        \Big\{ \lambda I + M^{-1}  C(\kvHat) \Big\} \p_{k_x} \qv_0 = 0 
+%- \eas 
+
+
+
+
+% Equation~\eqref{eq:interfaceTangential} defines four equations for the four unknowns $\tau_j$ and $r_j$. 
+% Two additional interface equations are $[\nv\cdot\Dv]=0$ and $[\nv\cdot\Bv]=0$,
+% \bse
+% \label{eq:interfaceNormal}
+% \ba
+% & \begin{bmatrix} \Dv \\ \Bv \end{bmatrix}  = M \qv(\xv,t), \\
+% & [\nv\cdot\Dv]=0, \\
+% & [\nv\cdot\Bv]=0 .
+% % & e^{i( \kv\cdot\xv - \omega t)} \nv^T M  \Ev_0^i + \sum_{j=1}^2 r_j e^{i( \kvr_j\cdot\xv - \omega t)} \nv^T M \Ev_j^r
+% %    = \sum_{j=1}^2 \tau_j e^{i( \kvt_j\cdot\xv - \omega t)}  \nv^T M \Ev_j^t \qquad x=0  \\
+% % & e^{i( \kv\cdot\xv - \omega t)} \nv^T M  \Hv_0^i + \sum_{j=1}^2 r_j e^{i( \kvr_j\cdot\xv - \omega t)} \nv^T M \Hv_j^r
+% %    = \sum_{j=1}^2 \tau_j e^{i( \kvt_j\cdot\xv - \omega t)}  \nv^T M \Hv_j^t \qquad x=0  
+% \ea
+% \ese
+
+
+% we can solve for $|k_x|$ from
+% \bas
+%    \sqrt{ |k_x|^2 + |k_y|^2 + |k_z|^2 } = \f{\lambda_j}{\omega}
+% \eas
+
+\clearpage
+\input tex/baSurfaceWave
+
+
+\clearpage
+\input tex/characteristicBoundaryConditions
+
+\clearpage
+\input tex/superGrid
+
+\clearpage
+\input tex/periodicBoundaryConditions
+
+
+
+\clearpage
+\input tex/numericalResults
+
+\clearpage
+\input tex/timingResults
+
+
+% ========================= APPENDIX =======
+\appendix
+
+\clearpage
+\input tex/materialDefinitions
+
+% \clearpage
+\bibliographystyle{elsart-num}
+\bibliography{bib/journal-ISI,bib/adegdm,bib/jwb,bib/jba,bib/henshaw,bib/henshawPapers,bib/DMX,bib/AVKrefs,bib/myrefs}
+
+\end{document}
+% ******************************* END ********************************

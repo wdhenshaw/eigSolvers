@@ -1,0 +1,19 @@
+\section{Parallel in time solver} 
+
+Suppose that we need to compute the solution to the IBVP quickly and we have a big parallel computer
+with lots of memory and lots of processors. 
+
+A typical finite-difference or finite element solver computes the solution to the IBVP at some $t$ 
+by time-marching from time zero. The solver can be parallelized in space but there is no
+obvious way to parallelize this approach in time due to the sequential nature of the time-stepping
+algorithm. Thus we limited in our parallel speedup. Time-stepping thus becomes the sequential bottleneck.
+
+The eigenfunction expansion~\eqref{eq:eigenfunctionSolution}, however, can be used to evaluate
+the solution at any arbitrary time.
+This expansion can be used as the basis for
+a parallel in time solver. Once we know the eigenfunctions $\phi_j(\xv)$ then 
+the solution at any time $t$ can be often be computed at a fixed cost, independent of the time $t$,
+by summing the expansion for a finite number of terms (to the desired accuracy).
+
+If the eigenfunctions are not known, they can be computed, in parallel.  
+Different eigenfunctions can be computed independently if needed.

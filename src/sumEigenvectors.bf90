@@ -1,0 +1,125 @@
+!
+! =======================================================================
+! ============ Optimized routine for eveSolver ====================
+!              SUM EIGENVECTOR EXPANSION
+! 
+! =======================================================================
+!
+
+
+#beginMacro beginLoops3d()
+ do i3=n3a,n3b
+ do i2=n2a,n2b
+ do i1=n1a,n1b
+#endMacro
+
+#beginMacro endLoops3d()
+ end do
+ end do
+ end do
+#endMacro
+
+! ---------------------------------------------------------------------------
+! Macro : beginLoopsMask
+! ---------------------------------------------------------------------------
+#beginMacro beginLoopsMask(i1,i2,i3,n1a,n1b,n2a,n2b,n3a,n3b)
+  do i3=n3a,n3b
+  do i2=n2a,n2b
+  do i1=n1a,n1b
+    if( mask(i1,i2,i3).gt.0 )then
+#endMacro
+
+! ---------------------------------------------------------------------------
+! Macro : endLoopsMask
+! ---------------------------------------------------------------------------
+#beginMacro endLoopsMask()
+    end if
+  end do
+  end do
+  end do
+#endMacro
+
+! ---------------------------------------------------------------------------
+! Macro : beginLoops
+! ---------------------------------------------------------------------------
+#beginMacro beginLoops(i1,i2,i3,n1a,n1b,n2a,n2b,n3a,n3b)
+  do i3=n3a,n3b
+  do i2=n2a,n2b
+  do i1=n1a,n1b
+#endMacro
+
+! ---------------------------------------------------------------------------
+! Macro : endLoopsMask
+! ---------------------------------------------------------------------------
+#beginMacro endLoops()
+  end do
+  end do
+  end do
+#endMacro
+
+
+
+
+! ===========================================================================================
+! Macro: Output some debug info for the first few time-steps 
+! ===========================================================================================
+#beginMacro INFO(string)
+if( t.le.3.*dt )then
+  write(*,'("advWaveME>>>",string)')
+end if
+#endMacro
+
+
+
+
+! Argument list
+#defineMacro ARGLIST() nd,n1a,n1b,n2a,n2b,n3a,n3b,nd1a,nd1b,nd2a,nd2b,nd3a,nd3b,nd4a,nd4b,\
+                       u,w,amp, numEigs, ierr
+
+
+subroutine sumEigenvectors( ARGLIST() )
+!======================================================================
+!             u = SUM_{ieg} amp(ieg)*w(.,ieg)
+!======================================================================
+  implicit none
+  integer nd, n1a,n1b,n2a,n2b,n3a,n3b,nd1a,nd1b,nd2a,nd2b,nd3a,nd3b,nd4a,nd4b
+
+  real u(nd1a:nd1b,nd2a:nd2b,nd3a:nd3b,nd4a:*)
+  real w(nd1a:nd1b,nd2a:nd2b,nd3a:nd3b,nd4a:nd4b)
+  real amp(0:*)
+
+  ! integer mask(nd1a:nd1b,nd2a:nd2b,nd3a:nd3b)
+  integer numEigs,ierr
+
+  !     ---- local variables -----
+  integer i1,i2,i3,ieg
+  real ampi
+
+  write(*,'(" sumEigenvectors: numEigs=",i6," n1a,n1b,n2a,n2b,n3a,n3b=",6i4)') numEigs,n1a,n1b,n2a,n2b,n3a,n3b
+
+  if( .true. )then
+    ! --- This way is faster than the version below ---
+    beginLoops3d()
+      u(i1,i2,i3,0)=0.
+    endLoops3d()
+
+    do ieg=0,numEigs-1
+      ampi = amp(ieg)
+      beginLoops3d()
+        u(i1,i2,i3,0) = u(i1,i2,i3,0) + ampi*w(i1,i2,i3,ieg)
+      endLoops3d()
+    end do
+
+  else
+    beginLoops3d()
+
+      u(i1,i2,i3,0)=0.
+      do ieg=0,numEigs-1
+        u(i1,i2,i3,0) = u(i1,i2,i3,0) + amp(ieg)*w(i1,i2,i3,ieg)
+      end do
+
+    endLoops3d()
+  end if 
+    
+  return
+  end

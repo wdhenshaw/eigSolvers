@@ -1,0 +1,1493 @@
+// This file automatically generated from eveSolver.bC with bpp.
+//===============================================================================
+//  EigenVector Expansion (EVE) Solver
+//    Solve a PDE using eigenvectors computed by genEigs
+//
+//==============================================================================
+#include "Overture.h"
+#include "Ogshow.h"  
+#include "ShowFileReader.h"
+#include "interpPoints.h"
+#include "display.h"
+#include "FortranIO.h"
+#include "PlotStuff.h"
+#include "InterpolatePoints.h"
+#include "gridFunctionNorms.h"
+#include "ParallelUtility.h"
+#include "InterpolatePointsOnAGrid.h"
+
+#include "Integrate.h"
+
+#include <time.h>
+
+#include OV_STD_INCLUDE(vector)
+
+#define FOR_3D(i1,i2,i3,I1,I2,I3) int I1Base =I1.getBase(),   I2Base =I2.getBase(),  I3Base =I3.getBase();  int I1Bound=I1.getBound(),  I2Bound=I2.getBound(), I3Bound=I3.getBound(); for(i3=I3Base; i3<=I3Bound; i3++) for(i2=I2Base; i2<=I2Bound; i2++) for(i1=I1Base; i1<=I1Bound; i1++)
+
+            
+#define ForBoundary(side,axis)   for( int axis=0; axis<mg.numberOfDimensions(); axis++ ) for( int side=0; side<=1; side++ )
+            
+#define sumEigenvectors EXTERN_C_NAME(sumeigenvectors)
+extern "C"
+{
+    /*  Optimized Advance Routine  */
+    void sumEigenvectors(const int&nd,
+            const int&n1a,const int&n1b,const int&n2a,const int&n2b,const int&n3a,const int&n3b,
+            const int&nd1a,const int&nd1b,const int&nd2a,const int&nd2b,const int&nd3a,const int&nd3b,
+            const int&nd4a,const int&nd4b,
+            const real&u, const real&w, real&amp, int&numEigs, int&ierr );
+
+}
+
+
+// @
+// 306:    EPSGetInvariantSubspace - Gets an orthonormal basis of the computed invariant
+// 307:    subspace.
+
+// 309:    Not Collective, but vectors are shared by all processors that share the EPS
+
+// 311:    Input Parameter:
+// 312: .  eps - the eigensolver context
+
+// 314:    Output Parameter:
+// 315: .  v - an array of vectors
+
+// 317:    Notes:
+// 318:    This function should be called after EPSSolve() has finished.
+
+// 320:    The user should provide in v an array of nconv vectors, where nconv is
+// 321:    the value returned by EPSGetConverged().
+
+// 323:    The first k vectors returned in v span an invariant subspace associated
+// 324:    with the first k computed eigenvalues (note that this is not true if the
+// 325:    k-th eigenvalue is complex and matrix A is real; in this case the first
+// 326:    k+1 vectors should be used). An invariant subspace X of A satisfies Ax
+// 327:    in X for all x in X (a similar definition applies for generalized
+// 328:    eigenproblems).
+
+// 330:    Level: intermediate
+
+// 332: .seealso: EPSGetEigenpair(), EPSGetConverged(), EPSSolve()
+// 333: @
+// 334: PetscErrorCode EPSGetInvariantSubspace(EPS eps,Vec v[])
+// 335: {
+// 337:   PetscInt       i;
+// 338:   BV             V=eps->V;
+// 339:   Vec            w;
+
+// 345:   EPSCheckSolved(eps,1);
+// 346:   if (!eps->ishermitian && eps->state==EPS_STATE_EIGENVECTORS) SETERRQ(PetscObjectComm((PetscObject)eps),PETSC_ERR_ARG_WRONGSTATE,"EPSGetInvariantSubspace must be called before EPSGetEigenpair,EPSGetEigenvector or EPSComputeError");
+// 347:   if (eps->balance!=EPS_BALANCE_NONE && eps->D) {
+// 348:     BVDuplicateResize(eps->V,eps->nconv,&V);
+// 349:     BVSetActiveColumns(eps->V,0,eps->nconv);
+// 350:     BVCopy(eps->V,V);
+// 351:     for (i=0;i<eps->nconv;i++) {
+// 352:       BVGetColumn(V,i,&w);
+// 353:       VecPointwiseDivide(w,w,eps->D);
+// 354:       BVRestoreColumn(V,i,&w);
+// 355:     }
+// 356:     BVOrthogonalize(V,NULL);
+// 357:   }
+// 358:   for (i=0;i<eps->nconv;i++) {
+// 359:     BVCopyVec(V,i,v[i]);
+// 360:   }
+// 361:   if (eps->balance!=EPS_BALANCE_NONE && eps->D) {
+// 362:     BVDestroy(&V);
+// 363:   }
+// 364:   return(0);
+// 365: }
+
+// ======================================================================
+// Macro: Normalize an eigenvector 
+// ======================================================================
+
+// ======================================================================
+// Macro: Compute the inner product of ui and uj
+// ======================================================================
+
+// ======================================================================
+// Macro: Evaluate the eigenvector expansion
+// option : 0=eval u, 1=eval u.t
+// ======================================================================
+
+
+// // =============================================================================================
+// /// \brief Build the run time dialog for CgWave
+// // =============================================================================================
+// int 
+// buildRunTimeDialog()
+// {
+//   GenericGraphicsInterface & ps = gi;
+//   GUIState *& runTimeDialog = dbase.get<GUIState*>("runTimeDialog");
+    
+//   if( runTimeDialog==NULL )
+//   {
+//     runTimeDialog = new GUIState;       
+//     GUIState & dialog = *runTimeDialog;
+        
+
+//     dialog.setWindowTitle("CgWave");
+//     dialog.setExitCommand("finish", "finish");
+
+//     aString cmds[] = {"break",
+//                       "continue",
+//                       "movie mode",
+//                       "movie and save",
+//                       "contour", 
+//                       "grid",
+//                        "erase",
+//                       "plot options...",
+//                       //  "parameters...",
+//                       "plot v",
+//                       ""};
+
+//     numberOfPushButtons=9;  // number of entries in cmds
+//     int numRows=(numberOfPushButtons+1)/2;
+//     dialog.setPushButtons( cmds, cmds, numRows ); 
+
+//     // get any extra components such as errors for tz flow or the pressure for CNS.
+//     realCompositeGridFunction v;
+//     real t=-1; // this means only fill in the component names. 
+//     realCompositeGridFunction & u = getAugmentedSolution(0,v,t);
+
+//     const int numberOfComponents = u.getComponentBound(0)-u.getComponentBase(0)+1;
+//     // create a new menu with options for choosing a component.
+//     aString *cmd = new aString[numberOfComponents+1];
+//     aString *label = new aString[numberOfComponents+1];
+//     for( int n=0; n<numberOfComponents; n++ )
+//     {
+//       label[n]=u.getName(n);
+//       cmd[n]="plot:"+u.getName(n);
+
+//     }
+//     cmd[numberOfComponents]="";
+//     label[numberOfComponents]="";
+        
+//     dialog.addOptionMenu("plot component:", cmd,label,0);
+//     delete [] cmd;
+//     delete [] label;
+
+//     const int numberOfTextStrings=8;
+//     aString textLabels[numberOfTextStrings];
+//     aString textStrings[numberOfTextStrings];
+
+//     const real & tFinal       = dbase.get<real>("tFinal");
+//     const real & tPlot        = dbase.get<real>("tPlot");
+//     const real & cfl          = dbase.get<real>("cfl");
+//     const int & debug         = dbase.get<int>("debug");
+//     const int & plotFrequency = dbase.get<int>("plotFrequency");
+
+//     int nt=0;
+//     textLabels[nt] = "final time";  sPrintF(textStrings[nt], "%g",tFinal);  nt++; 
+//     textLabels[nt] = "times to plot";  sPrintF(textStrings[nt], "%g",tPlot);  nt++; 
+//     textLabels[nt] = "cfl";  
+//     sPrintF(textStrings[nt], "%g",cfl);  nt++; 
+//     textLabels[nt] = "debug";  sPrintF(textStrings[nt], "%i",debug);  nt++; 
+//     textLabels[nt] = "plotFrequency";  sPrintF(textStrings[nt], "%i",plotFrequency);  nt++; 
+  
+//        // null strings terminal list
+//     textLabels[nt]="";   textStrings[nt]="";  assert( nt<numberOfTextStrings );
+//     dialog.setTextBoxes(textLabels, textLabels, textStrings);
+//     numberOfTextBoxes=nt;
+        
+
+//   }
+//   return 0;
+
+// }
+
+// ==============================================================================================
+// =========================== EVE SOLVER MAIN ==================================================
+// ==============================================================================================
+int 
+main(int argc, char *argv[])
+{
+    Overture::start(argc,argv);  // initialize Overture
+    const int myid=max(0,Communication_Manager::My_Process_Number);
+    const int np=Communication_Manager::numberOfProcessors();
+
+    int debug=1;
+
+    bool plotOption=true;
+  // bool closeShowAfterUse=true;
+  // bool useOldWay=false;
+  // bool useNewWay=false;
+
+  // for exact solution
+    Real c = 1.;
+    Real beta=20; 
+    Real x0=0.25, y0=0.25, z0=0.;
+    Real k0=0.; // for modulated Gaussian
+    Real kx=1, ky=0, kz=0.; // for Gaussian plane wave -- propagation direction
+
+
+    aString matlabFileName="comp.m";
+    aString logFileName="comp.log";
+    aString eigFileName = "eigFile.show"; // show file with eigen vectors 
+    aString nameOfShowFile="";            // output show file
+    int flushFrequency = 100; // number of solutions per show sub-file
+
+    enum InitialConditionEnum 
+    {
+        gaussianInitialCondition=0,
+        gaussianPlaneWaveInitialCondition
+    };
+
+    InitialConditionEnum initialCondition = gaussianInitialCondition;
+
+    printF("eveSolver: EigenVector Expansion Solver\n");
+    printF("Usage: eveSolver <commandFile> -eigFile=<s> -logFile=<s> -matlabFile=<s>\n");
+    
+    int len=0;
+    aString commandFileName="";
+    if( argc > 1 )
+    { // look at arguments for "-noplot" or some other name
+        aString line;
+        for( int i=1; i<argc; i++ )
+        {
+            line=argv[i];
+            if( line=="-noplot" || line=="noplot" )
+                plotOption=false;
+
+            else if( len=line.matches("-eigFile=" ) )
+            {
+                eigFileName=line(len,line.length()-1);
+                printF("Setting eigFileName=[%s]\n",(const char*)eigFileName);
+            }     
+            else if( (len=line.matches("-show="))  )
+            {
+                nameOfShowFile = line(len,line.length()-1);
+                printF("Setting nameOfShowFile=[%s]\n",(const char*)nameOfShowFile);
+            }          
+            else if( len=line.matches("-logFile" ) )
+            {
+                logFileName=line(len,line.length()-1);
+                printF("Setting logFileName=[%s]\n",(const char*)logFileName);
+            }
+            else if( len=line.matches("-matlabFile" ) )
+            {
+                matlabFileName=line(len,line.length()-1);
+                printF("Setting matlabFileName=[%s]\n",(const char*)matlabFileName);
+            }
+          else if( len=line.matches("-debug=") )
+            {
+                sScanF(line(len,line.length()-1),"%i",&debug);
+                printF("Setting debug=%e\n",debug);
+            }
+
+            else if( len=line.matches("-beta=") )
+            {
+                sScanF(line(len,line.length()-1),"%e",&beta);
+                printF("Setting beta=%e\n",beta);
+            }
+            else if( len=line.matches("-x0=") )
+            {
+                sScanF(line(len,line.length()-1),"%e",&x0);
+                printF("Setting x0=%e\n",x0);
+            }
+            else if( len=line.matches("-y0=") )
+            {
+                sScanF(line(len,line.length()-1),"%e",&y0);
+                printF("Setting y0=%e\n",y0);
+            }
+            else if( len=line.matches("-z0=") )
+            {
+                sScanF(line(len,line.length()-1),"%e",&z0);
+                printF("Setting z0=%e\n",z0);
+            }
+            else if( len=line.matches("-k0=") )
+            {
+                sScanF(line(len,line.length()-1),"%e",&k0);
+                printF("Setting k0=%e\n",k0);
+            }  
+            else if( (len=line.matches("-kx="))  )
+            {
+                sScanF(line(len,line.length()-1),"%e",&kx);
+                printF("Setting kx=%e\n",kx);
+            } 
+            else if( (len=line.matches("-ky="))  )
+            {
+                sScanF(line(len,line.length()-1),"%e",&ky);
+                printF("Setting ky=%e\n",ky);
+            } 
+            else if( (len=line.matches("-kz="))  )
+            {
+                sScanF(line(len,line.length()-1),"%e",&kz);
+                printF("Setting kz=%e\n",kz);
+            }                               
+                
+            else if( len=line.matches("-ic=gpw") )
+            {
+                initialCondition = gaussianPlaneWaveInitialCondition;
+                printF("Setting initialCondition = gaussianPlaneWaveInitialCondition\n");
+            }          
+
+            else if( commandFileName=="" )
+            {
+                commandFileName=line;    
+                printf("eveSolver: reading commands from file [%s]\n",(const char*)commandFileName);
+            }
+            
+        }
+    }
+
+
+//  int extra=0;  // set to -1 to not check boundary
+
+  // PlotStuff ps(plotOption,"comp");                      // create a PlotStuff object
+    GenericGraphicsInterface & ps = *Overture::getGraphicsInterface("eveSolver",plotOption,argc,argv);
+
+    GenericGraphicsInterface & gi = ps;
+    
+    PlotStuffParameters psp;           // create an object that is used to pass parameters
+        
+  // By default start saving the command file called "comp.cmd"
+    aString logFile="eveSolver.cmd";
+    ps.saveCommandFile(logFile);
+    printF("User commands are being saved in the file `%s'\n",(const char *)logFile);
+
+    aString outputFileName="eveSolver.log";
+  // aString outputFileName=logFile;
+    FILE *outFile = NULL;
+    
+    aString outputShowFile = "eveSolver.show";
+
+  // read from a command file if given
+    if( commandFileName!="" )
+    {
+        printF("read command file =%s\n",(const char*)commandFileName);
+        ps.readCommandFile(commandFileName);
+    }
+
+
+    aString captionLabel="eve";     // Label for caption in LateX table and matlab file 
+
+  // ---------------- Build the GUI -------------------
+    GUIState dialog;
+    dialog.setWindowTitle("EVE Solver");
+    dialog.setExitCommand("exit", "exit");
+
+    aString cmds[] = {"read eigenvectors",
+                                        "process eigenvectors",
+                                        "check inner products",
+                                        "plot eigenvectors",
+                                        "fit function",
+                                        "plot fit",
+                                        "solve wave",
+                                        "save show file",
+                                        "" };
+    int numberOfPushButtons=0;  // number of entries in cmds
+    while( cmds[numberOfPushButtons]!="" ){numberOfPushButtons++;}; // 
+    int numRows=(numberOfPushButtons+1)/2;
+    dialog.setPushButtons( cmds, cmds, numRows ); 
+
+  // dialog.setOptionMenuColumns(1);
+
+    aString initialConditionLabel[] = {"Gaussian", "Gaussian plane wave", "" };
+    dialog.addOptionMenu("initial condition:", initialConditionLabel, initialConditionLabel, initialCondition );
+
+
+  // aString tbCommands[] = {"assume fine grid holds exact solution",
+  //                         "interpolate from same domain",
+  //                         ""};
+  // int tbState[10];
+  // tbState[0] = assumeFineGridHoldsExactSolution;
+  // tbState[1] = interpolateFromSameDomain;
+  // int numColumns=1;
+  // dialog.setToggleButtons(tbCommands, tbCommands, tbState, numColumns);
+
+    const int numberOfTextStrings=15;  // max number allowed
+    aString textLabels[numberOfTextStrings];
+    aString textStrings[numberOfTextStrings];
+
+    int nt=0;
+    textLabels[nt] = "beta, x0, y0, z0, k0:";  sPrintF(textStrings[nt],"%g, %g, %g, %g, %g",beta,x0,y0,z0,k0);  nt++; 
+    textLabels[nt] = "output file name:";  sPrintF(textStrings[nt],"%s",(const char*)outputFileName);  nt++; 
+  // textLabels[nt] = "matlab file name:";  sPrintF(textStrings[nt],"%s",(const char*)matlabFileName);  nt++; 
+    textLabels[nt] = "show file name:";  sPrintF(textStrings[nt],"%s",(const char*)nameOfShowFile);  nt++; 
+  // textLabels[nt] = "interpolation width:";  sPrintF(textStrings[nt],"%i",interpolationWidth);  nt++; 
+  // textLabels[nt] = "output show file:";  sPrintF(textStrings[nt],"%s",(const char*)outputShowFile);  nt++; 
+  // textLabels[nt] = "boundary error offset:";  sPrintF(textStrings[nt],"%i (lines)",boundaryErrorOffset);  nt++; 
+  // textLabels[nt] = "absorbing layer width:";  sPrintF(textStrings[nt],"%g",absorbingLayerWidth);  nt++; 
+  // textLabels[nt] = "caption label:";  sPrintF(textStrings[nt],"%s",(const char*)captionLabel);  nt++; 
+
+  // null strings terminal list
+    textLabels[nt]="";   textStrings[nt]="";  assert( nt<numberOfTextStrings );
+    dialog.setTextBoxes(textLabels, textLabels, textStrings);
+
+
+    aString answer,answer2;
+    aString menu[] = {// "specify files (coarse to fine)",
+                    // "choose a solution",
+                    // "choose a solution for each file",
+                    // "compute errors",
+                    // "plot solutions",
+                    // "plot differences",
+                    // "plot errors (max-norm rate)",
+                    // "plot errors (l1-norm rate)",
+                    // "plot errors (l2-norm rate)",
+                    // "save differences to show files",
+                                        "define a vector component",
+                                        "delete all vector components",
+                    // "interpolation width",
+                                        "enter components to use per file",
+                    // "output file name",
+                                        "choose a frame series (domain) per file",
+                    // "assume fine grid holds exact solution",
+                    // "do not assume fine grid holds exact solution",
+                    // "do not check boundaries (toggle)",
+                    // "output ascii files",
+                    // "output binary files",
+                                        "exit",
+                                        "" };
+
+    dialog.buildPopup(menu);
+
+  // dialog.addInfoLabel("See popup menu for more options.");
+
+    gi.pushGUI(dialog);
+    gi.appendToTheDefaultPrompt("comp>");
+
+
+    char buff[80];
+
+  // PlotStuffParameters psp;
+    Index I1,I2,I3;
+  
+
+    CompositeGrid cgev;
+    realCompositeGridFunction uev;
+    int numberOfEigenvectors=-1; 
+    RealArray eig;
+
+    Integrate integrate;
+
+  // coefficients of eigenvector expansion: 
+    RealArray q0, q1;
+
+    realCompositeGridFunction u0, u1;         // holds "initial condition" : function we fit 
+    realCompositeGridFunction u0Fit, u1Fit;   // eigenfunction approximation 
+    realCompositeGridFunction err0, err1;     // holds error in the fit
+    realCompositeGridFunction u;              // holds intermediate results like inner products 
+
+    bool readEigenvectors    = false;
+    bool processEigenvectors = false;
+    bool fitFunction         = false;
+
+    for(;;)
+    {
+    // ps.getMenuItem(menu,answer);
+        gi.getAnswer(answer,"");  
+
+
+        if( len=answer.matches("beta, x0, y0, z0, k0:") )
+        {
+            sScanF(answer(len,answer.length()-1),"%e %e %e %e %e",&beta,&x0,&y0,&z0,&k0);
+            printF("Setting beta=%g, x0=%g, y0=%g, z0=%g, k0=%g\n",beta,x0,y0,z0,k0);
+        }
+
+        else if( answer=="Gaussian" || answer=="Gaussian plane wave" )
+        {
+            if( answer=="Gaussian" )
+                initialCondition = gaussianInitialCondition;
+            else
+                initialCondition = gaussianPlaneWaveInitialCondition;
+
+        }
+        else if( answer=="read eigenvectors" )
+        {
+      // ---- Read show file with eigenvectors and process -----
+            readEigenvectors=true;
+
+            printF("---- Read show file=[%s] with eigenvectors and process -----\n",(const char*)eigFileName);
+            ShowFileReader showFileReader;
+            showFileReader.open(eigFileName);
+
+            int numFrames = showFileReader.getNumberOfFrames();
+            const int numberOfSolutions = showFileReader.getNumberOfSolutions();
+            printF("There are %d solutions and %d frames\n",numberOfSolutions,numFrames);
+                    
+            int solutionNumber=1;
+
+            showFileReader.getASolution(solutionNumber,cgev,uev);        // read in a grid and solution
+
+            HDF_DataBase & db = *(showFileReader.getFrame());
+            db.get(eig,"eig");  
+
+            numberOfEigenvectors = uev.getComponentBound(0) - uev.getComponentBase(0) + 1;
+            printF(">> There are %d eigenvectors\n",numberOfEigenvectors);
+
+            for( int i=0; i<numberOfEigenvectors; i++ )
+            {
+                printF("Eigenvalue %3d : k=%16.10f + (%g) I\n",i,eig(0,i),eig(1,i));        
+            }
+
+            showFileReader.close();
+
+        }
+        else if( answer=="process eigenvectors" )
+        {
+            printF(" -- normalize and orthogonalize the eigenvectors ----\n");
+
+            if( !readEigenvectors )
+            {
+                printF("You should read eigenvectors before checking inner products.\n");
+                continue; 
+            }
+
+            processEigenvectors = true;
+
+            integrate.updateToMatchGrid(cgev);
+
+            u.updateToMatchGrid(cgev);  // holds intermediate results 
+            u=1.;
+
+            Real volume;
+            volume = integrate.volumeIntegral(u);
+            printf("Volume of domain = %9.2e\n",volume);
+
+            Real dotProduct;
+
+      // -- normalize and orthogonalize eigenvectors ----
+
+            for( int i=0; i<numberOfEigenvectors; i++ )
+            {
+                    for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                    {
+                        MappedGrid & mg = cgev[grid];
+                        getIndex(mg.dimension(),I1,I2,I3);
+                        OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+                        OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
+                        uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,i)*uevLocal(I1,I2,I3,i);
+                    }
+                    Real eNorm = sqrt( integrate.volumeIntegral(u) );
+                    for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                    {
+                        MappedGrid & mg = cgev[grid];
+                        getIndex(mg.dimension(),I1,I2,I3);
+                        OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+                        uevLocal(I1,I2,I3,i) *= (1./eNorm);
+                    }
+
+                if( i>0 )
+                {
+          // --- Look for multiple eigenvalues ---
+                    int j=i-1; 
+                    const Real delta = fabs(eig(0,i)-eig(0,j))/fabs(eig(0,i));
+
+                    if( i<100 )
+                        printF(" i=%d: eig(i)=%9.3e eig(i-1)=%9.3e, delta=%9.3e\n",i,eig(0,i),eig(0,j),delta);
+
+                    const Real eigTol = 1.e-3; // ** FIX ME 
+                    if( delta < eigTol )
+                    {
+            // --- We have a mutiple eigenvalue -----
+            // --- Orthogonalize the eigenvectors ----
+
+                        if( i<100 )
+                            printF(" >>> Multiple eigenvalue found: i=%d, eig=%10.3e, will orthogonalize eigenvectors...\n",i,eig(0,i));
+
+                            for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                            {
+                                MappedGrid & mg = cgev[grid];
+                                getIndex(mg.dimension(),I1,I2,I3);
+                                OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+                                OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
+                                uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,i)*uevLocal(I1,I2,I3,j);
+                            }
+                            dotProduct = integrate.volumeIntegral(u);
+
+                        if( i<100 )
+                            printF(" Inner product: (u%d,u%d) = %9.3e\n",i,j,dotProduct);
+
+            // -- Gram-Schmidt --
+            //   ui = ui - (ui,uj)*uj 
+                        for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                        {
+                            MappedGrid & mg = cgev[grid];
+                            getIndex(mg.dimension(),I1,I2,I3);
+                            OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+
+                            uevLocal(I1,I2,I3,i) -= dotProduct*uevLocal(I1,I2,I3,j);
+                        }
+
+            // re-normalize
+
+                            for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                            {
+                                MappedGrid & mg = cgev[grid];
+                                getIndex(mg.dimension(),I1,I2,I3);
+                                OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+                                OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
+                                uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,i)*uevLocal(I1,I2,I3,i);
+                            }
+                            Real eNorm = sqrt( integrate.volumeIntegral(u) );
+                            for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                            {
+                                MappedGrid & mg = cgev[grid];
+                                getIndex(mg.dimension(),I1,I2,I3);
+                                OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+                                uevLocal(I1,I2,I3,i) *= (1./eNorm);
+                            }
+                    }
+                }
+
+            }  // end for i 
+
+        }
+        else if( answer=="check inner products" )
+        {
+            if( !readEigenvectors )
+            {
+                printF("You should read eigenvectors before checking inner products.\n");
+                continue; 
+            }
+
+            printF("Checking all inner products...\n"); fflush(0); 
+            Real maxDot=0, dotProduct;
+            for( int i=0; i<numberOfEigenvectors; i++ )
+            {
+                printF("%d,",i); fflush(0); 
+                for( int j=i; j<numberOfEigenvectors; j++ )
+                {
+
+                        for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                        {
+                            MappedGrid & mg = cgev[grid];
+                            getIndex(mg.dimension(),I1,I2,I3);
+                            OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+                            OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
+                            uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,i)*uevLocal(I1,I2,I3,j);
+                        }
+                        dotProduct = integrate.volumeIntegral(u);
+
+                    if( i!=j && fabs(dotProduct) > .1 )
+                        printF("\n**WARNING*** inner product: (u%d,u%d) = %9.3e eig(%d)=%12.4e eig(%d)=%12.4e\n",
+                            i,j,dotProduct,i,eig(0,i),j,eig(0,j));
+
+
+                    if( debug & 4 )
+                        printF(" Inner product: (u%d,u%d) = %9.3e\n",i,j,dotProduct);
+
+                    if( i != j)
+                    {
+                        maxDot = max(maxDot,fabs(dotProduct));
+                    }
+                }
+
+            }
+            printF("\n... done\n");
+            printF(" max_{i != j} |(ui,uj)| = %9.3e\n",maxDot); 
+
+
+
+        }
+        else if( answer=="fit function" )
+        {
+            printF("--- Fit a given function using an eigenvector expansion ---\n");
+            if( !processEigenvectors )
+            {
+                printF("You should process eigenvectors before fitting a function.\n");
+                continue;
+            }
+            fitFunction=true;
+
+            u0.updateToMatchGrid(cgev);
+            u1.updateToMatchGrid(cgev);
+
+
+            for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+            {
+                MappedGrid & mg = cgev[grid];
+                mg.update(MappedGrid::THEvertex | MappedGrid::THEcenter );
+
+                OV_GET_SERIAL_ARRAY(real,mg.vertex(),xLocal);        
+                OV_GET_SERIAL_ARRAY(real,u0[grid],u0Local);
+                OV_GET_SERIAL_ARRAY(real,u1[grid],u1Local);
+
+                getIndex(mg.dimension(),I1,I2,I3);
+
+                if( initialCondition==gaussianInitialCondition )
+                {
+          // modulated Gaussian
+                    RealArray rad(I1,I2,I3);
+                    rad = SQR(xLocal(I1,I2,I3,0)-x0) +  SQR(xLocal(I1,I2,I3,1)-y0);
+                    u0Local(I1,I2,I3) = exp( -beta*rad )*cos( twoPi*k0*sqrt(rad) );
+                    u1Local(I1,I2,I3)=0.; 
+                }
+                else if( initialCondition==gaussianPlaneWaveInitialCondition )
+                {
+          // modulated Gaussian plane wave
+          //    xi = k.(xv-xv0) - c*t 
+          //    exp( -beta*xi*xi)*cos( 2*pi*k0*xi ) 
+                    const Real kNorm = sqrt( kx*kx + ky*ky );
+                    const Real kxHat = kx/kNorm; 
+                    const Real kyHat = ky/kNorm; 
+                    RealArray xi(I1,I2,I3);
+                    xi = kxHat*(xLocal(I1,I2,I3,0)-x0) +  kyHat*(xLocal(I1,I2,I3,1)-y0);
+                    if( k0==0 )
+                    {
+                        u0Local(I1,I2,I3) = exp( -beta*xi*xi );
+                        u1Local(I1,I2,I3) = u0Local(I1,I2,I3)*(2.*c*beta)*xi;
+                    }
+                    else
+                    {
+                        RealArray expxi(I1,I2,I3);
+                        expxi = exp( -beta*xi*xi ); 
+                        u0Local(I1,I2,I3) = expxi*cos( twoPi*k0*xi );
+                        u1Local(I1,I2,I3) = u0Local(I1,I2,I3)*(2.*c*beta)*xi + expxi*(c*twoPi*k0)*sin( twoPi*k0*xi );
+
+                    }
+                }
+                else
+                {
+                    printF("ERROR: unknown initialCondition=%d\n",(int)initialCondition);
+                    OV_ABORT("error");
+                }
+            }
+
+            if( false )
+            {
+                gi.erase();
+                psp.set(GI_TOP_LABEL,sPrintF(buff,"u0 : initial condition"));
+                PlotIt::contour(gi,u0,psp);
+            }
+
+            q0.redim(numberOfEigenvectors);
+            q1.redim(numberOfEigenvectors); q1=0.;
+
+            for( int i=0; i<numberOfEigenvectors; i++ )
+            {
+        // findComponent( i,j,dotProduct ); 
+                for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                {
+                    MappedGrid & mg = cgev[grid];
+                    getIndex(mg.dimension(),I1,I2,I3);
+                    OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+                    OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
+                    OV_GET_SERIAL_ARRAY(real,u0[grid],u0Local);
+
+                    uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,i)*u0Local(I1,I2,I3);
+                }
+
+                q0(i) = integrate.volumeIntegral(u);
+
+                if( initialCondition==gaussianPlaneWaveInitialCondition )
+                {
+          // ---- Compute eigenfunction expansion coefficients for u.t ----
+                    for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                    {
+                        MappedGrid & mg = cgev[grid];
+                        getIndex(mg.dimension(),I1,I2,I3);
+                        OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+                        OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
+                        OV_GET_SERIAL_ARRAY(real,u1[grid],u1Local);
+
+                        uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,i)*u1Local(I1,I2,I3);
+                    }   
+
+                    q1(i) = integrate.volumeIntegral(u); 
+
+
+                }
+
+
+                printF("Fit function: i=%d: q0(i) = %9.3e, q1(i) = %9.3e\n",i,q0(i),q1(i));
+
+            }
+      // fprintF("Eigen expansions coefficients : max=%8.2e, min=")
+
+
+            u0Fit.updateToMatchGrid(cgev); 
+            u1Fit.updateToMatchGrid(cgev); 
+            u0Fit=0.;
+            u1Fit=0.;
+            Real t=0.; 
+                if( 1==1 )
+                { // **new way **
+                    RealArray amp(numberOfEigenvectors);
+                    for( int i=0; i<numberOfEigenvectors; i++ )
+                    {
+            // omega^2 = lambda 
+                        const Real omega = sqrt(eig(0,i));   // exp( i * omega t)
+                        assert( omega!=0. ); 
+                        if( 0==0 )
+                        { // eval u0Fit 
+                            amp(i) = q0(i)*cos( omega*t ) + q1(i)*sin( omega*t )/omega;
+                        }
+                        else
+                        { // eval u0Fit.t 
+                            amp(i) = -q0(i)*omega*sin( omega*t ) + q1(i)*cos( omega*t );
+                        }
+                    }    
+                    int ierr=0;
+                    for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                    {
+                        MappedGrid & mg = cgev[grid];
+                        getIndex(mg.dimension(),I1,I2,I3);
+                        OV_GET_SERIAL_ARRAY(real,u0Fit[grid],uLocal);
+                        OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);   
+            // uLocal(I1,I2,I3) += amp*uevLocal(I1,I2,I3,i);
+                        sumEigenvectors(mg.numberOfDimensions(),
+                                    I1.getBase(),I1.getBound(),
+                                    I2.getBase(),I2.getBound(),
+                                    I3.getBase(),I3.getBound(),
+                                    uLocal.getBase(0),uLocal.getBound(0),
+                                    uLocal.getBase(1),uLocal.getBound(1),
+                                    uLocal.getBase(2),uLocal.getBound(2),
+                                    uLocal.getBase(3),uLocal.getBound(3),
+                                    *uLocal.getDataPointer(),
+                                    *uevLocal.getDataPointer(),
+                                    *amp.getDataPointer(),numberOfEigenvectors,ierr );
+                    }    
+                }
+                else
+                { 
+                    u0Fit=0.;
+                    for( int i=0; i<numberOfEigenvectors; i++ )
+                    {
+            // omega^2 = lambda 
+                        const Real omega = sqrt(eig(0,i));   // exp( i * omega t)
+                        assert( omega!=0. ); 
+                        Real amp;
+                        if( 0==0 )
+                        { // eval u0Fit 
+                            amp = q0(i)*cos( omega*t ) + q1(i)*sin( omega*t )/omega;
+                        }
+                        else
+                        { // eval u0Fit.t 
+                            amp = -q0(i)*omega*sin( omega*t ) + q1(i)*cos( omega*t );
+                        }
+                        for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                        {
+                            MappedGrid & mg = cgev[grid];
+                            getIndex(mg.dimension(),I1,I2,I3);
+                            OV_GET_SERIAL_ARRAY(real,u0Fit[grid],uLocal);
+                            OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);          
+                            uLocal(I1,I2,I3) += amp*uevLocal(I1,I2,I3,i);
+                        }
+                    }
+                }  
+                if( 1==1 )
+                { // **new way **
+                    RealArray amp(numberOfEigenvectors);
+                    for( int i=0; i<numberOfEigenvectors; i++ )
+                    {
+            // omega^2 = lambda 
+                        const Real omega = sqrt(eig(0,i));   // exp( i * omega t)
+                        assert( omega!=0. ); 
+                        if( 1==0 )
+                        { // eval u1Fit 
+                            amp(i) = q0(i)*cos( omega*t ) + q1(i)*sin( omega*t )/omega;
+                        }
+                        else
+                        { // eval u1Fit.t 
+                            amp(i) = -q0(i)*omega*sin( omega*t ) + q1(i)*cos( omega*t );
+                        }
+                    }    
+                    int ierr=0;
+                    for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                    {
+                        MappedGrid & mg = cgev[grid];
+                        getIndex(mg.dimension(),I1,I2,I3);
+                        OV_GET_SERIAL_ARRAY(real,u1Fit[grid],uLocal);
+                        OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);   
+            // uLocal(I1,I2,I3) += amp*uevLocal(I1,I2,I3,i);
+                        sumEigenvectors(mg.numberOfDimensions(),
+                                    I1.getBase(),I1.getBound(),
+                                    I2.getBase(),I2.getBound(),
+                                    I3.getBase(),I3.getBound(),
+                                    uLocal.getBase(0),uLocal.getBound(0),
+                                    uLocal.getBase(1),uLocal.getBound(1),
+                                    uLocal.getBase(2),uLocal.getBound(2),
+                                    uLocal.getBase(3),uLocal.getBound(3),
+                                    *uLocal.getDataPointer(),
+                                    *uevLocal.getDataPointer(),
+                                    *amp.getDataPointer(),numberOfEigenvectors,ierr );
+                    }    
+                }
+                else
+                { 
+                    u1Fit=0.;
+                    for( int i=0; i<numberOfEigenvectors; i++ )
+                    {
+            // omega^2 = lambda 
+                        const Real omega = sqrt(eig(0,i));   // exp( i * omega t)
+                        assert( omega!=0. ); 
+                        Real amp;
+                        if( 1==0 )
+                        { // eval u1Fit 
+                            amp = q0(i)*cos( omega*t ) + q1(i)*sin( omega*t )/omega;
+                        }
+                        else
+                        { // eval u1Fit.t 
+                            amp = -q0(i)*omega*sin( omega*t ) + q1(i)*cos( omega*t );
+                        }
+                        for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                        {
+                            MappedGrid & mg = cgev[grid];
+                            getIndex(mg.dimension(),I1,I2,I3);
+                            OV_GET_SERIAL_ARRAY(real,u1Fit[grid],uLocal);
+                            OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);          
+                            uLocal(I1,I2,I3) += amp*uevLocal(I1,I2,I3,i);
+                        }
+                    }
+                }  
+
+      // Compute error in fit
+            err0.updateToMatchGrid(cgev);
+            err0 = u0 - u0Fit;
+            Real err0Max = maxNorm( err0 );
+            Real err0L2  =  l2Norm( err0 );
+            Real u0Norm  = maxNorm( u0 );
+            if( u0Norm==0. ) u0Norm=1.; 
+
+
+            err1.updateToMatchGrid(cgev);
+            err1 = u1 - u1Fit;
+            Real err1Max = maxNorm( err1 );
+            Real err1L2  =  l2Norm( err1 );
+            Real u1Norm  = maxNorm( u1 );
+            if( u1Norm==0. ) u1Norm=1.; 
+
+            printF("Errors in u0 fit: max-rel-err=%8.2e, l2-rel-err=%8.2e\n",err0Max/u0Norm,err0L2/u0Norm);
+            printF("Errors in u1 fit: max-rel-err=%8.2e, l2-rel-err=%8.2e\n",err1Max/u1Norm,err1L2/u1Norm);
+
+    //   if( false )
+    //   {
+    //     gi.erase();
+    //     psp.set(GI_TOP_LABEL,sPrintF(buff,"uFit: %d eigenvectors",numberOfEigenvectors));
+    //     PlotIt::contour(gi,uFit,psp);
+    //   }
+
+        }
+        
+        else if( answer=="solve wave" )
+        {
+            if( !fitFunction )
+            {
+                printF("You should fit the function before solving the wave equation.\n");
+                continue; 
+            }      
+            GUIState runTimeDialog;
+            GUIState & dialog = runTimeDialog;
+        
+
+            dialog.setWindowTitle("Eve Solver");
+            dialog.setExitCommand("done", "done");
+
+            aString cmds[] = {"next",
+                                                "previous",
+                                                "movie mode",
+                        // "movie and save",
+                                                "contour", 
+                                                "grid",
+                                                "erase",
+                        //"plot options...",
+                        //  "parameters...",
+                        // "plot v",
+                                                ""};
+
+            int numberOfPushButtons=6;  // number of entries in cmds
+            int numRows=(numberOfPushButtons+1)/2;
+            dialog.setPushButtons( cmds, cmds, numRows ); 
+
+            const int numberOfTextStrings=8;
+            aString textLabels[numberOfTextStrings];
+            aString textStrings[numberOfTextStrings];
+
+            Real tFinal =10.;
+            Real tPlot = .05;
+
+            int nt=0;
+            textLabels[nt] = "final time";  sPrintF(textStrings[nt], "%g",tFinal);  nt++; 
+            textLabels[nt] = "times to plot";  sPrintF(textStrings[nt], "%g",tPlot);  nt++; 
+            textLabels[nt] = "set time";  sPrintF(textStrings[nt], "%g",0.);  nt++; 
+      
+      // null strings terminal list
+            textLabels[nt]="";   textStrings[nt]="";  assert( nt<numberOfTextStrings );
+            dialog.setTextBoxes(textLabels, textLabels, textStrings);
+            int numberOfTextBoxes=nt;
+
+            gi.pushGUI(dialog);      
+
+            aString answer2; 
+            Real t=0.; 
+            for( int it=0; ; it++ )
+            {
+                if( it==0 )
+                    answer2="plot";
+                else
+                    gi.getAnswer(answer2,"");
+
+                if( answer2=="done" || answer2=="exit" || answer2=="finish" )
+                {
+                    break;
+                }
+                else if( dialog.getTextValue(answer,"show file name:","%s",nameOfShowFile) ){}  //        
+                else if( answer2=="erase" )
+                {
+                    gi.erase();
+                }
+                else if( answer2=="contour" )
+                {
+                    gi.erase();
+                    psp.set(GI_TOP_LABEL,sPrintF(buff,"u t=%6.2f",t));
+                    psp.set(GI_PLOT_THE_OBJECT_AND_EXIT,false);
+                    PlotIt::contour(gi,u,psp);          
+                }
+                else if( answer2=="grid" )
+                {
+                    gi.erase();
+                    psp.set(GI_TOP_LABEL,"grid");
+                    psp.set(GI_PLOT_THE_OBJECT_AND_EXIT,false);
+                    PlotIt::plot(gi,cgev,psp);  
+                    gi.erase();        
+                }        
+                else if( dialog.getTextValue(answer2,"final time","%g",tFinal) ){}//        
+                else if( dialog.getTextValue(answer2,"times to plot","%g",tPlot) )
+                {
+                    printF("Setting tPlot=%9.3e\n",tPlot);
+                }        
+                else if( dialog.getTextValue(answer2,"set time","%g",t) )
+                {
+                    printF("Setting current time t=%9.3e\n",t);
+                }       
+                else if( answer2=="next" )
+                {
+                    t += tPlot;
+                }
+                else if( answer2=="previous" )
+                {
+                    t -= tPlot;
+                }        
+
+                Real cpu0=getCPU();
+                    if( 1==1 )
+                    { // **new way **
+                        RealArray amp(numberOfEigenvectors);
+                        for( int i=0; i<numberOfEigenvectors; i++ )
+                        {
+              // omega^2 = lambda 
+                            const Real omega = sqrt(eig(0,i));   // exp( i * omega t)
+                            assert( omega!=0. ); 
+                            if( 0==0 )
+                            { // eval u 
+                                amp(i) = q0(i)*cos( omega*t ) + q1(i)*sin( omega*t )/omega;
+                            }
+                            else
+                            { // eval u.t 
+                                amp(i) = -q0(i)*omega*sin( omega*t ) + q1(i)*cos( omega*t );
+                            }
+                        }    
+                        int ierr=0;
+                        for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                        {
+                            MappedGrid & mg = cgev[grid];
+                            getIndex(mg.dimension(),I1,I2,I3);
+                            OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
+                            OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);   
+              // uLocal(I1,I2,I3) += amp*uevLocal(I1,I2,I3,i);
+                            sumEigenvectors(mg.numberOfDimensions(),
+                                        I1.getBase(),I1.getBound(),
+                                        I2.getBase(),I2.getBound(),
+                                        I3.getBase(),I3.getBound(),
+                                        uLocal.getBase(0),uLocal.getBound(0),
+                                        uLocal.getBase(1),uLocal.getBound(1),
+                                        uLocal.getBase(2),uLocal.getBound(2),
+                                        uLocal.getBase(3),uLocal.getBound(3),
+                                        *uLocal.getDataPointer(),
+                                        *uevLocal.getDataPointer(),
+                                        *amp.getDataPointer(),numberOfEigenvectors,ierr );
+                        }    
+                    }
+                    else
+                    { 
+                        u=0.;
+                        for( int i=0; i<numberOfEigenvectors; i++ )
+                        {
+              // omega^2 = lambda 
+                            const Real omega = sqrt(eig(0,i));   // exp( i * omega t)
+                            assert( omega!=0. ); 
+                            Real amp;
+                            if( 0==0 )
+                            { // eval u 
+                                amp = q0(i)*cos( omega*t ) + q1(i)*sin( omega*t )/omega;
+                            }
+                            else
+                            { // eval u.t 
+                                amp = -q0(i)*omega*sin( omega*t ) + q1(i)*cos( omega*t );
+                            }
+                            for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+                            {
+                                MappedGrid & mg = cgev[grid];
+                                getIndex(mg.dimension(),I1,I2,I3);
+                                OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
+                                OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);          
+                                uLocal(I1,I2,I3) += amp*uevLocal(I1,I2,I3,i);
+                            }
+                        }
+                    }  
+                Real cpue = getCPU()-cpu0;
+                printF("Time for EVE eval=%8.2e\n",cpue);
+
+                gi.erase();
+                psp.set(GI_TOP_LABEL,sPrintF(buff,"u t=%6.2f",t));
+                psp.set(GI_PLOT_THE_OBJECT_AND_EXIT,true);
+                PlotIt::contour(gi,u,psp);
+
+
+            }
+
+            gi.popGUI(); // restore the previous GUI
+        }
+
+        else if( answer=="plot eigenvectors" )
+        {
+            if( !readEigenvectors )
+            {
+                printF("You should read eigenvectors before plotting them.\n");
+                continue; 
+            }
+
+            int vector=0; // plot this eigenvector 
+
+            GUIState dialog;
+
+            dialog.setWindowTitle("Eigenvectors");
+            dialog.setExitCommand("done", "done");
+
+            aString cmds[] = {"next",
+                                                "previous",
+                                                "first",
+                                                "contour",
+                                                ""};
+
+            int numberOfPushButtons=4;  // number of entries in cmds
+            int numRows=(numberOfPushButtons+1)/2;
+            dialog.setPushButtons( cmds, cmds, numRows ); 
+
+            const int numberOfTextStrings=8;
+            aString textLabels[numberOfTextStrings];
+            aString textStrings[numberOfTextStrings];
+
+
+            int nt=0;
+            textLabels[nt] = "vector";  sPrintF(textStrings[nt], "%d",vector);  nt++; 
+      
+      // null strings terminal list
+            textLabels[nt]="";   textStrings[nt]="";  assert( nt<numberOfTextStrings );
+            dialog.setTextBoxes(textLabels, textLabels, textStrings);
+            int numberOfTextBoxes=nt;
+
+            gi.pushGUI(dialog);      
+
+            aString answer2; 
+            Real t=0.; 
+            for( int it=0; ; it++ )
+            {
+                if( it==0 )
+                    answer2="plot";
+                else
+                    gi.getAnswer(answer2,"");
+
+                if( answer2=="done" || answer2=="exit" || answer2=="finish" )
+                {
+                    break;
+                }
+                else if( dialog.getTextValue(answer2,"vector","%d",vector) )
+                {
+                    vector = max(0,min(numberOfEigenvectors-1,vector));
+                    printF("Setting vector=%d\n",vector);
+                }       
+                else if( answer2=="first" )
+                {
+                    vector=0;
+                }
+                else if( answer2=="next" )
+                {
+                    vector = ( vector +1 ) % numberOfEigenvectors;
+                }
+                else if( answer2=="previous" )
+                {
+                    vector = ( vector - 1 + numberOfEigenvectors) % numberOfEigenvectors;
+
+                }        
+                gi.erase();
+
+                if( abs(eig(1,vector)) < 1.e-10*abs(eig(0,vector)) )
+                { // real eigenvalue
+                    psp.set(GI_TOP_LABEL,sPrintF(buff,"Eigenvector %d, eig=%.5g",vector,eig(0,vector)));
+                }
+                else
+                { // complex eigenvalue 
+                    psp.set(GI_TOP_LABEL,sPrintF(buff,"Eigenvector %d, eig=%.5g + (%.5g) I",vector,eig(0,vector),eig(1,vector)));
+                }
+
+                psp.set(GI_COMPONENT_FOR_CONTOURS,vector);
+                if( answer2 == "contour" )
+                    psp.set(GI_PLOT_THE_OBJECT_AND_EXIT,false);
+                else
+                    psp.set(GI_PLOT_THE_OBJECT_AND_EXIT,true);
+
+                PlotIt::contour(gi,uev,psp);
+
+            }
+
+            gi.popGUI(); // restore the previous GUI
+        }
+
+        else if( false && answer=="plot eigenvectors" ) // old way 
+        {
+            psp.set(GI_TOP_LABEL,"Eigenvectors");
+            psp.set(GI_PLOT_THE_OBJECT_AND_EXIT,false);
+            PlotIt::contour(gi,uev,psp);
+
+        }
+
+        else if( answer=="plot fit" )
+        {
+            if( !fitFunction )
+            {
+                printF("You should fit a function before it can be plotted.\n");
+                continue; 
+            }
+
+            int numComp = 4;
+            Range all;
+            realCompositeGridFunction v(cgev,all,all,all,numComp);
+            v.setName("u0Fit",0);
+      // v.setName("u0",1);
+            v.setName("u0err",1);
+            v.setName("u1Fit",2);
+            v.setName("u1err",3);
+
+            for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+            {
+                MappedGrid & mg = cgev[grid];
+                getIndex(mg.dimension(),I1,I2,I3);
+
+                OV_GET_SERIAL_ARRAY(Real,v[grid],vLocal);
+        // OV_GET_SERIAL_ARRAY(Real,u0[grid],u0Local);
+
+                OV_GET_SERIAL_ARRAY(Real,u0Fit[grid],u0FitLocal);        
+                OV_GET_SERIAL_ARRAY(Real,err0[grid],err0Local);
+
+                OV_GET_SERIAL_ARRAY(Real,u1Fit[grid],u1FitLocal);  
+                OV_GET_SERIAL_ARRAY(Real,err1[grid],err1Local);
+
+
+                vLocal(I1,I2,I3,0) = u0FitLocal(I1,I2,I3);
+        // vLocal(I1,I2,I3,1) = u0Local(I1,I2,I3);
+                vLocal(I1,I2,I3,1) = err0Local(I1,I2,I3);
+                vLocal(I1,I2,I3,2) = u1FitLocal(I1,I2,I3);
+                vLocal(I1,I2,I3,3) = err1Local(I1,I2,I3);
+            }
+
+            ps.erase();
+            psp.set(GI_PLOT_THE_OBJECT_AND_EXIT,false);
+            psp.set(GI_TOP_LABEL,"results");
+            PlotIt::contour(gi,v,psp);
+
+        }
+
+        else if( answer=="save show file" ) 
+        {
+            if( nameOfShowFile == "" )
+                nameOfShowFile = "eveSolver.show";
+
+      // -- save a show file ---
+            Ogshow show( nameOfShowFile );                      // create a show file
+            show.saveGeneralComment("Results from eveSolver");    // save a general comment in the show file
+            show.setFlushFrequency( flushFrequency ); // save this many solutions per sub-showFile
+
+
+      // ListOfShowFileParameters showFileParams;
+      // showFileParams.push_back(ShowFileParameter("u1Component",u1c));
+      // showFileParams.push_back(ShowFileParameter("u2Component",u2c));
+      // show.saveGeneralParameters(showFileParams);
+
+            show.startFrame(); 
+
+      // -- save eigenavlues dt --
+            HDF_DataBase *dbp=NULL;
+
+            dbp = show.getFrame();
+            assert( dbp!=NULL );
+      // save parameters that go in this frame
+            HDF_DataBase & db = *dbp;
+            db.put(eig,"eig");
+                                                        // start a new frame
+            aString buff;
+            show.saveComment(0,"Eigenvectors from eveSolver");
+      // show.saveComment(0,sPrintF(buff,"Eigenvectors from eveSolver",(const char*)problem,orderOfAccuracy));  
+      // show.saveComment(1,sPrintF(buffer,"  t=%e ",t));            // comment 1 (shown on plot)
+            show.saveSolution( uev );                                      // save the current grid function
+            show.endFrame(); 
+            show.close();   
+            printF("Wrote show file=[%s]\n",(const char*)nameOfShowFile);
+
+        }
+
+    // else if( answer=="specify files" ||
+    //     answer=="specify files (coarse to fine)" )
+    // {
+    //   printF("Specify names of show files (normally coarse grid to fine)\n");
+    //   for( int i=0; i<maxNumberOfFiles; i++ )
+    //   {
+    //     ps.inputString(fileName[numberOfFiles],"Enter the file name (`exit' to finish)");
+    //     if( fileName[numberOfFiles]=="" || fileName[numberOfFiles]=="exit" )
+    //       break;
+    //     showFileReader[numberOfFiles].open(fileName[numberOfFiles]);
+    //     numberOfSolutions[numberOfFiles]=showFileReader[numberOfFiles].getNumberOfFrames();
+    //     maxSolution[numberOfFiles]=min(maxSolution[numberOfFiles],numberOfSolutions[numberOfFiles]);
+  
+    //     if( closeShowAfterUse )
+    //       showFileReader[i].close();
+
+
+    //     numberOfFiles++;
+    //   }
+    // }
+    // else if( dialog.getTextValue(answer,"caption label:","%s",captionLabel) )
+    // {
+    //   printF("Setting captionLabel=[%s]\n",(const char*)captionLabel);
+    // }
+        
+
+    // else if( dialog.getTextValue(answer,"output file name:","%s",outputFileName) ){}  //
+    // else if( dialog.getTextValue(answer,"matlab file name:","%s",matlabFileName) ){}  //
+    // else if( dialog.getTextValue(answer,"output show file:","%s",outputShowFile) ){}  //
+    // else if( dialog.getTextValue(answer,"interpolation width:","%i",interpolationWidth) )
+    // {
+    //   printF("Setting the interpolation width to %i\n",interpolationWidth);
+    // }
+
+    // else if( dialog.getTextValue(answer,"boundary error offset:","%i",boundaryErrorOffset) )
+    // {
+    //   printF("Setting boundaryErrorOffset=%i: zero out errors %d lines from any physical boundary (e.g. for PML)\n",
+    //          boundaryErrorOffset,boundaryErrorOffset);
+    // }
+        
+    // else if( dialog.getTextValue(answer,"absorbing layer width:","%e",absorbingLayerWidth) )
+    // {
+    //   printF("Setting absorbingLayerWidth=%g: zero out errors this distance from any physical boundary (e.g. for a supergrid layer)\n",absorbingLayerWidth);
+
+    // }
+        
+
+    // else if( dialog.getToggleValue(answer,"assume fine grid holds exact solution",assumeFineGridHoldsExactSolution) )
+    // {
+    //   if( assumeFineGridHoldsExactSolution )
+    //   {
+    //     printF("Assume the fine grid holds the exact solution when computing convergence rates.\n");
+    //   }
+    //   else
+    //   {
+    //     printF("Do not assume the fine grid holds the exact solution when computing convergence rates.\n");
+    //   }
+            
+    // }
+        
+    // else if( dialog.getToggleValue(answer,"interpolate from same domain",interpolateFromSameDomain) )
+    // {
+    //   if( interpolateFromSameDomain )
+    //   {
+    //     printF("interpolateFromSameDomain=true : For multi-domain problems only interpolate from grids"
+    //            " on the same domain.\n");
+    //   }
+    //   else
+    //   {
+    //     printF("interpolateFromSameDomain=true : For multi-domain problems allow interpolation from all domains.\n");
+    //   }
+            
+    // }
+        
+
+    // // --- commands done the old way before dialog ---
+
+    // else if( answer=="choose a frame series (domain) per file" )
+    // {
+    //   if( numberOfFiles<=0 )
+    //   {
+    //     printF("You should choose files first.\n");
+    //     continue;
+    //   }      
+    //   aString line;
+    //   frameSeries.redim(numberOfFiles);
+    //   frameSeries=0;
+            
+    //   for( int i=0; i<numberOfFiles; i++ )
+    //   {
+    //     int numberOfFrameSeries=max(1,showFileReader[i].getNumberOfFrameSeries());
+    //     printF(" File: %i has %i frame series (domains):\n",i,numberOfFrameSeries);
+    //     for( int fs=0; fs<numberOfFrameSeries; fs++ )
+    //     {
+    //       printF(" frame series %i: %s\n",fs,(const char*)showFileReader[i].getFrameSeriesName(fs));
+    //     }
+                
+    //     ps.inputString(line,sPrintF(buff,"Enter the number of the frame series to use, (0,...,%i).",numberOfFrameSeries-1));
+    //     int fs=-1;
+    //     sScanF(line,"%i",&fs);
+    //     if( fs<0 || fs>numberOfFrameSeries )
+    //     {
+    //       printF("ERROR: frame series %i is NOT valid. Will use 0\n",fs);
+    //       fs=0;
+    //     }
+    //     frameSeries(i)=fs;  // save
+    //     showFileReader[i].setCurrentFrameSeries(fs);
+    //   }
+            
+    // }
+    // else if( answer=="enter components to use per file" )
+    // {
+    //   if( numberOfFiles<=0 )
+    //   {
+    //     printF("You should choose files first\n");
+    //     continue;
+    //   }
+            
+    //   numComponentsPerFile.redim(numberOfFiles);
+    //   componentsPerFile.redim(numberOfFiles,maxNumberOfComponents);
+    //   componentsPerFile=-1;
+    //   aString line;
+    //   for( int i=0; i<numberOfFiles; i++ ) 
+    //   {
+    //     numComponentsPerFile(i)=0;
+    //     int c[15];
+    //     for( int j=0; j<15; j++ ) c[j]=-1;
+    //     ps.inputString(line,sPrintF("Enter a list of components to use for file %i",i));
+    //     sScanF(line,"%i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i",
+    //            &c[0],&c[1],&c[2],&c[3],&c[4],
+    //            &c[5],&c[6],&c[7],&c[8],&c[9],
+    //            &c[10],&c[11],&c[12],&c[13],&c[14]);
+    //     for( int j=0; j<15; j++ )
+    //     {
+    //       if( c[j]>=0 )
+    //       {
+    //         numComponentsPerFile(i)++;
+    //         componentsPerFile(i,j)=c[j];
+    //       }
+    //       else
+    //       {
+    //         break;
+    //       }
+    //     }
+    //   }
+    // }
+
+
+
+        else if( answer=="exit" )
+        {
+            break;
+        }
+    }
+
+    if( myid==0 )
+        fclose(outFile);
+
+    
+    Overture::finish();          
+    return 0;
+}

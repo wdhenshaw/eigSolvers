@@ -1,0 +1,273 @@
+\documentclass[preprint,11pt]{elsarticle}
+% \documentclass[3p,twocolumn]{elsarticle}
+\usepackage[bookmarks=true,colorlinks=true,linkcolor=blue]{hyperref}
+
+\usepackage{amsmath,amssymb,mathabx}
+\usepackage{graphicx,esint,ulem}
+
+\biboptions{sort&compress}% compress bibtex entries
+\usepackage[usenames,dvipsnames,svgnames,table]{xcolor}
+
+\usepackage{color}
+\definecolor{jwbGreen}{rgb}{0, .6, 0}
+\definecolor{jbaPurple}{HTML}{6600FF}
+\definecolor{purple}{rgb}{.7, 0., .8}
+\newcommand{\red}{\color{red}}
+\newcommand{\green}{\color{green}}
+\newcommand{\blue}{\color{blue}}
+\newcommand{\purple}{\color{purple}}
+\newcommand{\orange}{\color{orange}}
+
+\usepackage{calc}
+\usepackage[margin=1.in]{geometry}
+
+% for fancy coloured boxes: 
+\usepackage{empheq}
+\usepackage[most]{tcolorbox}
+
+\newtcbox{\mymath}[1][]{%
+    nobeforeafter, math upper, tcbox raise base,
+    enhanced, colframe=blue!60!black,
+    colback=blue!20, boxrule=1pt,
+    #1}
+
+
+\usepackage{algorithm,algpseudocode}
+\usepackage{algorithmicx}
+\algrenewcommand\alglinenumber[1]{\footnotesize #1:} % Algorithm line number font size
+\newcommand{\algFontSize}{\footnotesize}
+
+\usepackage{tcolorbox}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{fullpage}
+\usepackage{graphicx}
+\usepackage{setspace}
+\usepackage{float}
+
+\usepackage{tabu}% to increase table row separation
+
+%\usepackage{showkeys}
+\usepackage{multirow}
+
+\usepackage{fancyvrb}% fancy verbatim
+
+% \usepackage{mdframed}% for shaded framed boxes
+
+
+% ************ ALLOW displayed equations to cross pages *********************
+\allowdisplaybreaks
+
+% ---------------------------- DATE HEADER ------------------------------------
+% \usepackage{fancyhdr}
+% \usepackage{time}
+% take the % awaNOy on next line to produce the final camera-ready version
+% Be sure to remove \thispagestyle{fancy} as well after the \make.
+% \pagestyle{empty}
+%
+%\pagestyle{fancy}
+% \newcommand\myTime{\now}
+%\fancyhead{}
+%\fancyhead[CO, CE]{\texttt{-Draft-}}
+%\fancyhead[RO, RE]{\texttt{\today, \myTime}}
+%\setlength{\headheight}{2\baselineskip}
+%\renewcommand{\headrulewidth}{0pt}
+% ---------------------------- DATE HEADER ------------------------------------
+
+
+
+\usepackage{tikz}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{assumption}{Assumption}
+\newtheorem{definition}{Definition}
+\newenvironment{proof}[1][Proof]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1.}]}{\end{trivlist}}
+
+\newtheorem{thm}{Theorem}[section]
+\newtheorem{prop}{Proposition}[section]
+\newtheorem{lem}{Lemma}[section]
+%\newtheorem{cor}{Corollary}[section]
+\newtheorem{example}{Example}[section]
+\newtheorem{conj}{Conjecture}[section]
+\newtheorem{remark}{Remark}[section]
+% some definitions of bold math italics to make typing easier.
+% They are used in the corollary.
+
+ 
+\input tex/defs.tex
+\input tex/trimFig.tex
+\usepackage{xargs}% for optional args to \newcommandx
+\input tex/plotFigureMacros.tex
+
+% \newcommand{\new}[1]{{\color{olive}#1}}
+\newcommand{\new}[1]{{\color{red}#1}}
+\newcommand{\wdh}[1]{{\color{DarkBlue}wdh: #1}}
+\newcommand{\old}[1]{{\color{red}old: #1}}
+\newcommand{\newer}[1]{{\color{orange} #1}}
+\newcommand{\avk}[1]{{\color{orange}AVK: #1}}
+
+\newcommand{\Ttilde}{\tilde{T}}
+
+
+\newcommand{\pnl}{\p_{n_L}}
+\newcommand{\pnr}{\p_{n_R}}
+\newcommand{\mm}{m}% interface index character
+
+\renewcommand\floatpagefraction{.99}
+\renewcommand\topfraction{.99}
+\renewcommand\bottomfraction{.99}
+\renewcommand\textfraction{.01}   
+\setcounter{totalnumber}{50}
+\setcounter{topnumber}{50}
+\setcounter{bottomnumber}{50}
+
+% ============================================================================================
+\begin{document}
+
+\begin{frontmatter}
+ \title{Notes on EVE: EigenVector Expansion Solver}
+
+
+\author[rpi]{Jeffrey W.~Banks}
+\ead{banksj3@rpi.edu}
+
+\author[rpi]{William D.~Henshaw}
+\ead{henshw@rpi.edu}
+
+% \author[rpi]{Donald~W.~Schwendeman\fnref{NSFgrants}}
+% \ead{schwed@rpi.edu}
+
+
+\address[rpi]{Department of Mathematical Sciences, Rensselaer Polytechnic Institute, Troy, NY 12180, USA}
+
+% \cortext[cor]{Corresponding author}
+
+% \fntext[DARPA]{This work was partially funded by the DARPA Defense Sciences Office, Award HR00111720032.}
+% \fntext[NSFgrants]{Research supported by the National Science Foundation under grants DMS-1519934 and DMS-1818926.}
+
+
+% \fntext[RTG]{This work was partially funded by the NSF Research Training Group Grant DMS-1344962.}
+% \fntext[DOE]{This work was partially performed under DOE contracts from the ASCR Applied Math Program.}
+%\fntext[DOD]{This work was partially performed under DOD contract W911NF-14-C-0161.}
+
+% \fntext[NSFgrantNew]{Research supported by the National Science Foundation under grant DMS-1519934.}
+
+% \fntext[PECASEThanks]{Research supported by a U.S. Presidential Early Career Award for Scientists and Engineers.}
+
+\begin{abstract}
+
+We consider the numerical solution of initial-boundary-value problems IBVP's (or IVP's or Helmholtz problems )
+using an eigenfunction expansion approach.
+Discrete approximations to eigenfunctions for a given domain $\Omega$ are first computed. These eigefunctions are then used to
+represent the general solution. The solution at any time can then be found.
+
+
+\end{abstract}
+
+\end{frontmatter}
+
+
+% ------------- Table of contents
+\tableofcontents
+
+% -------------------------------------------------------------------------------------
+\section{Introduction} 
+
+We consider the numerical solution of initial-boundary-value problems IBVP's (or IVP's or Helmholtz problems )
+using an eigenfunction expansion approach.
+Discrete approximations to eigenfunctions for a given domain $\Omega$ are first computed. These eigefunctions are then used to
+represent the general solution. The solution at any time can then be found.
+
+% ----------------------------------------
+\subsection{EVE for the Wave Equation}
+
+Consider for example, the solution to the wave-like equation on a domain $\Omega$, with some initial
+conditions and homogeneous boundary conditions,
+\bse
+\bat
+  &  \p_t^2 u + L u =0 ,       \quad&& \xv\in\Omega, ~ t>0 \\
+  &  u(\xv,0) = u_0(\xv),   \quad&& \xv\in\Omega,       \\ 
+  &  \p_t u(\xv,0) = u_1(\xv),   \quad&& \xv\in\Omega,  \\
+  &  \Bc u(\xv,t) = 0         \quad&& \xv\in\p\Omega,
+\eat
+\ese
+where $L=-c^2\Delta$, for example. We want to initially consider problems where there is a basis
+of ortho-normal eigenfunctions.
+Suppose we know the eigenvalues and eigenfunctions 
+\bse
+\bat
+  &   L \phi_j = \lambda_j \phi_j,        \quad&& \xv\in\Omega \\
+  &  \phi_j(\xv) = 0                     \quad&& \xv\in\p\Omega,
+\eat
+\ese
+The solution be represented as an eigenfunction expansion,
+\ba
+    u(\xv,t) = \sum_{j=0}^\infty q_j(t) \phi_j(\xv),
+\ea
+If the eigenfunctions are orthonormal, then
+\ba
+   q_j'' = - \lambda_j q_j
+\ea
+and
+\ba
+   \sum_{j=0}^\infty q_j(0) \phi_j(\xv)  = u_0(\xv), \\
+   \sum_{j=0}^\infty q_j'(0) \phi_j(\xv)  = u_1(\xv)
+\ea
+If we know the eigenfunction expansions for the initial conditions,
+\ba
+   & u_0(\xv) = \sum_j \uHat_j \phi_j(\xv),  \\
+   & u_1(\xv) = \sum_j \vHat_j \phi_j(\xv),  
+\ea
+then
+\ba
+   q_j(t) = \uHat_j \cos(\sqrt{\lambda_j} t) + \f{1}{\sqrt{\lambda_j}} \vHat_j \sin(\sqrt{\lambda_j} t)
+\ea
+Thus the solution is
+\ba
+  u(\xv,t) = \sum_j \Big( \uHat_j \cos(\sqrt{\lambda_j} t) + \f{1}{\sqrt{\lambda_j}} \vHat_j \sin(\sqrt{\lambda_j} t)\Big)
+          \phi_j(\xv) \label{eq:eigenfunctionSolution}
+\ea
+Note that if the initial conditions $u_0(\xv)$ and $u_1(\xv)$ 
+are smooth and satisfy the boundary conditions then we expect their
+generalized Fourier series to converge rapidly (depending also on the smoothness of the domain).
+
+% ------------------------------------------------------------
+\input tex/forcedProblem
+
+
+
+\input tex/boundaryConditions
+
+
+% ********************************************
+% \bogus
+% {
+
+% -------------------------------------------------------------------------------------
+\input tex/parallelInTime 
+
+
+
+% ==========================================================================================================
+\input tex/numericalExamples
+
+% } 
+
+
+
+% \clearpage
+% \input tex/oldStuff
+
+% \bibliographystyle{elsart-num}
+% \bibliography{journal-ISI,henshaw,henshawPapers}
+
+\end{document}
+
+% ***************************************************************************************************************
+% ***************************************************************************************************************
+% ***************************************************************************************************************
+% ***************************************************************************************************************
+% ***************************************************************************************************************
+

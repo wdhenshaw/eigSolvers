@@ -1,0 +1,84 @@
+cd /Users/henshaw/Dropbox/research/eig/matlab
+
+
+
+*******************************************
+******** Wed Jan 24, 2024
+
+smoother g(t)
+
+eve -Nx=5000 -Nk=32 -alpha=4.5 -tf=2.1 -Nt=1 -sol=1 -plotName=eveSinSqN32 -savePlots=1
+eve -Nx=5000 -Nk=64 -alpha=4.5 -tf=2.1 -Nt=1 -sol=1 -plotName=eveSinSqN64 -savePlots=1
+
+
+
+eve -Nx=5000 -Nk=32 -alpha=4.5 -tf=2.1 -Nt=21 -sol=1 
+
+PLOT ERROR IN FOURIER sine series for v(x) = 1 - x/pi 
+
+fixupSeries -Nk=32 -savePlots=1
+
+
+*******************************************
+******** Tues Jan 23, 2024
+
+Impulsive start: 
+eve -Nx=5000 -Nk=64 -tf=1 -Nt=100 -sol=3 
+
+
+fixupSeries -Nk=64 
+
+
+*******************************************
+******** Mon Jan 22, 2024
+
+smoother g(t)
+eve -Nx=5000 -Nk=64 -alpha=4.5 -tf=2.1 -Nt=1 -sol=1 
+
+fixupSeries -Nk=64 -savePlots=1
+
+
+
+*******************************************
+******** Sun Jan 21, 2024
+
+Start on FIXUP 
+
+fixupSeries -Nk=64 -savePlots=1
+
+eve -Nx=5000 -Nk=100 -alpha=4.5 -tf=2.1 -Nt=1 -sol=1 -plotName=eveSinSq -savePlots=1
+
+eve -Nx=5000 -Nk=100 -alpha=4.5 -tf=1.7 -Nt=1 -sol=0 -savePlots=1
+
+*******************************************
+*************** Sat Jan 20, 2024
+
+CONTINUE ON eve.m -- INHOMOGENEOUS BC's
+
+
+eve -Nx=200 -Nk=100 -alpha=4.5 -Nt=50
+
+
+eve -Nx=5000 -Nk=100 -alpha=4.5 -tf=1.7 -Nt=1 -savePlots=1
+
+*******************************************
+*************** Fri Jan 19, 2024
+
+START ON eve.m -- INHOMOGENEOUS BC's
+
+eve -Nx=200 -Nk=100 -alpha=4.5 -Nt=50
+
+********************************************
+*************** Wed April 26, 2023
+
+plot errors in eigenvalues for eigenWave paper
+
+plotEigErrors -yMin=1e-11 -yMax=1e-4
+
+
+********************************************
+*************** Sat Aug 20, 2022
+
+
+START code for computing eigenvalues for EVE proposal
+

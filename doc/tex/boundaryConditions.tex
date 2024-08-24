@@ -1,0 +1,496 @@
+% ------------------------------------------------------------
+\subsection{Inhomogeneous boundary conditions (I)}
+Next consider the case of inhomogeneous boundary conditions,
+\bse
+\bat
+  &  \p_t^2 u + L u = 0,       \quad&& \xv\in\Omega, ~ t>0 \\
+  &  u(\xv,0) = u_0(\xv),   \quad&& \xv\in\Omega,       \\ 
+  &  \p_t u(\xv,0) = u_1(\xv),   \quad&& \xv\in\Omega,  \\
+  &  \Bc u(\xv,t) = g(\xv,t)         \quad&& \xv\in\p\Omega,
+\eat
+\ese
+Suppose we knew any smooth function $\psi(\xv,t)$ that satisfies the boundary conditions,
+\bat
+   \psi(\xv,t) =  g(\xv,t)         \quad&& \xv\in\p\Omega,
+\eat
+Then we write
+\ba
+    u(\xv,t) = \psi(\xv,t) + w(\xv,t),
+\ea
+and we now solve for $w$ which satisfies the forced equations with homogeneous boundary conditions
+\bse
+\bat
+  &  \p_t^2 w + L w = (\p_t^2 + L)\psi,       \quad&& \xv\in\Omega, ~ t>0 \\
+  &  w(\xv,0) = u_0(\xv) - \psi(\xv,0),   \quad&& \xv\in\Omega,       \\ 
+  &  \p_t w(\xv,0) = u_1(\xv) - \p_t\psi(\xv,0),   \quad&& \xv\in\Omega,  \\
+  &  \Bc w(\xv,t) = 0        \quad&& \xv\in\p\Omega,
+\eat
+\ese
+The problem has thus been reduced to one with homogeneous boundary conditions.
+There is still the issue of representing the initial conditions and forcing as a generalized Fourier series.
+
+\mni
+There are some special cases. If $g=g(\xv)$ is time independent we could choose $\psi$ to solve
+the BVP
+\bse
+\bat
+  &  L \psi = 0,       \quad&& \xv\in\Omega \\
+  &  \Bc \psi= g(\xv)        \quad&& \xv\in\p\Omega,
+\eat
+\ese
+which removes the forcing term from the equation for $w$ (but does alter the initial conditions).
+
+
+% ------------------------------------------------------------
+\subsection{Inhomogeneous boundary conditions (II)}  \label{sec:forcedBCII}
+
+\mni
+{\red Note: in this section we use the new notation here: $L \phi_k = - \lambda_k^2 \phi_k $, $L=c^2\Delta$.}
+
+
+\mni
+There is another way to treat inhomogeneous boundary conditions that does not require the
+construction of function that satisfies the boundary conditions.
+Consider 
+\bse
+\bat
+  &  \p_t^2 u + c^2 \Delta u = 0,       \quad&& \xv\in\Omega, ~ t>0 \\
+  &  u(\xv,0) = u_0(\xv),   \quad&& \xv\in\Omega,       \\ 
+  &  \p_t u(\xv,0) = u_1(\xv),   \quad&& \xv\in\Omega,  \\
+  &  \Bc u(\xv,t) = g(\xv,t)         \quad&& \xv\in\p\Omega,
+\eat
+\ese
+The EVE solution is of the form
+\ba
+   & u(\xv,t) \sum_k \uHat_k(t) \phi_k(\xv),                      \label{eq:EVEseries} \\
+   & \uHat_k(t) = \int_{\Omega} u(\xv,t) \phi_k(\xv) \, d\xv.    \label{eq:EVEfourierCoeff} 
+\ea
+Some care is required when the solution is written as~\eqref{eq:EVEseries} since the convergence is only in the
+mean near the boundary. All eigenfunctions are zero at the boundary so $\uv$ is also zero at the boundary.
+However we can start from~\eqref{eq:EVEfourierCoeff} and take two time-derivatives,
+\ba
+   \p_t^2 \uHat_k(t) & = \int_{\Omega} \p_t^2 u(\xv,t) \phi_k(\xv) \, d\xv, \\
+                     & = \int_{\Omega} c^2 \grad\cdot(\grad u) \, \phi_k(\xv) \, d\xv. 
+\ea
+Now integrating by parts, {\red check me}
+\ba
+   \p_t^2 \uHat_k(t) & =  \int_{\partial \Omega} c^2 \p_n u \, \phi_k \, dS  
+                         - \int_{\Omega} c^2 \grad u \cdot \grad \phi_k(\xv) \, d\xv, \\
+     &=  \int_{\partial \Omega} c^2 \p_n u \, \phi_k \, dS 
+      -  \int_{\partial \Omega} c^2 u \, \p_n \phi_k \, dS 
+      +  \int_{\Omega}   u \, c^2 \Delta \phi_k(\xv) \, d\xv .  
+\ea
+Using the boundary condition and that fact that $\phi_k(\xv)$ is zero on the boundary leads to
+\ba
+    \p_t^2 \uHat_k(t) & = -  \int_{\partial \Omega} c^2 g(\xv,t)  \, \p_n \phi_k \, dS 
+         +  \lambda_k^2 \, \int_{\Omega}  u(\xv,t) \,  \phi_k(\xv) \, d\xv , 
+\ea
+or
+\ba
+    \p_t^2 \uHat_k(t) + \lambda_k^2 \uHat_k = -  \int_{\partial \Omega} c^2 g(\xv,t)  \, \p_n \phi_k \, dS . 
+        \label{eq:inhomogeneousBCII}
+\ea
+Equation~\eqref{eq:inhomogeneousBCII} defines the ODE for the Fourier coefficients that directly incorporates
+the inhomogeneous BCs. 
+
+% ----------------------------
+\subsubsection{Example: inhomogeneous boundary conditions}
+
+\mni
+\mni
+{\red Note: in this section we use the new notation here: $L \phi_k = - \lambda_k^2 \phi_k $, $L=c^2\Delta$.}
+
+Consider the 1D IBVP with homogeneous initial conditions and a non-homogeneous BC at $x=0$.
+\bse
+\bat
+  &  \p_t^2 u + c^2\p_x^2  = 0,    \quad&& x\in(0,\pi), ~ t>0 \\
+  &  u(x,0) = 0,                   \quad&& x\in(0,\pi),       \\ 
+  &  \p_t u(x,0) = 0,              \quad&& x\in(0,\pi),  \\
+  &  u(0,t) = g(t),                \quad&& t>0 , \\
+  &  u(1,t) = 0,                   \quad&& t>0 .
+\eat
+\ese
+The eigenvalues and orthonormal eigenfunctions are
+\ba
+   & \lambda_k = c k, \quad 
+    \phi_k(x) = \sqrt{\f{2}{\pi}} \sin( k x ), \qquad k=1,2,\ldots.
+\ea
+Equation~\eqref{eq:inhomogeneousBCII} for the Fourier coefficients becomes
+\ba
+    \p_t^2 \uHat_k(t) + \lambda_k^2 \uHat_k = c^2 g(t) \, \p_x \phi_k(0) = c^2 k \sqrt{\f{2}{\pi}} g(t) \eqdef G_k(t) . 
+\ea 
+Note that the RHS is proportional to $k$ which implies the convergence of the series may not be so fast.
+The general solution is
+\ba
+  \uHat_k(t) & = c_1 \cos(\lambda_k t) + c_2 \sin(\lambda_k t)
+      + \int_0^t  G_k(\tau) \, \f{\sin(\lambda_k(t-\tau))}{\lambda_k} \, d\tau,
+   %     \\
+   % & c_1 \cos(\lambda_k t) + c_2 \sin(\lambda_k t)
+   %    + \int_0^t  c^2 k \sqrt{\f{2}{\pi}} g(\tau) \f{\sin(\lambda_k(t-\tau))}{\lambda_k} \, d\tau,   
+\ea
+Imposing the initial conditions implies {\red check me}
+\ba
+  \uHat_k(t) & = \int_0^t  G_k(\tau) \, \f{\sin(\lambda_k(t-\tau))}{\lambda_k} \, d\tau .
+ %    c_1 &= 0 . 
+     % -  \int_0^t   G_k(\tau) \, \f{\cos(\lambda_k(\tau))}{\lambda_k} \, d\tau
+\ea
+
+\mni
+Example 1:
+\ba
+   g(t) = \sin(\alpha t).
+\ea
+Then (for $\alpha \ne c k$) {\red check me}
+\ba
+  &  \uHat_k(t) = \sqrt{\f{2}{\pi}}\, \f{ c^2 }{c^2 k^2 - \alpha^2 }\Big[ k \sin(\alpha t) -\alpha \sin(c k t)\Big]
+\ea
+If $\alpha = c m $ for an $m$ then $\uHat_m$ is forced at resonance and the form of the solution differs.
+
+\mni
+Example 2: (smoother start)
+\ba
+   g(t) = \half( 1 - \cos(\alpha t))  = \sin^2(\alpha t/2).
+\ea
+Then (for $\alpha \ne c k$) {\red check me}
+\ba
+  &  \uHat_k(t) = 
+  \half \sqrt{\f{2}{\pi}} c^2 k \Big[  \f{1}{c^2 k^2} - \f{1}{c^2 k^2-\alpha^2} \cos(\alpha t) 
+                                   - \big( \f{1}{c^2 k^2} - \f{1}{c^2 k^2-\alpha^2}\big) \cos(k t) \Big].
+\ea
+
+\mni
+Example 3: (impulsive start)
+\ba
+   g(t) = 1. 
+\ea
+Then 
+\ba
+  &  \uHat_k(t) = \sqrt{\f{2}{\pi}} \f{1}{k} \big(  1- \cos( c k t)  \big) .
+\ea
+
+\mni
+The exact solution is (until the wave hits the right side)
+\ba
+   u(x,t) = 
+     \begin{cases}
+         g(\alpha(t-x/c))   & x \le c t, \\
+         0                  & x > c t 
+     \end{cases}
+\ea
+Figure~\ref{fig:eveForcedBC} shows some results.
+The convergence is slow near $x=0$. 
+{\red NOTE. We should be able to post-process the solution to get a better answer -- see Section~\ref{sec:filtering}.}
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{6cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (13,10);  % set the bounding box (so we have less surrounding white space)
+  \begin{scope}[yshift=.85*\width]   
+    \figByWidth{       0}{0}{fig/eveSineBC}{\width}[0.0][0.][0.][0.]
+    \figByWidth{1.1*\width}{0}{fig/eveSineBCErr}{\width}[0.0][0.][0.][0.]
+  \end{scope} 
+ \begin{scope}[yshift=-.2cm]   
+    \figByWidth{       0}{0}{fig/eveSinSq}{\width}[0.0][0.][0.][0.]
+    \figByWidth{1.1*\width}{0}{fig/eveSinSqErr}{\width}[0.0][0.][0.][0.]
+  \end{scope}          
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (13,10);
+\end{tikzpicture}
+\end{center}
+\caption{Inhomogeneous BC. Top: boundary forcing $g(t)=\sin(\alpha t)$.
+    Bottom: $g(t)=\half( 1 - \cos(\alpha t))  = \sin^2(\alpha t/2)$.
+    }
+\label{fig:eveForcedBC}
+\end{figure}
+}
+% --------------------------------------------------------------------------------------------------
+
+
+
+\clearpage
+\subsection{Correcting the Fourier series}
+
+Figures~\ref{fig:eveForcedBCCorrectedN32} and~\ref{fig:eveForcedBCCorrectedN64}
+show the corrected solutions and errors using the correction function described in~\ref{sec:correctioFunction}.
+The corrected solution is 
+\ba
+  & u_c(x) = S_N u - g(t) ( S_N v - v ), \\
+  & v \eqdef 1 - x/\pi .
+\ea
+Here $S_N u$ denotes the Fourier series with $N$ terms
+The corrected solutions appear to be converging at second-order.
+
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{5.cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.75) rectangle (16,4.25);  % set the bounding box (so we have less surrounding white space)
+  \begin{scope}[yshift=0cm]   
+    \figByWidth{         0}{0}{fig/eveSinSqN32}{\width}[0.0][0.][0.][0.]
+    \figByWidth{1.1*\width}{0}{fig/eveSinSqN32Corrected}{\width}[0.0][0.][0.][0.]
+    \figByWidth{2.2*\width}{0}{fig/eveSinSqN32CorrectedErr}{\width}[0.0][0.][0.][0.]
+  \end{scope} 
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,4.5);
+\end{tikzpicture}
+\end{center}
+\caption{Inhomogeneous BC with correction, $N_k=32$. $g(t)=\half( 1 - \cos(\alpha t))  = \sin^2(\alpha t/2)$.
+    }
+\label{fig:eveForcedBCCorrectedN32}
+\end{figure}
+}
+% --------------------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{5.cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.75) rectangle (16,4.25);  % set the bounding box (so we have less surrounding white space)
+  \begin{scope}[yshift=0cm]   
+    \figByWidth{         0}{0}{fig/eveSinSqN64}{\width}[0.0][0.][0.][0.]
+    \figByWidth{1.1*\width}{0}{fig/eveSinSqN64Corrected}{\width}[0.0][0.][0.][0.]
+    \figByWidth{2.2*\width}{0}{fig/eveSinSqN64CorrectedErr}{\width}[0.0][0.][0.][0.]
+  \end{scope} 
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,4.5);
+\end{tikzpicture}
+\end{center}
+\caption{Inhomogeneous BC with correction, $N_k=64$. $g(t)=\half( 1 - \cos(\alpha t))  = \sin^2(\alpha t/2)$.
+    }
+\label{fig:eveForcedBCCorrectedN64}
+\end{figure}
+}
+% --------------------------------------------------------------------------------------------------
+
+% ------------------------------------------------------
+\subsubsection{Error analysis of the corrected solution}
+
+The error in the corrected solution $u_c$ 
+\ba
+& u_c(x,t) = S_N u - g(t) ( S_N v - v ),
+\ea
+is
+\ba
+   e_N(x,t) & = u - u_c \\
+          & = (u- g(t) v) - S_N ( u - g(t) v ) \\
+          & = w - S_N w 
+\ea
+where 
+\ba
+   w \eqdef u- g(t) v. 
+\ea
+The error $e_N$ is thus the error in the N-th partial Fourier sum of $w$.
+If $w(x,t)$ is smooth enough then the error will go to zero point-wise, and the convergence rate
+will depend on how smooth $w$ is.
+
+\mni
+Let's now show the conditions that lead to a smooth $w(x,t)$.
+It follows that $w$ satisfies the PDE 
+\ba
+  \p_t^2 w - L w &= (\p_t^2 u - L u) - (\p_t^2 g(t) v(x)  - g(t) L v) ,\\
+         &= - (\p_t^2 g(t) v(x)  - g(t) L v) , \\
+         &= - \p_t^2 g(t)\,  v(x)
+\ea
+using $Lv=0$ (all we probably need is that $Lv$ is smooth enough), 
+and by construction $w$ has homogeneous boundary conditions
+\ba
+  & w(x,t) = 0 , \qquad x=0,\pi 
+\ea
+and the initial conditions are 
+\ba
+  & w(x,0) = u(x,0) - g(0) v(x) , \qquad  \partial_t w(x,0) = \p_t u(x,0)- \p_t g(0) v(x) .
+\ea
+To summarize, $w(x,t)$ satisfies the forced IBVP with homogeneous BCs
+\bse
+\label{eq:forcedCorrection}
+\ba
+  & \p_t^2 w - L w =  - \p_t^2 g(t)\,  v(x), \\
+  & w(x,0) = u(x,0)- g(0) v(x) , \qquad  \partial_t w(x,0) = \p_t u(x,0) - \p_t g(0) v(x), \\
+  & w(x,t) = 0 , \qquad x=0,\pi 
+\ea
+\ese
+It should follow that $w(x,t)$ is smooth enough so that it's Fourier series converges pointwise.
+Note that if 
+If $u$ has homogeneous initial conditions, $u(x,t)$ and $\partial_t u(x,0)=0$ (e.g. if we have decomposed the problem
+into one with homogeneous initial conditions and inhomogeneous BCs)  
+and $g(0)=g'(0)=0$ then $w$ will have homogeneous initial conditions.
+
+
+\mni
+{\blue Note.} This shows that following two approaches are equivalent
+\begin{enumerate}
+    \item Subtract off a smooth function $G(x,t)$ that satisfies the BCs, solve the forced IBVP~\eqref{eq:forcedCorrection} for the correction, and then add back $G(x,t)$.
+    \item Solve the uncorrected IBVP 
+      to some time $t$ (using the integration-by-parts trick to define the ODEs for $\uHat_k$)  and then correct the solution.
+\end{enumerate}
+The second method has benefits since we do not need to find $G(x,t)$ for all times (which may be expensive in more
+general geometries where $G(x,t)$ is not of the form $G_1(x) G_2(t)$).
+
+
+% ------------------------------------------------------
+\subsubsection{Correcting the Fourier series in a general geometry}
+
+Consider a more general IBVP in $n_d$ space dimensions
+\bat
+   & \p_t^2 u = L u ,            &&\quad \xv\in\Omega,   \\
+   & u(\xv,t)= \p_t u(\xv,0)=0,  &&\quad \xv\in\Omega,   \\
+   & u(\xv,t) = g(\xv,t)         &&\quad \xv\in\partial\Omega,
+\eat
+which we solve with an eigenfunction expansion ($L \phi_k = -\lambda_k^2 \phi_k$ )
+\ba
+    &  S_N u = \sum_{k=1}^N \uHat_k(t) \phi_k(\xv), \\
+    &  \uHat_k  = \int_\Omega  \phi_k(\xv) \, u(\xv,t) \, dx, 
+\ea
+using the integration-by-parts trick to define the ODEs for $\uHat_k$.
+
+\mni
+Let $v(\xv,t)$ solve the elliptic BVP (this is not really required -- we just need $v$ to satisfy the BCs and $Lv$ smooth enough)
+\ba
+   & L v = 0  ,            &&\quad \xv\in\Omega,   \\
+   & v(\xv,t) = g(\xv,t)   &&\quad \xv\in\partial\Omega,
+\ea
+The corrected solution is then
+\ba
+   u_c(\xv,t) = S_N u + ( v - S_N v ).
+\ea
+% 
+The error in the corrected solution $u_c$ 
+\ba
+   e_N(\xv,t) & = u - u_c \\
+          & = (u- v ) - S_N ( u - v(\xv,t) ) \\
+          & = w - S_N w ,
+\ea
+where 
+\ba
+   w(\xv,t) \eqdef u(\xv,t) - v(\xv,t). 
+\ea
+The error $e_N$ is thus the error in the N-th partial Fourier sum of $w$.
+If $w(\xv,t)$ is smooth enough then the error will go to zero point-wise, and the convergence rate
+will depend on how smooth $w$ is.
+
+Proceeding as before, it follows that $w(x,t)$ satisfies the forced IBVP with homogeneous BCs
+\bse
+ \label{eq:wEqn}
+\bat
+  & \p_t^2 w - L w =  -(\p_t^2 v - L v)  ,                                &&\quad \xv\in\Omega,   \\ 
+  & w(\xv,0) = u(\xv,0)-v(\xv,0) \eqdef w_0(\xv),                         &&\quad \xv\in\Omega,   \\
+  & \partial_t w(\xv,0) = \p_t u(\xv,0)- \p_t v(\xv,0) \eqdef w_1(\xv),   &&\quad \xv\in\Omega,   \\
+  & w(\xv,t) = 0 ,                                                        &&\quad \xv\in\partial\Omega ,
+\eat
+\ese
+where for the choice of $v$ from above, $Lv=0$, but this is not really required.
+If $v$ is smooth enough, then $w$ will be smooth enough and the generalized Fourier series for $w$ should
+converge point-wise. This implies the corrected solution will also converge point-wise.
+
+The convergence of the Fourier series (FS) for $w$ will be primarily limited by the convergence
+of the FS for $G$ defined by (the initial conditions $w_0(\xv)$ and $w_1(\xv)$ 
+will also be a factor but note that these functions are zero on the boundary)
+\ba
+  G\eqdef \p_t^2 v - L v
+\ea
+in~\eqref{eq:wEqn}. For example, if $G(\xv)\ne 0$ on the boundary then the FS for $G$ will haves Gibbs effects near the
+boundary (but also note that the FS for $w$ converges faster than the FS for $G$).
+If we want faster convergence at the boundary we could choose $v$ so that $G$ is zero
+on the boundary,
+\ba
+   G(\xv)=0, \qquad \xv\in\partial\Omega
+\ea
+which implies
+\ba
+   L v = \p_t^2 v = \p_t^2 g(\xv,t)  \qquad \xv\in\partial\Omega \label{eq:vConstraint1}
+\ea
+
+\mni
+{\red Question:} Can we construct a smooth function local to each boundary and then combine these to form
+a composite $v$ that satisfies all the boundary conditions and other constraints we want such as~\eqref{eq:vConstraint1}.
+
+\clearpage
+% ---------------------------------------------------------------------------
+\subsection{Filtering the Fourier series solution} \label{sec:filtering}
+
+\subsubsection{Fourier series for a Heaviside function}
+The errors in Figure~\ref{fig:eveForcedBC} look very much like the finite Fourier series for 
+a step function. Figure~\ref{fig:topHatSeries} shows a Fourier series solution for a periodic 
+top-hat on the domain $\Omega=[-\pi,\pi]$.
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{6cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (6,5);  % set the bounding box (so we have less surrounding white space)
+ \begin{scope}[yshift=-.2cm]   
+    \figByWidth{       0}{0}{fig/topHatSeries}{\width}[0.0][0.][0.][0.]
+    % \figByWidth{1.1*\width}{0}{fig/eveSinSqErr}{\width}[0.0][0.][0.][0.]
+  \end{scope}          
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (6,5);
+\end{tikzpicture}
+\end{center}
+\caption{Fourier series for a top hat on $x\in[-\pi,\pi]$ showing the Gibbs phenomena.
+    }
+\label{fig:topHatSeries}
+\end{figure}
+}
+
+% --------------------------------------------------------------
+\subsubsection{Fourier series for $1-x/\pi$} \label{sec:correctioFunction}
+
+Mu guess is that the errors in Figure~\ref{fig:eveForcedBC} 
+should likely be mainly due to the errors in the Fourier sine series for the linear function
+\ba
+   v(x) = 1 - x/\pi, \qquad x\in[0,\pi)
+\ea
+This function is $1$ at $x=0$ and $0$ at $x=\pi$.
+The Fourier sine series is
+\ba
+    S_N(v) = \sum_{k=1}^N \vHat_k \sin( k x ), \\
+    \vHat_k = \f{2}{\pi} \int_0^\pi v(x) \sin(k x) \, dx. 
+\ea
+Using
+\ba
+  & \int_0^\pi \sin(k x ) dx = \f{-1}{k} \cos( k x )\Big|_0^\pi = \f{1}{k}( 1 - \cos(k \pi)), \\
+  & \int_0^\pi x \sin(k x ) dx = \Big[ -{1}{k} x \cos(k x ) + \f{1}{k^2} \sin(k x )\Big ]_0^\pi = \f{-1}{k} \cos(k\pi), 
+\ea
+gives
+\ba
+  \vHat_k = \f{2}{k \pi }
+\ea
+Figure~\ref{fig:linearFunction} shows the series and error.
+
+
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{6cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (12.5,5);  % set the bounding box (so we have less surrounding white space)
+ \begin{scope}[yshift=-.2cm]   
+    \figByWidth{       0}{0}{fig/fourierSeriesOneMinusXoverPi}{\width}[0.0][0.][0.][0.]
+    \figByWidth{1.1*\width}{0}{fig/errorInFourierSeriesOneMinusXoverPi}{\width}[0.0][0.][0.][0.]
+  \end{scope}          
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (12,5);
+\end{tikzpicture}
+\end{center}
+\caption{Fourier series for $v=1-x/\pi$ and the error.
+    }
+\label{fig:linearFunction}
+\end{figure}
+}
+
+
+

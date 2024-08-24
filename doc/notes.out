@@ -1,0 +1,22 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [2][-]{subsection.1.1}{EVE for the Wave Equation}{section.1}% 2
+\BOOKMARK [2][-]{subsection.1.2}{Forced problem.}{section.1}% 3
+\BOOKMARK [2][-]{subsection.1.3}{Inhomogeneous boundary conditions \(I\)}{section.1}% 4
+\BOOKMARK [2][-]{subsection.1.4}{Inhomogeneous boundary conditions \(II\)}{section.1}% 5
+\BOOKMARK [3][-]{subsubsection.1.4.1}{Example: inhomogeneous boundary conditions}{subsection.1.4}% 6
+\BOOKMARK [2][-]{subsection.1.5}{Correcting the Fourier series}{section.1}% 7
+\BOOKMARK [3][-]{subsubsection.1.5.1}{Error analysis of the corrected solution}{subsection.1.5}% 8
+\BOOKMARK [3][-]{subsubsection.1.5.2}{Correcting the Fourier series in a general geometry}{subsection.1.5}% 9
+\BOOKMARK [2][-]{subsection.1.6}{Filtering the Fourier series solution}{section.1}% 10
+\BOOKMARK [3][-]{subsubsection.1.6.1}{Fourier series for a Heaviside function}{subsection.1.6}% 11
+\BOOKMARK [3][-]{subsubsection.1.6.2}{Fourier series for 1-x/}{subsection.1.6}% 12
+\BOOKMARK [1][-]{section.2}{Parallel in time solver}{}% 13
+\BOOKMARK [1][-]{section.3}{Motivational examples}{}% 14
+\BOOKMARK [1][-]{section.4}{Computing eigenfunctions and fitting functions}{}% 15
+\BOOKMARK [2][-]{subsection.4.1}{Timings to compute eigenvalues and eigenvectors}{section.4}% 16
+\BOOKMARK [2][-]{subsection.4.2}{Computed eigenfunctions of a square}{section.4}% 17
+\BOOKMARK [2][-]{subsection.4.3}{Computed eigenfunctions of a disk}{section.4}% 18
+\BOOKMARK [2][-]{subsection.4.4}{Computed eigenfunctions of an ellipse in a box}{section.4}% 19
+\BOOKMARK [2][-]{subsection.4.5}{Computed eigenfunctions for some shapes in a box}{section.4}% 20
+\BOOKMARK [2][-]{subsection.4.6}{Scattering from a cylinder}{section.4}% 21
+\BOOKMARK [2][-]{subsection.4.7}{RPI Scattering}{section.4}% 22

@@ -1,0 +1,52 @@
+\subsection{Forced problem.}
+
+\mni
+{\red Note: in this section we use the new notation here: $L \phi_k = - \lambda_k^2 \phi_k $, $L=c^2\Delta$.}
+
+
+Next consider the forced problem with homogeneous boundary conditions,
+\bse
+\bat
+  &  \p_t^2 u + L u = f(\xv,t),       \quad&& \xv\in\Omega, ~ t>0 \\
+  &  u(\xv,0) = u_0(\xv),   \quad&& \xv\in\Omega,       \\ 
+  &  \p_t u(\xv,0) = u_1(\xv),   \quad&& \xv\in\Omega,  \\
+  &  \Bc u(\xv,t) = 0         \quad&& \xv\in\p\Omega,
+\eat
+\ese
+Let us suppose that $f(\xv,t)$ has a convergent eigenfunction expansion,
+\ba
+   & f(\xv) = \sum_k \fHat_kt) \phi_k(\xv) .
+\ea
+If $f$ is smooth and of compact support in $\Omega$ then this expansion should converge rapidly.
+If $f$ is not zero at the boundary then the convergence may be slow near the boundaries (what should
+we do on this case?)
+As before, the solution be represented as an eigenfunction expansion,
+\ba
+    u(\xv,t) = \sum_{k=0}^\infty q_k(t) \phi_k(\xv),
+\ea
+where $q_k$ satisfies the forced ODE IVP
+\ba
+   & q_k'' + \lambda_k^2 q_k = \fHat_k(t), \\
+   & q_k(0) = \uHat_k, \\ 
+   & q_k'(0) = \vHat_k 
+\ea
+The general solution is {\red finish me}
+\ba
+  q_k(t) & = c_1 \cos(\lambda_k t) + c_2 \sin(\lambda_k t)
+      + \int_0^t  \fHat_k(\tau) \, \f{\sin(\lambda_k(t-\tau))}{\lambda_k} \, d\tau, \label{eq:forcedGeneralSolution}
+\ea
+
+\mni
+When $f(\xv,t)$ is non-zero near the boundary (for Dirichlet BC's) then its Fourier series will only converge in the mean.
+Suppose $\fHat_k \sim 1/k$ then the forcing term in~\eqref{eq:forcedGeneralSolution} will be $O(1/k^3)$ if $\lambda_k \sim k$, I think, 
+and the Fourier series for $u$ will converge reasonably fast.
+Compare this to Section~\ref{sec:forcedBCII} on forced BCs which has slower convergence.
+
+
+
+% \ba
+%    q_j(t) = \uHat_j \cos(\sqrt{\lambda_j} t) + \f{1}{\sqrt{\lambda_j}} \vHat_j \sin(\sqrt{\lambda_j} t)
+%        + \int_0^t ( )  ... d\tau
+% \ea
+Depending on the form of $\fHat_k(t)$ the particular solution can be computed analytically, otherwise
+some quadrature rule can be used. These computations of $q_k$ are easy to parallelize.

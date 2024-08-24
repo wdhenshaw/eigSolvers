@@ -1,0 +1,1662 @@
+
+
+// static char help[] = "Compute some  eigenvalues\n";
+
+#include "mpi.h"
+#include "Overture.h"
+#include "display.h"
+#include "PlotStuff.h"  
+// #include "SquareMapping.h" 
+// #include "Ogshow.h"
+
+#include "CompositeGridOperators.h"
+#include "SparseRep.h" 
+#include "Oges.h"
+#include "ParallelUtility.h"
+#include "gridFunctionNorms.h"
+
+#include "Ogev.h"
+
+// #include "CgSolverUtil.h"
+
+// Boundary conditions:
+const int periodic=-1, interpolation=0, displacement=1, traction=2;
+
+#define FOR_3D(i1,i2,i3,I1,I2,I3) \
+int I1Base =I1.getBase(),   I2Base =I2.getBase(),  I3Base =I3.getBase();  \
+int I1Bound=I1.getBound(),  I2Bound=I2.getBound(), I3Bound=I3.getBound(); \
+for(int i3=I3Base; i3<=I3Bound; i3++) \
+for(int i2=I2Base; i2<=I2Bound; i2++) \
+for(int i1=I1Base; i1<=I1Bound; i1++)  
+
+#define FOR_3(i1,i2,i3,I1,I2,I3) \
+I1Base =I1.getBase(),   I2Base =I2.getBase(),  I3Base =I3.getBase();  \
+I1Bound=I1.getBound(),  I2Bound=I2.getBound(), I3Bound=I3.getBound(); \
+for(int i3=I3Base; i3<=I3Bound; i3++) \
+for(int i2=I2Base; i2<=I2Bound; i2++) \
+for(int i1=I1Base; i1<=I1Bound; i1++)  
+
+#define ForBoundary(side,axis)   for( int axis=0; axis<numberOfDimensions; axis++ ) \
+                                 for( int side=0; side<=1; side++ )  
+
+// ============================================================================
+// Compute the global matrix index ig from the grid-function index (i1,i2,i3,n)
+// ===========================================================================
+#beginMacro getGlobalIndex(i1,i2,i3,n,ig)
+  ig = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+  assert( ig>=0 && ig<N );
+#endMacro
+
+// =================================================================================
+// Compute the local grid-function index (i1,i2,i3,n) from the global matrix index ig
+// ================================================================================
+#beginMacro getLocalIndex( ig,i1,i2,i3,n )
+   i3 = 0;
+   n = ig/(nd1a*nd2a); 
+   i2 = n2a + (ig- nd1a*nd2a*(n) )/nd1a;
+   i1 = ig + n1a - nd1a*( (i2)-n2a + nd2a*(n) );
+#endMacro
+
+#beginMacro printMatrixEntry(ig0,ig,val,label)
+  if( printEntries )
+  {
+    printF(" ig0=%4d ig=%4d value=%10.3f (label)\n",ig0,ig,val);
+  }
+#endMacro
+
+
+
+
+// ==================================================================================
+// Fill in the PETSc matrices A and B 
+//          Incompressible elasticity 
+//
+//  Solve for the stream-function
+//
+//      Delta^2( u ) = - lambda* Delta(u)
+//      BC: u=0, u.n = 0 
+// ==================================================================================
+int Ogev::
+fillMatrixIncompressibleElasticity( const int numberOfComponents, int orderOfAccuracy, MappedGrid & mg, Mat & A, Mat & B, 
+                                    int numGhost, bool useNew, Real tol, int eigOption, IntegerArray & bc, 
+                                    int saveMatlab, int useWideStencils )
+{
+
+  int printEntries=0; 
+
+
+  const Real rho=1., mu=1.; // ** FIX ME **
+
+
+
+
+  PetscBool flag;
+  int Istart,Iend,ierr;
+
+  int includePressure=0;
+  // if( numberOfComponents==2 || min(abs(bc-traction))==0 )
+  if( numberOfComponents==2 ) 
+  {
+    includePressure=1;  // traction BCs need the pressure
+  }
+
+  printF("fillMatrixIncompressibleElasticity: numberOfComponents=%d, numberOfComponents=%d, numGhost=%d includePressure=%d\n",
+        numberOfComponents,numberOfComponents,numGhost,includePressure); 
+
+  const int numberOfDimensions = mg.numberOfDimensions();
+
+  const bool isRectangular = mg.isRectangular();
+  Real dx[3]={1.,1.,1.};
+  if( isRectangular )
+    mg.getDeltaX(dx);
+
+  assert( isRectangular );
+
+  const IntegerArray & gid = mg.gridIndexRange();
+
+  // No boundary points: 
+  // int n = gid(1,0)-gid(0,0)+1 - 2;
+  // int m = gid(1,1)-gid(0,1)+1 - 2;
+
+  const int nd1a = gid(1,0)-gid(0,0)+1 + 2*numGhost;
+  const int nd2a = gid(1,1)-gid(0,1)+1 + 2*numGhost;
+
+  const int n1a = gid(0,0)-numGhost;
+  const int n2a = gid(0,1)-numGhost;
+
+  const int n1b = gid(1,0)+numGhost;
+  const int n2b = gid(1,1)+numGhost;
+
+  const int N = nd1a*nd2a*numberOfComponents; // total number of grid points
+
+  // int orderOfAccuracy=2;
+  const int extrapOrder = orderOfAccuracy+1;  // what should this be?
+
+  const Real extraplapCoeff3[] = {1.,-3.,3.,-1.};
+  const Real extraplapCoeff4[] = {1.,-4.,6.,-4.,1.};
+  const Real extraplapCoeff5[] = {1.,-5.,10.,-10.,5.,-1.};
+  const Real extraplapCoeff6[] = {1.,-6.,15.,-20.,15.,-6.,1.};
+  const Real extraplapCoeff7[] = {1.,-7.,21.,-35.,35.,-21.,7.,-1.};
+  const Real extraplapCoeff8[] = {1.,-8.,28.,-56.,70.,-56.,28.,-8.,1.};
+  const Real extraplapCoeff9[] = {1.,-9.,36.,-84.,126.,-126.,84.,-36.,9.,-1.};
+  const Real *extraplapCoeff;
+  if( extrapOrder==3 )
+    extraplapCoeff = extraplapCoeff3;
+  else if( extrapOrder==4 )
+    extraplapCoeff = extraplapCoeff4;
+  else if( extrapOrder==5 )
+    extraplapCoeff = extraplapCoeff5;
+  else if( extrapOrder==6 )
+    extraplapCoeff = extraplapCoeff6;
+  else if( extrapOrder==7 )
+    extraplapCoeff = extraplapCoeff7;    
+  else if( extrapOrder==8 )
+    extraplapCoeff = extraplapCoeff8;     
+  else if( extrapOrder==9 )
+    extraplapCoeff = extraplapCoeff9;               
+  else
+   {
+    printF("fillMatrixIncompressibleElasticity:: unexpected extrapOrder=%d\n",extrapOrder);
+    OV_ABORT("ERROR");
+   }
+
+  int i1,i2,i3;
+
+  // int N = n*m;
+  // int N = nd1a*nd2a*numberOfComponents;
+
+  // ----- MATRIX A -----
+
+  Real dx2i = 1./(dx[0]*dx[0]);
+  Real dy2i = 1./(dx[1]*dx[1]);
+  Real diag = 2.*dx2i + 2.*dy2i; 
+
+  int hw = orderOfAccuracy/2; // stencil half with
+  int hw2 = hw+1; // half-width stencil for bi-Harmonic 
+  Range S(-hw,hw); // stencil
+  Range S2(-hw2,hw2); 
+
+  RealArray lapCoeff(S2,S2);
+  lapCoeff=0.;
+
+  RealArray biCoeff(S2,S2), xxxCoeff(S2), yyyCoeff(S2), xxxxCoeff(S2), yyyyCoeff(S2);
+  biCoeff=0.; xxxCoeff=0.; yyyCoeff=0.; xxxxCoeff=0.; yyyyCoeff=0.;
+
+  RealArray xCoeff(S2), yCoeff(S2), xxCoeff(S2), xyCoeff(S2,S2), yyCoeff(S2), xxyyCoeff(S2,S2), xxyCoeff(S2,S2), xyyCoeff(S2,S2); 
+  xCoeff=0.; yCoeff=0.; xxCoeff=0.; xyCoeff=0.; yyCoeff=0.; xxyyCoeff=0.; xxyCoeff=0.; xyyCoeff=0.;
+
+  // identity
+  RealArray idCoeff(S2); // one-d identity
+  idCoeff=0.;
+  idCoeff(0)=1.; 
+
+  RealArray iCoeff(S2,S2); // two-D identity
+  iCoeff=0.; 
+  iCoeff(0,0)=1.;
+
+  if( orderOfAccuracy==2 )
+  {
+
+
+
+    if( useWideStencils && numGhost>1 )
+    {
+      hw = hw2; // **** NOTE ***
+
+      // **** USE ORDER=4 operators where appropriate ****
+      // --- Dx and Dy coefficients ---
+      xCoeff(-2) =  1./(12.*dx[0]);
+      xCoeff(-1) = -8./(12.*dx[0]);
+      xCoeff( 0) =  0./(12.*dx[0]);
+      xCoeff(+1) =  8./(12.*dx[0]);
+      xCoeff(+2) = -1./(12.*dx[0]);
+
+      yCoeff(-2) =  1./(12.*dx[1]);
+      yCoeff(-1) = -8./(12.*dx[1]);
+      yCoeff( 0) =  0./(12.*dx[1]);
+      yCoeff(+1) =  8./(12.*dx[1]);
+      yCoeff(+2) = -1./(12.*dx[1]);    
+
+
+      xxCoeff(-2) =  -1./(12.*SQR(dx[0]));
+      xxCoeff(-1) =  16./(12.*SQR(dx[0]));
+      xxCoeff( 0) = -30./(12.*SQR(dx[0]));
+      xxCoeff(+1) =  16./(12.*SQR(dx[0]));
+      xxCoeff(+2) =  -1./(12.*SQR(dx[0]));   
+
+      yyCoeff(-2) =  -1./(12.*SQR(dx[1]));
+      yyCoeff(-1) =  16./(12.*SQR(dx[1]));
+      yyCoeff( 0) = -30./(12.*SQR(dx[1]));
+      yyCoeff(+1) =  16./(12.*SQR(dx[1]));
+      yyCoeff(+2) =  -1./(12.*SQR(dx[1]));  
+
+      // -- -Laplacian : ORDER=4 --
+      lapCoeff(0,0)  =  30./(12.*SQR(dx[0])) + 30./(12.*SQR(dx[1]));
+
+      lapCoeff(-2,0) =   1./(12.*SQR(dx[0]));
+      lapCoeff(-1,0) = -16./(12.*SQR(dx[0]));
+      lapCoeff(+1,0) = -16./(12.*SQR(dx[0]));
+      lapCoeff(+2,0) =   1./(12.*SQR(dx[0]));
+
+      lapCoeff(0,-2) =   1./(12.*SQR(dx[1]));
+      lapCoeff(0,-1) = -16./(12.*SQR(dx[1]));
+      lapCoeff(0,+1) = -16./(12.*SQR(dx[1]));   
+      lapCoeff(0,+2) =   1./(12.*SQR(dx[1])); 
+    }
+    else
+    {
+      // --- Dx and Dy coefficients ---
+      xCoeff(-1) = -1./(2.*dx[0]);
+      xCoeff(+1) =  1./(2.*dx[0]);
+
+      yCoeff(-1) = -1./(2.*dx[1]);
+      yCoeff(+1) =  1./(2.*dx[1]);
+
+      xxCoeff(-1) =  1./(SQR(dx[0]));
+      xxCoeff( 0) = -2./(SQR(dx[0]));
+      xxCoeff(+1) =  1./(SQR(dx[0]));
+
+      yyCoeff(-1) =  1./(SQR(dx[1]));
+      yyCoeff( 0) = -2./(SQR(dx[1]));
+      yyCoeff(+1) =  1./(SQR(dx[1]));        
+
+      // ----  -Delta : order=2 ----
+      lapCoeff(0,0)  =  2./SQR(dx[0]) + 2./SQR(dx[1]);
+
+      lapCoeff(-1,0) = -1./SQR(dx[0]);
+      lapCoeff(+1,0) = -1./SQR(dx[0]);
+
+      lapCoeff(0,-1) = -1./SQR(dx[1]);
+      lapCoeff(0,+1) = -1./SQR(dx[1]); 
+    } 
+
+    xxxCoeff(-2) = -1./(2.*pow(dx[0],3));
+    xxxCoeff(-1) =  2./(2.*pow(dx[0],3));
+    xxxCoeff( 0) =  0./(2.*pow(dx[0],3));
+    xxxCoeff(+1) = -2./(2.*pow(dx[0],3));
+    xxxCoeff(+2) =  1./(2.*pow(dx[0],3));
+
+    yyyCoeff(-2) = -1./(2.*pow(dx[1],3));
+    yyyCoeff(-1) =  2./(2.*pow(dx[1],3));
+    yyyCoeff( 0) =  0./(2.*pow(dx[1],3));
+    yyyCoeff(+1) = -2./(2.*pow(dx[1],3));
+    yyyCoeff(+2) =  1./(2.*pow(dx[1],3));
+
+       
+
+    // ---- Bi-Harmonic coefficients ------
+    //   Dxxxx + 2*Dxxyy + Dyyyy
+    //  Dxxxx = [ 1 -4 6 -4 1 ]/( dx^4 )
+    //          [ 1 -2  1]
+    //  Dxxyy = [-2  4 -2]/ (dx^2 dy^2)
+    //          [ 1 -2  1]
+    const Real dx2 = pow(dx[0],2.);
+    const Real dy2 = pow(dx[1],2.);
+    const Real dx4 = pow(dx[0],4.);
+    const Real dy4 = pow(dx[1],4.);
+    biCoeff(0,0)  =  6./dx4 + 6./dy4 + 2.*4./(dx2*dy2); 
+
+    biCoeff(-2,0) =  1./(dx4);
+    biCoeff(-1,0) = -4./(dx4)  -2.*2./(dx2*dy2);
+    biCoeff(+1,0) = -4./(dx4)  -2.*2./(dx2*dy2);
+    biCoeff(+2,0) =  1./(dx4);
+
+    biCoeff(0,-2) =  1./(dy4);
+    biCoeff(0,-1) = -4./(dy4)  -2.*2./(dx2*dy2);
+    biCoeff(0,+1) = -4./(dy4)  -2.*2./(dx2*dy2);   
+    biCoeff(0,+2) =  1./(dy4);   
+
+    biCoeff(-1,-1) = 2.*1./(dx2*dy2);
+    biCoeff(+1,-1) = 2.*1./(dx2*dy2);        
+    biCoeff(-1,+1) = 2.*1./(dx2*dy2);
+    biCoeff(+1,+1) = 2.*1./(dx2*dy2);  
+
+    for( int iw2=-hw2; iw2<=hw2; iw2++ )
+    {
+      for( int iw1=-hw2; iw1<=hw2; iw1++ )
+      {
+        xxyCoeff(iw1,iw2) = xxCoeff(iw1)* yCoeff(iw2); 
+        xyyCoeff(iw1,iw2) =  xCoeff(iw1)*yyCoeff(iw2); 
+      }
+    }  
+
+  }
+  else if( orderOfAccuracy==4 )
+  {
+    // ---- order=4 ----
+
+    // --- Dx and Dy coefficients ---
+    xCoeff(-2) =  1./(12.*dx[0]);
+    xCoeff(-1) = -8./(12.*dx[0]);
+    xCoeff( 0) =  0./(12.*dx[0]);
+    xCoeff(+1) =  8./(12.*dx[0]);
+    xCoeff(+2) = -1./(12.*dx[0]);
+
+    yCoeff(-2) =  1./(12.*dx[1]);
+    yCoeff(-1) = -8./(12.*dx[1]);
+    yCoeff( 0) =  0./(12.*dx[1]);
+    yCoeff(+1) =  8./(12.*dx[1]);
+    yCoeff(+2) = -1./(12.*dx[1]);    
+
+
+    xxCoeff(-2) =  -1./(12.*SQR(dx[0]));
+    xxCoeff(-1) =  16./(12.*SQR(dx[0]));
+    xxCoeff( 0) = -30./(12.*SQR(dx[0]));
+    xxCoeff(+1) =  16./(12.*SQR(dx[0]));
+    xxCoeff(+2) =  -1./(12.*SQR(dx[0]));   
+
+    yyCoeff(-2) =  -1./(12.*SQR(dx[1]));
+    yyCoeff(-1) =  16./(12.*SQR(dx[1]));
+    yyCoeff( 0) = -30./(12.*SQR(dx[1]));
+    yyCoeff(+1) =  16./(12.*SQR(dx[1]));
+    yyCoeff(+2) =  -1./(12.*SQR(dx[1]));  
+
+    for( int iw2=-hw; iw2<=hw; iw2++ )
+    {
+      for( int iw1=-hw; iw1<=hw; iw1++ )
+      {
+        xxyyCoeff(iw1,iw2) = xxCoeff(iw1)*yyCoeff(iw2); 
+      }
+    }
+
+    xxxxCoeff(-3) =  -1./(6.*pow(dx[0],4.));
+    xxxxCoeff(-2) =  12./(6.*pow(dx[0],4.));
+    xxxxCoeff(-1) = -39./(6.*pow(dx[0],4.));
+    xxxxCoeff( 0) =  56./(6.*pow(dx[0],4.));
+    xxxxCoeff(+1) = -39./(6.*pow(dx[0],4.));
+    xxxxCoeff(+2) =  12./(6.*pow(dx[0],4.));              
+    xxxxCoeff(+3) =  -1./(6.*pow(dx[0],4.));  
+
+    yyyyCoeff(-3) =  -1./(6.*pow(dx[1],4.));
+    yyyyCoeff(-2) =  12./(6.*pow(dx[1],4.));
+    yyyyCoeff(-1) = -39./(6.*pow(dx[1],4.));
+    yyyyCoeff( 0) =  56./(6.*pow(dx[1],4.));
+    yyyyCoeff(+1) = -39./(6.*pow(dx[1],4.));
+    yyyyCoeff(+2) =  12./(6.*pow(dx[1],4.));              
+    yyyyCoeff(+3) =  -1./(6.*pow(dx[1],4.));                  
+
+
+    // -- -Laplacian --
+    lapCoeff(0,0)  =  30./(12.*SQR(dx[0])) + 30./(12.*SQR(dx[1]));
+
+    lapCoeff(-2,0) =   1./(12.*SQR(dx[0]));
+    lapCoeff(-1,0) = -16./(12.*SQR(dx[0]));
+    lapCoeff(+1,0) = -16./(12.*SQR(dx[0]));
+    lapCoeff(+2,0) =   1./(12.*SQR(dx[0]));
+
+    lapCoeff(0,-2) =   1./(12.*SQR(dx[1]));
+    lapCoeff(0,-1) = -16./(12.*SQR(dx[1]));
+    lapCoeff(0,+1) = -16./(12.*SQR(dx[1]));   
+    lapCoeff(0,+2) =   1./(12.*SQR(dx[1])); 
+
+    // Delta^2 = Dxxxx + Dyyyy + 2*Dxxyy
+    for( int iw=-hw2; iw<=hw2; iw++ ) 
+    {
+      biCoeff(iw,0) += xxxxCoeff(iw);
+      biCoeff(0,iw) += yyyyCoeff(iw);
+    }
+
+    for( int iw2=-hw; iw2<=hw; iw2++ )
+    {
+      for( int iw1=-hw; iw1<=hw; iw1++ )
+      {
+        biCoeff(iw1,iw2) += 2.*xxyyCoeff(iw1,iw2);
+      }
+    }
+
+
+  }
+  else if( orderOfAccuracy==6 )
+  {
+    // ----  -Delta : order=6 ----
+    lapCoeff(0,0)  =  490./(180.*SQR(dx[0])) + 490./(180.*SQR(dx[1]));
+
+    lapCoeff(-3,0) =   -2./(180.*SQR(dx[0]));
+    lapCoeff(-2,0) =   27./(180.*SQR(dx[0]));
+    lapCoeff(-1,0) = -270./(180.*SQR(dx[0]));
+    lapCoeff(+1,0) = -270./(180.*SQR(dx[0]));
+    lapCoeff(+2,0) =   27./(180.*SQR(dx[0]));
+    lapCoeff(+3,0) =   -2./(180.*SQR(dx[0]));
+
+    lapCoeff(0,-3) =   -2./(180.*SQR(dx[1]));
+    lapCoeff(0,-2) =   27./(180.*SQR(dx[1]));
+    lapCoeff(0,-1) = -270./(180.*SQR(dx[1]));
+    lapCoeff(0,+1) = -270./(180.*SQR(dx[1]));   
+    lapCoeff(0,+2) =   27./(180.*SQR(dx[1]));   
+    lapCoeff(0,+3) =   -2./(180.*SQR(dx[1]));   
+
+    OV_ABORT("biH - finish me");
+
+  }  
+  else if( orderOfAccuracy==8 )
+  {
+    // ----  -Delta : order=8 ----
+    lapCoeff(0,0)  =  14350./(5040.*SQR(dx[0])) + 14350./(5040.*SQR(dx[1]));
+
+    lapCoeff(-4,0) =     9./(5040.*SQR(dx[0]));
+    lapCoeff(-3,0) =  -128./(5040.*SQR(dx[0]));
+    lapCoeff(-2,0) =  1008./(5040.*SQR(dx[0]));
+    lapCoeff(-1,0) = -8064./(5040.*SQR(dx[0]));
+    lapCoeff(+1,0) = -8064./(5040.*SQR(dx[0]));
+    lapCoeff(+2,0) =  1008./(5040.*SQR(dx[0]));
+    lapCoeff(+3,0) =  -128./(5040.*SQR(dx[0]));
+    lapCoeff(+4,0) =     9./(5040.*SQR(dx[0]));
+
+    lapCoeff(0,-4) =     9./(5040.*SQR(dx[1]));
+    lapCoeff(0,-3) =  -128./(5040.*SQR(dx[1]));
+    lapCoeff(0,-2) =  1008./(5040.*SQR(dx[1]));
+    lapCoeff(0,-1) = -8064./(5040.*SQR(dx[1]));
+    lapCoeff(0,+1) = -8064./(5040.*SQR(dx[1]));   
+    lapCoeff(0,+2) =  1008./(5040.*SQR(dx[1]));   
+    lapCoeff(0,+3) =  -128./(5040.*SQR(dx[1]));   
+    lapCoeff(0,+4) =     9./(5040.*SQR(dx[1])); 
+
+    OV_ABORT("biH - finish me");
+  }    
+  else
+  {
+    OV_ABORT("finish me - orderOfAccuracy");
+  }
+
+  for( int iw2=-hw2; iw2<=hw2; iw2++ )
+  {
+    for( int iw1=-hw2; iw1<=hw2; iw1++ )
+    {
+      xyCoeff(iw1,iw2) = xCoeff(iw1)*yCoeff(iw2); 
+    }
+  } 
+
+  ierr = MatCreate(PETSC_COMM_WORLD,&A);CHKERRQ(ierr);
+  ierr = MatSetSizes(A,PETSC_DECIDE,PETSC_DECIDE,N,N);CHKERRQ(ierr);
+  ierr = MatSetFromOptions(A);CHKERRQ(ierr);
+  ierr = MatSetUp(A);CHKERRQ(ierr);
+
+  ierr = MatGetOwnershipRange(A,&Istart,&Iend);CHKERRQ(ierr);
+
+  Index Iv[3], &I1=Iv[0], &I2=Iv[1], &I3=Iv[2];
+  Index Ipv[3], &Ip1=Ipv[0], &Ip2=Ipv[1], &Ip3=Ipv[2]; // bounds for pressure interior equation
+  Index Ibv[3], &Ib1=Ibv[0], &Ib2=Ibv[1], &Ib3=Ibv[2];
+  Index Igv[3], &Ig1=Igv[0], &Ig2=Igv[1], &Ig3=Igv[2];
+  int isv[3], &is1=isv[0], &is2=isv[1], &is3=isv[2];
+
+  // ---- get interior points ----
+  // int extra=-1;
+  // getIndex(gid,I1,I2,I3,extra,extra,0);
+  int ig0,ig; 
+
+  int n=0; // component number
+  const int psim = 0;  // psi component in the matrix
+  const int pm = 1;    // p component in the matrix 
+
+  // ---- Fill equation for psi points ----
+  //   bc = displacement : skip boundary for psi
+  //      = traction     : include boundary
+  getIndex(gid,I1,I2,I3);
+  for( int axis=0; axis<numberOfDimensions; axis++ )
+  {
+    int ia = bc(0,axis)==displacement ? gid(0,axis)+1 : gid(0,axis); 
+    int ib = bc(1,axis)==displacement ? gid(1,axis)-1 : gid(1,axis); 
+    Iv[axis] = Range(ia,ib); 
+  }  
+
+  printF("Psi interior equation bounds: [%d,%d][%d,%d]\n",
+               I1.getBase(),I1.getBound(),
+               I2.getBase(),I2.getBound() );
+
+  FOR_3D(i1,i2,i3,I1,I2,I3) 
+  {
+     getGlobalIndex( i1,i2,i3,psim, ig0 );
+
+     // printF("Interior: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+
+     // --- FILL BI-HARMONIC ----
+     // --- loop over stencil ---
+     for( int iw2=-hw2; iw2<=hw2; iw2++ )
+     {
+       for( int iw1=-hw2; iw1<=hw2; iw1++ )
+       {
+         Real coeff = biCoeff(iw1,iw2); 
+         // coeff = iCoeff(iw1,iw2); // *************************** TEMP
+         if( coeff != 0. )
+         {
+            getGlobalIndex( i1+iw1,i2+iw2,i3,psim, ig );
+            ierr = MatSetValue(A,ig0,ig, coeff,INSERT_VALUES);CHKERRQ(ierr); 
+
+            printMatrixEntry( ig0,ig,coeff,interiorPsi);            
+          }
+       }
+     }
+
+  } 
+  if( includePressure )
+  {
+    // --- Set bounds on pressure interior equation ---
+    //  bc=displacement : include boundary
+    //    =traction     : exclude boundary
+    getIndex(gid,Ip1,Ip2,Ip3);
+    for( int axis=0; axis<numberOfDimensions; axis++ )
+    {
+      int ia = bc(0,axis)==traction ? gid(0,axis)+1 : gid(0,axis); 
+      int ib = bc(1,axis)==traction ? gid(1,axis)-1 : gid(1,axis); 
+
+      Ipv[axis] = Range(ia,ib); 
+    }
+    printF("Pressure equation bounds for Lap: [%d,%d][%d,%d]\n",
+               Ip1.getBase(),Ip1.getBound(),
+               Ip2.getBase(),Ip2.getBound() );
+
+    FOR_3D(i1,i2,i3,Ip1,Ip2,Ip3) 
+    {
+      getGlobalIndex( i1,i2,i3,pm, ig0 );
+      // printF("Interior: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+      // --- FILL Delta for p ----
+      // --- loop over stencil ---
+      for( int iw2=-hw; iw2<=hw; iw2++ )
+      {
+        for( int iw1=-hw; iw1<=hw; iw1++ )
+        {
+          if( lapCoeff(iw1,iw2) != 0. )
+          {
+             getGlobalIndex( i1+iw1,i2+iw2,i3,pm, ig );
+             ierr = MatSetValue(A,ig0,ig, -lapCoeff(iw1,iw2),INSERT_VALUES);CHKERRQ(ierr);   // flip sign *fix me*
+
+             printMatrixEntry( ig0,ig,-lapCoeff(iw1,iw2),interiorP);                 
+           }
+        }
+      }
+    } 
+  }
+    
+  // --- fill in boundary points (constraints) ----
+  ForBoundary(side,axis)
+  {
+    getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+    if( bc(side,axis)==displacement )
+    {
+      FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+      {
+        getGlobalIndex( i1,i2,i3,psim, ig0 );
+        // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+
+        // --- Dirichlet BC for psi :
+        ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);
+
+        printMatrixEntry( ig0,ig,1.,psiDisplacementBoundaryDirichlet );  
+
+      } 
+    }
+
+    if( includePressure && bc(side,axis)==traction )  
+    {
+      // Traction BC for p:
+      //    p = 2*mu*u.x =>  p - 2*mu*psi.xy = 0 
+      //    p = 2*mu*v.y =>  p + 2*mu*psi.xy = 0 
+      FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+      {
+
+        bool tractionDisplacementCorner = false;
+        if( (axis==0 && i2==gid(0,1) && bc(0,1)==displacement) || 
+            (axis==0 && i2==gid(1,1) && bc(1,1)==displacement) ||
+            (axis==1 && i1==gid(0,0) && bc(0,0)==displacement) || 
+            (axis==1 && i1==gid(1,0) && bc(1,0)==displacement)
+          )
+        {
+          tractionDisplacementCorner=true;
+          printF("traction BC1 for p: tractionDisplacement corner found at (side,axis)=(%d,%d) (i1,i2)=(%d,%d) "
+                 "set Delta(p)=0 on boundary\n",side,axis,i1,i2);
+        }
+
+        getGlobalIndex( i1,i2,i3,pm, ig0 );
+        // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+
+
+        if( !tractionDisplacementCorner )
+        {
+          // --- Dirichlet-type BC for p :
+          ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr); 
+          Real coeff=0.;
+          // --- loop over stencil ---
+          for( int iw2=-hw; iw2<=hw; iw2++ )
+          {
+            for( int iw1=-hw; iw1<=hw; iw1++ )
+            {
+              if( axis==0 )
+                coeff = -2.*mu*xyCoeff(iw1,iw2);
+              else
+                coeff =  2.*mu*xyCoeff(iw1,iw2);
+              if( coeff != 0. )
+              {
+                getGlobalIndex( i1+iw1,i2+iw2,i3,psim, ig );
+                ierr = MatSetValue(A,ig0,ig, coeff,INSERT_VALUES);CHKERRQ(ierr);  
+                printMatrixEntry( ig0,ig,coeff,pTractionBC); 
+              }
+            }
+          } 
+        }
+        else
+        {
+          // -- traction displacement corner ---
+          // Do not set p = 2*mu*u.x = 0 since the corner seems to be singular
+          // Try this: Use : Delta(p) = 0          
+          Real coeff=0.;
+          // --- loop over stencil ---
+          for( int iw2=-hw; iw2<=hw; iw2++ )
+          {
+            for( int iw1=-hw; iw1<=hw; iw1++ )
+            {
+              Real regularizationFactor = -1./dx[0]; 
+              coeff = -lapCoeff(iw1,iw2) + regularizationFactor;
+              if( coeff != 0. )
+              {
+                getGlobalIndex( i1+iw1,i2+iw2,i3,pm, ig );
+                ierr = MatSetValue(A,ig0,ig, coeff,INSERT_VALUES);CHKERRQ(ierr);  
+                printMatrixEntry( ig0,ig,coeff,pTractionBCTractionDisplacementCorner); 
+              }
+            }
+          }           
+
+        } 
+
+      }       
+    }           
+  } 
+
+  // --- fill in ghost points (constraints) ----
+
+  ForBoundary(side,axis)
+  {
+    is1=is2=is3=0; isv[axis]=1-2*side;   // +1 on left and -1 on right 
+    getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+    FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+    {
+
+      int ghost = 1;
+      int j1 = i1 -is1*ghost, j2 = i2 -is2*ghost,  j3 = i3;  // ghost point
+
+      getGlobalIndex( j1,j2,j3,psim, ig0 );   // ghost point - put equation here 
+
+      int startGhost=2; // start extrapolation here
+      if( bc(side,axis)==displacement )
+      {
+
+        // --- Neumann BC on first ghost arg for psi ---
+
+        Real coeff=0.;
+        for( int iw=-hw; iw<=hw; iw++ )
+        {
+           if( axis==0 )
+           {
+             getGlobalIndex( i1+iw,i2,i3,psim, ig ); // centre stencil on the boundary (i1,i2,i3)
+             coeff = xCoeff(iw);
+           }
+           else
+           {
+             getGlobalIndex( i1,i2+iw,i3,psim, ig );   // centre stencil on the boundary 
+             coeff = yCoeff(iw);
+           }
+           if( coeff !=0. )
+           {
+             ierr = MatSetValue(A,ig0,ig, coeff,INSERT_VALUES);CHKERRQ(ierr);
+
+             printMatrixEntry( ig0,ig,coeff,psiDisplacementGhost1Neumann);  
+           }
+
+        }
+      }
+      else if( bc(side,axis)==traction )
+      {
+        // Traction BC: 
+        //    psi.xx - psi.yy = 0 (except at traction-traction corners)
+        bool tractionTractionCorner = false;
+        if( (axis==0 && i2==gid(0,1) && bc(0,1)==traction) || 
+            (axis==0 && i2==gid(1,1) && bc(1,1)==traction) ||
+            (axis==1 && i1==gid(0,0) && bc(0,0)==traction) || 
+            (axis==1 && i1==gid(1,0) && bc(1,0)==traction)
+          )
+        {
+          tractionTractionCorner=true;
+          printF("tractionTraction corner found at (side,axis)=(%d,%d)\n",side,axis);
+          OV_ABORT("finish me");
+        }
+
+        bool tractionDisplacementCorner = false;
+        if( (axis==0 && i2==gid(0,1) && bc(0,1)==displacement) || 
+            (axis==0 && i2==gid(1,1) && bc(1,1)==displacement) ||
+            (axis==1 && i1==gid(0,0) && bc(0,0)==displacement) || 
+            (axis==1 && i1==gid(1,0) && bc(1,0)==displacement)
+          )
+        {
+          tractionDisplacementCorner=true;
+          printF("tractionDisplacement corner found at (side,axis)=(%d,%d)\n",side,axis);
+        }
+
+
+        startGhost=3; 
+
+        if( !tractionDisplacementCorner )
+        {
+          // --- loop over stencil ---
+          for( int iw2=-hw; iw2<=hw; iw2++ )
+          {
+            for( int iw1=-hw; iw1<=hw; iw1++ )
+            {
+              Real coeff = xxCoeff(iw1)*idCoeff(iw2) - idCoeff(iw1)*yyCoeff(iw2); 
+
+              if( coeff != 0. )
+              {
+                 getGlobalIndex( i1+iw1,i2+iw2,i3,psim, ig );
+                 ierr = MatSetValue(A,ig0,ig, coeff,INSERT_VALUES);CHKERRQ(ierr);   // flip sign *fix me*
+                 printMatrixEntry( ig0,ig,coeff,psiTractionGhost1); 
+               }
+            }
+          }  
+        }
+        else
+        {
+          //      | bc=traction
+          //      |
+          //      |
+          //   G--C----  displacement
+          //      | 
+          // 
+          // Just set a Dirichlet condition for psi for the ghost point G on the extended
+          // displacement BC
+          ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr); 
+          printMatrixEntry( ig0,ig0,1.,tractionDisplacementExtendedBoundary1PsiDirichlet);   
+        }      
+
+ 
+
+        // Traction CBC for ghost=2: 
+        // Traction CBC for pressure is u_2 or u_1 equation
+        //  mu*( psi.xxx + psi.xyy) + p.y + lambda*psi.x = 0 : x=0,1
+        //  mu*( psi.xxy + psi.yyy) - p.x + lambda*psi.y = 0 : y=0,1   
+        // OR      
+        //  mu*( psi.xxx + 3*psi.xyy) + lambda*psi.x = 0 : x=0,1
+        //  mu*( psi.xxy + 3*psi.yyy) + lambda*psi.y = 0 : y=0,1        
+
+        int ghost = 2;
+        int j1 = i1 -is1*ghost, j2 = i2 -is2*ghost,  j3 = i3;  // ghost point
+
+        getGlobalIndex( j1,j2,j3,psim, ig0 );   // ghost point 2 - put equation here  
+        if( !tractionDisplacementCorner )
+        {               
+          // --- loop over stencil ---
+          Real coeff=0., pCoeff=0.; 
+          bool keepPressureTerm = false && includePressure; 
+          for( int iw2=-hw2; iw2<=hw2; iw2++ )
+          {
+            for( int iw1=-hw2; iw1<=hw2; iw1++ )
+            {
+              if( axis==0 )
+              {
+                if( !keepPressureTerm )
+                  coeff = mu*( xxxCoeff(iw1)*idCoeff(iw2) + 3.*xyyCoeff(iw1,iw2) );  
+                else
+                  coeff = mu*( xxxCoeff(iw1)*idCoeff(iw2) + xyyCoeff(iw1,iw2) );  
+
+                pCoeff = idCoeff(iw1)*yCoeff(iw2); 
+              }
+              else
+              {
+                if( !keepPressureTerm )                
+                  coeff = mu*( 3.*xxyCoeff(iw1,iw2) + idCoeff(iw1)*yyyCoeff(iw2) ); 
+                else
+                  coeff = mu*(    xxyCoeff(iw1,iw2) + idCoeff(iw1)*yyyCoeff(iw2) ); 
+
+                pCoeff = -xCoeff(iw1)*idCoeff(iw2); 
+              }
+              if( coeff != 0. )
+              {
+                getGlobalIndex( i1+iw1,i2+iw2,i3,psim, ig );
+                ierr = MatSetValue(A,ig0,ig, coeff,INSERT_VALUES);CHKERRQ(ierr); 
+
+                printMatrixEntry( ig0,ig,coeff,psiTractionGhost2psixxx);  
+              }
+              if( keepPressureTerm && pCoeff!=0. )
+              {
+                getGlobalIndex( i1+iw1,i2+iw2,i3,pm, ig );
+                ierr = MatSetValue(A,ig0,ig, pCoeff,INSERT_VALUES);CHKERRQ(ierr);
+              }
+
+            }
+          } 
+        }
+        else
+        {
+          //        | bc=traction
+          //        |
+          //        |
+          // G2--G--C----  displacement
+          //        | 
+          // 
+          // Just set a Dirichlet condition for psi for the ghost point G2 on the extended
+          // displacement BC
+          ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+          printMatrixEntry( ig0,ig0,1.,tractionDisplacementExtendedBoundary2PsiDirichlet);         
+        }
+
+      }
+ 
+
+      // -- extrapolate other ghost 
+      for( int ghost=startGhost; ghost<=numGhost; ghost++ )
+      {
+        int j1 = i1 -is1*ghost, j2 = i2 -is2*ghost,  j3 = i3;  // ghost point
+        getGlobalIndex( j1,j2,j3,psim, ig0 );
+        // printF("Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
+        for( int k=0; k<=extrapOrder; k++ )
+        {
+          getGlobalIndex( j1+is1*k,j2+is2*k,j3,psim, ig);
+          ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr); 
+          printMatrixEntry( ig0,ig,extraplapCoeff[k],extrapGhostPsi);    
+        }
+      }
+
+
+
+    } // end FOR3D
+
+
+    if( includePressure ) 
+    {
+      RealArray psiCoeff(S2,S2);
+
+      FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+      {
+        int ghost = 1;
+        int j1 = i1 -is1*ghost, j2 = i2 -is2*ghost,  j3 = i3;  // ghost point
+
+        getGlobalIndex( j1,j2,j3,pm, ig0 );   // ghost point - put equation here 
+
+        int startGhost=2; // start extrap at this ghost 
+        if( bc(side,axis)==displacement )
+        {
+          // --- Displacement BC:  Neumann BC on first ghost arg for p ---
+          //   p.x = mu*u.xx => p.x - mu*psi.xxy = 0 
+          //   p.y = mu*v.yy => p.y + mu*psi.xyy =0 
+          Real coeff=0.;
+          for( int iw=-hw; iw<=hw; iw++ )
+          {
+             if( axis==0 )
+             {
+               getGlobalIndex( i1+iw,i2,i3,pm, ig ); // centre stencil on the boundary (i1,i2,i3)
+               coeff  = xCoeff(iw);
+             }
+             else
+             {
+               getGlobalIndex( i1,i2+iw,i3,pm, ig );   // centre stencil on the boundary 
+               coeff = yCoeff(iw);
+             }
+             if( coeff !=0. )
+             {
+               ierr = MatSetValue(A,ig0,ig, coeff,INSERT_VALUES);CHKERRQ(ierr); 
+
+               printMatrixEntry( ig0,ig,coeff,displacementGhost1p); 
+             }
+          }
+
+          // At a displacement-displacement corner we just set
+          //   p.x = 0 or p.y = 0
+          bool displacementDisplacementCorner = false;
+          if( (axis==0 && i2==gid(0,1) && bc(0,1)==displacement) || 
+              (axis==0 && i2==gid(1,1) && bc(1,1)==displacement) ||
+              (axis==1 && i1==gid(0,0) && bc(0,0)==displacement) || 
+              (axis==1 && i1==gid(1,0) && bc(1,0)==displacement)
+            )
+          {
+            displacementDisplacementCorner=true;
+            printF("displacementDisplacement corner found at (side,axis)=(%d,%d)\n",side,axis);
+          }
+
+          bool tractionDisplacementCorner = false;
+          if( (axis==0 && i2==gid(0,1) && bc(0,1)==traction) || 
+              (axis==0 && i2==gid(1,1) && bc(1,1)==traction) ||
+              (axis==1 && i1==gid(0,0) && bc(0,0)==traction) || 
+              (axis==1 && i1==gid(1,0) && bc(1,0)==traction)
+            )
+          {
+            tractionDisplacementCorner=true;
+            printF("displacement BC1 for p: tractionDisplacement corner found at (side,axis)=(%d,%d) (i1,i2)=(%d,%d)for ghost=1\n",
+                   side,axis,i1,i2);
+            printF("THIS IS WRONG -- do this for now setting p.n = 0 on displacement side of a TD corner\n");
+          }
+
+          if( !displacementDisplacementCorner && !tractionDisplacementCorner )
+          {
+            if( axis==0 )
+              psiCoeff =  -mu*xxyCoeff;
+            else
+              psiCoeff =  +mu*xyyCoeff;
+
+            // --- loop over stencil ---
+            for( int iw2=-hw; iw2<=hw; iw2++ )
+            {
+              for( int iw1=-hw; iw1<=hw; iw1++ )
+              {
+                if( psiCoeff(iw1,iw2) != 0. )
+                {
+                   getGlobalIndex( i1+iw1,i2+iw2,i3,psim, ig );
+                   ierr = MatSetValue(A,ig0,ig, psiCoeff(iw1,iw2),INSERT_VALUES);CHKERRQ(ierr);
+
+                 }
+              }
+            }
+          }
+
+        }
+        else if( bc(side,axis)==traction )
+        {
+           // CBC for pressure on ghost 1:
+           //     Delta p = 0 
+          bool tractionDisplacementCorner = false;
+          if( (axis==0 && i2==gid(0,1) && bc(0,1)==displacement) || 
+              (axis==0 && i2==gid(1,1) && bc(1,1)==displacement) ||
+              (axis==1 && i1==gid(0,0) && bc(0,0)==displacement) || 
+              (axis==1 && i1==gid(1,0) && bc(1,0)==displacement)
+            )
+          {
+            tractionDisplacementCorner=true;
+            printF("traction BC2 for p: tractionDisplacement corner found at (side,axis)=(%d,%d) (i1,i2)=(%d,%d)for ghost=1 (extrapolate)\n",
+                   side,axis,i1,i2);
+          }
+
+          if( !tractionDisplacementCorner )
+          {
+            // --- FILL Delta for p ----
+            // --- loop over stencil ---
+            for( int iw2=-hw; iw2<=hw; iw2++ )
+            {
+              for( int iw1=-hw; iw1<=hw; iw1++ )
+              {
+                if( lapCoeff(iw1,iw2) != 0. )
+                {
+                   getGlobalIndex( i1+iw1,i2+iw2,i3,pm, ig );
+                   ierr = MatSetValue(A,ig0,ig, -lapCoeff(iw1,iw2),INSERT_VALUES);CHKERRQ(ierr);   // flip sign *fix me*
+
+                   printMatrixEntry( ig0,ig,-lapCoeff(iw1,iw2),interiorP);                 
+                 }
+              }
+            }
+          }
+          else
+          {
+            // traction-displacement corner -- we have already set Delta(p)=0 on the boundary
+            // Try this : just extrapolate
+            for( int k=0; k<=extrapOrder; k++ )
+            {
+              getGlobalIndex( j1+is1*k,j2+is2*k,j3,pm, ig);
+              ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr); 
+
+              printMatrixEntry( ig0,ig,extraplapCoeff[k],extrapGhostTractionDisplacementCornerP);  
+            }
+          }
+
+        }
+
+        // -- extrapolate other ghost for p ---
+        for( int ghost=startGhost; ghost<=numGhost; ghost++ )
+        {
+          int j1 = i1 -is1*ghost, j2 = i2 -is2*ghost,  j3 = i3;  // ghost point
+          getGlobalIndex( j1,j2,j3,pm, ig0 );
+          // printF("Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
+          for( int k=0; k<=extrapOrder; k++ )
+          {
+            getGlobalIndex( j1+is1*k,j2+is2*k,j3,pm, ig);
+            ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr); 
+
+            printMatrixEntry( ig0,ig,extraplapCoeff[k],extrapGhostp);  
+          }
+        }
+
+      }
+    }
+
+  }  // end ForBoundary
+
+  // --- fill corners ----
+  for( int side2=0; side2<=1; side2++ ) 
+  {
+    for( int side1=0; side1<=1; side1++ ) 
+    {
+      is1=1-2*side1; is2=1-2*side2; is3=0;
+      i1 = gid(side1,0); i2=gid(side2,1); i3=0; // corner point 
+      for( int ghost2=1; ghost2<=numGhost; ghost2++ )
+      {
+        for( int ghost1=1; ghost1<=numGhost; ghost1++ )
+        {
+          int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3;  // ghost point
+          for( int n=0; n<numberOfComponents; n++ )
+          {
+            getGlobalIndex( j1,j2,j3,n, ig0 );
+            // printF("Corner Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
+            if( bc(side1,0)==displacement && bc(side2,1)==displacement )
+            {
+              // even symmetry corner for psi and p : u(-1,-1) = u(1,1)   **check me for p**
+              ierr = MatSetValue(A,ig0,ig0,1.,INSERT_VALUES);CHKERRQ(ierr);
+
+              int j1s = i1+is1*ghost1, j2s= i2+is2*ghost2, j3s=j3;   // symmetric point inside
+              getGlobalIndex( j1s,j2s,j3s,n, ig);
+              ierr = MatSetValue(A,ig0,ig,-1.,INSERT_VALUES);CHKERRQ(ierr);
+            }
+            else if( false && 
+                     n==1 && ( (bc(side1,0)==traction     && bc(side2,1)==displacement) 
+                           ||  (bc(side1,0)==displacement && bc(side2,1)==traction) ) )
+            {
+              // *** TESTING *****
+
+              // even symmetry corner p : u(-1,-1) = u(1,1)   **check me for p**
+              ierr = MatSetValue(A,ig0,ig0,1.,INSERT_VALUES);CHKERRQ(ierr);
+
+              int j1s = i1+is1*ghost1, j2s= i2+is2*ghost2, j3s=j3;   // symmetric point inside
+              getGlobalIndex( j1s,j2s,j3s,n, ig);
+              ierr = MatSetValue(A,ig0,ig,-1.,INSERT_VALUES);CHKERRQ(ierr);
+            }            
+            else if( n==0 && bc(side1,0)==displacement && bc(side2,1)==traction )
+            {
+              // symmetry in x- direction for psi u(-1,1) = u(1,1)
+              ierr = MatSetValue(A,ig0,ig0,1.,INSERT_VALUES);CHKERRQ(ierr);
+
+              int j1s = i1+is1*ghost1, j2s= j2, j3s=j3; 
+              getGlobalIndex( j1s,j2s,j3s,n, ig);
+              ierr = MatSetValue(A,ig0,ig,-1.,INSERT_VALUES);CHKERRQ(ierr);
+            }   
+            else if( n==0 && bc(side1,0)==traction && bc(side2,1)==displacement )
+            {
+              // symmetry in y-direction for psi u(-1,-1) = u(-1,1)
+              ierr = MatSetValue(A,ig0,ig0,1.,INSERT_VALUES);CHKERRQ(ierr);
+
+              int j1s = j1, j2s= i2+is2*ghost2, j3s=j3; 
+              getGlobalIndex( j1s,j2s,j3s,n, ig);
+              ierr = MatSetValue(A,ig0,ig,-1.,INSERT_VALUES);CHKERRQ(ierr);
+            }                        
+            else
+            {
+              // extrapolate corner 
+
+              for( int k=0; k<=extrapOrder; k++ )
+              {
+                getGlobalIndex( j1+is1*k,j2+is2*k,j3,n, ig);
+                ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr); 
+                if( n==0 ) 
+                {
+                  printMatrixEntry( ig0,ig,extraplapCoeff[k],extrapCornerGhostPsi);
+                }
+                else
+                {
+                  printMatrixEntry( ig0,ig,extraplapCoeff[k],extrapCornerGhostp);
+                }
+              }
+            } 
+          }           
+        }
+      }
+    }
+  }
+
+  ierr = MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+
+
+  if( saveMatlab )
+  {
+    PetscViewer viewer;
+    PetscObjectSetName((PetscObject)A, "A");
+
+    // if( false )
+    // {
+    //   PetscViewerCreate(PETSC_COMM_WORLD, &viewer);
+    //   // PetscViewerSetType(viewer, PETSCVIEWERASCII);
+    //   PetscViewerSetType(viewer, PETSCVIEWERMATLAB);
+    //   // PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB); 
+    //   PetscViewerFileSetMode(viewer, FILE_MODE_WRITE);
+    //   PetscViewerFileSetName(viewer, "eigMatA.m");
+    // }
+
+    // viewer = PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD);
+    PetscViewerASCIIOpen(PETSC_COMM_WORLD,"eigMatA.m",&viewer);
+    // PetscViewerFileSetName(viewer, "myMat.m");
+    // // ierr = PetscViewerBinaryOpen(PETSC_COMM_WORLD,filename,FILE_MODE_READ,&viewer);CHKERRQ(ierr);
+    PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);    
+
+    MatView(A,viewer);
+
+    printF("Saved Matrix A to file=[eigMatA.m]\n");
+    // PetscViewerPopFormat(viewer);
+  }
+
+//  OV_ABORT("stop here for now");
+
+  // ----- MATRIX B = Delta -----
+
+  ierr = MatCreate(PETSC_COMM_WORLD,&B);CHKERRQ(ierr);
+  ierr = MatSetSizes(B,PETSC_DECIDE,PETSC_DECIDE,N,N);CHKERRQ(ierr);
+  ierr = MatSetFromOptions(B);CHKERRQ(ierr);
+  ierr = MatSetUp(B);CHKERRQ(ierr);
+
+  ierr = MatGetOwnershipRange(B,&Istart,&Iend);CHKERRQ(ierr);
+
+  // --- B(i,j) = -Delta : interior points ----
+  // extra=-1; 
+  // getIndex(gid,I1,I2,I3,extra,extra,0);
+  printF("Matrix B: Psi interior equation bounds: [%d,%d][%d,%d]\n",
+               I1.getBase(),I1.getBound(),
+               I2.getBase(),I2.getBound() );  
+  FOR_3(i1,i2,i3,I1,I2,I3) 
+  {
+    getGlobalIndex( i1,i2,i3,psim, ig0 );
+    // printF("B ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+    // --- loop over stencil ---
+    for( int iw2=-hw; iw2<=hw; iw2++ )
+    {
+      for( int iw1=-hw; iw1<=hw; iw1++ )
+      {
+        if( lapCoeff(iw1,iw2) != 0. )
+        {
+           getGlobalIndex( i1+iw1,i2+iw2,i3,psim, ig );
+           ierr = MatSetValue(B,ig0,ig, lapCoeff(iw1,iw2),INSERT_VALUES);CHKERRQ(ierr); // FIX MAKE lap true Laplacian
+         }
+      }
+    }        
+  }
+
+  // --- fill in boundary points (constraints) ----
+  ForBoundary(side,axis)
+  {
+    is1=is2=is3=0; isv[axis]=1-2*side;   // +1 on left and -1 on right     
+    if( bc(side,axis)==traction )
+    {
+      getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+      FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+      {
+ 
+        // Traction CBC for ghost=2: 
+        // Traction CBC for pressure is u_2 or u_1 equation
+        //  mu*( psi.xxx + psi.xyy) + p.y + lambda*psi.x = 0 : x=0,1
+        //  mu*( psi.xxy + psi.yyy) - p.x + lambda*psi.y = 0 : y=0,1 
+        // OR      
+        //  mu*( psi.xxx + 3*psi.xyy) + lambda*psi.x = 0 : x=0,1
+        //  mu*( psi.xxy + 3*psi.yyy) + lambda*psi.y = 0 : y=0,1  
+
+        bool tractionDisplacementCorner = false;
+        if( (axis==0 && i2==gid(0,1) && bc(0,1)==displacement) || 
+            (axis==0 && i2==gid(1,1) && bc(1,1)==displacement) ||
+            (axis==1 && i1==gid(0,0) && bc(0,0)==displacement) || 
+            (axis==1 && i1==gid(1,0) && bc(1,0)==displacement)
+          )
+        {
+          tractionDisplacementCorner=true;
+          printF("B: tractionDisplacement corner found at (side,axis)=(%d,%d)\n",side,axis);
+        }                        
+        if( !tractionDisplacementCorner )
+        {
+          int ghost = 2;
+          int j1 = i1 -is1*ghost, j2 = i2 -is2*ghost,  j3 = i3;  // ghost point
+          getGlobalIndex( j1,j2,j3,psim, ig0 );   // ghost point 2 - put equation here  
+
+          // --- loop over stencil ---
+          Real coeff=0.;
+          for( int iw2=-hw; iw2<=hw; iw2++ )
+          {
+            for( int iw1=-hw; iw1<=hw; iw1++ )
+            {
+              if( axis==0 )
+                coeff = xCoeff(iw1)*idCoeff(iw2);
+              else
+                coeff = idCoeff(iw1)*yCoeff(iw2);
+
+              if( coeff != 0. )
+              {
+                 getGlobalIndex( i1+iw1,i2+iw2,i3,psim, ig );
+                 // Insert coefficients of lambda*psi.x or lambda*psi.y 
+                 ierr = MatSetValue(B,ig0,ig, -coeff,INSERT_VALUES);CHKERRQ(ierr);   // flip sign *fix me*  **WHY ***
+               }
+            }
+          }
+        } 
+      }// end For 3d
+    }
+  } // end for boundary 
+
+
+  if( eigOption==0 )
+  {
+    // ****OLD WAY***
+    // FILL in a small value instead of zero
+    const Real smallValue = eigOption==0 ? tol/( SQR(dx[0]) ) : 0.; // 1.e-8; 
+    ForBoundary(side,axis)
+    {
+      is1=is2=is3=0; isv[axis]=1-2*side;   // +1 on left and -1 on right       
+      getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+      FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+      {
+        for( int n=0; n<numberOfComponents; n++ )
+        {        
+          getGlobalIndex( i1,i2,i3,n, ig0 );
+          // printF("Boundary B: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+          ierr = MatSetValue(B,ig0,ig0, smallValue,INSERT_VALUES);CHKERRQ(ierr);
+        }  
+      }          
+    } 
+
+    // --- fill in ghost points (constraints) ----
+    ForBoundary(side,axis)
+    {
+      is1=is2=is3=0; isv[axis]=1-2*side;   // +1 on left and -1 on right 
+      getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+      FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+      {
+        for( int ghost=1; ghost<=numGhost; ghost++ )
+        {
+          int j1 = i1 -is1*ghost, j2 = i2 -is2*ghost,  j3 = i3;  // ghost point
+          for( int n=0; n<numberOfComponents; n++ )
+          {          
+            getGlobalIndex( j1,j2,j3,n, ig0 );
+            // printF("B Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
+            ierr = MatSetValue(B,ig0,ig0, smallValue,INSERT_VALUES);CHKERRQ(ierr);   
+          }          
+        }
+      }          
+    }  
+
+    // --- fill corners ----
+    for( int side2=0; side2<=1; side2++ ) 
+    {
+      for( int side1=0; side1<=1; side1++ ) 
+      {
+        is1=1-2*side1; is2=1-2*side2; is3=0;
+        i1 = gid(side1,0); i2=gid(side2,1); i3=0; // corner point 
+        for( int ghost2=1; ghost2<=numGhost; ghost2++ )
+        {
+          for( int ghost1=1; ghost1<=numGhost; ghost1++ )
+          {
+            int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3;  // ghost point
+            for( int n=0; n<numberOfComponents; n++ )
+            {                
+              getGlobalIndex( j1,j2,j3,n, ig0 );
+              // printF("B Corner Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
+              ierr = MatSetValue(B,ig0,ig0, smallValue,INSERT_VALUES);CHKERRQ(ierr);  
+            }                
+          }
+        }
+      }
+    }
+  }
+
+  ierr = MatAssemblyBegin(B,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(B,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+
+  if( saveMatlab )
+  {
+    PetscViewer viewer;
+    PetscObjectSetName((PetscObject)B, "B");
+
+    PetscViewerASCIIOpen(PETSC_COMM_WORLD,"eigMatB.m",&viewer);
+    PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);    
+
+    MatView(B,viewer);
+
+    printF("Saved Matrix B to file=[eigMatB.m]\n");
+
+    // PetscViewerPopFormat(viewer);
+  }
+
+
+  return 0;
+}
+
+
+// ==================================================================================
+/// \brief Compute the pressure from the displacement
+// ==================================================================================
+int Ogev::getPressureFromDisplacement( realCompositeGridFunction & uv, realCompositeGridFunction & p, 
+                                       IntegerArray & bc, int orderOfAccuracy, Real mu  )
+{
+  CompositeGrid & cg = *uv.getCompositeGrid();
+  const int numberOfDimensions = cg.numberOfDimensions();
+
+  Oges solver( cg ); 
+                      // create a solver
+  // solver.set(OgesParameters::THEsolverType,solverType);
+
+  int stencilSize = orderOfAccuracy+1;
+  CompositeGridOperators op(cg);                            // create some differential operators
+  op.setStencilSize(stencilSize);
+  op.setOrderOfAccuracy(orderOfAccuracy);  
+
+  IntegerArray boundaryConditions(2,3,cg.numberOfComponentGrids());
+  RealArray bcData(2,2,3,cg.numberOfComponentGrids());
+  boundaryConditions=OgesParameters::neumann;
+  for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+  {
+    MappedGrid & mg = cg[grid];  
+    ForBoundary(side,axis)
+    {
+      if( bc(side,axis)==displacement )
+        boundaryConditions(side,axis,grid)=OgesParameters::neumann;
+      else if( bc(side,axis)==traction )
+        boundaryConditions(side,axis,grid)=OgesParameters::dirichlet;
+    }
+  }
+
+  bcData=0.;
+  solver.setEquationAndBoundaryConditions( OgesParameters::laplaceEquation,op,boundaryConditions,bcData);
+
+  Range all;
+  realCompositeGridFunction f(cg,all,all,all);
+
+  f=0.;
+
+  Index Ib1,Ib2,Ib3;
+  Index Ig1,Ig2,Ig3;
+  // ---- Assign boundary conditions ----
+  for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+  {
+    MappedGrid & mg = cg[grid];
+    realMappedGridFunction & uvg = uv[grid];
+    OV_GET_SERIAL_ARRAY(Real,f[grid],fLocal);
+
+    ForBoundary(side,axis)
+    {
+      getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+      getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3);
+      if( bc(side,axis)==displacement )
+      {
+
+        // Displacement BC: p.n = n.( mu *(u.xx + u.yy)
+        int is=1-2*side; 
+        if( axis==0 )
+        {
+          fLocal(Ig1,Ig2,Ig3) = (-is*mu)*uvg.xx(Ib1,Ib2,Ib3,0)(Ib1,Ib2,Ib3,0);
+        }
+        else
+        {
+          fLocal(Ig1,Ig2,Ig3) = (-is*mu)*uvg.yy(Ib1,Ib2,Ib3,1)(Ib1,Ib2,Ib3,1);
+        }
+        // ::display(fLocal(Ig1,Ig2,Ig3),"f(boundary) = mu*u1.xx","%9.2e ");
+        // printF("getPressure: set pressure displacement BC on (side,axis)=(%d,%d) max(|f|)=%e\n",side,axis,
+        //      max(fabs(fLocal(Ig1,Ig2,Ig3))) );        
+      }
+      else if( bc(side,axis)==traction )
+      {
+        // Traction BC: p = 2*mu*u.x : x=0
+        //                = 2*mu*v.y : y=0 
+        if( axis==0 )
+        {
+          fLocal(Ib1,Ib2,Ib3) = (2.*mu)*uvg.x(Ib1,Ib2,Ib3,0)(Ib1,Ib2,Ib3,0);
+        }
+        else
+        {
+          fLocal(Ib1,Ib2,Ib3) = (2.*mu)*uvg.y(Ib1,Ib2,Ib3,1)(Ib1,Ib2,Ib3,1);
+        }
+        // ::display(fLocal(Ib1,Ib2,Ib3),"f(boundary) = 2*mu*u1.x","%9.2e ");
+        // printF("getPressure: set pressure traction BC on (side,axis)=(%d,%d) max(|f|)=%e\n",side,axis,
+        //      max(fabs(fLocal(Ib1,Ib2,Ib3))) );
+      }
+    }
+  }
+
+  p=0.;  // initial guess for iterative solvers
+  Real time0=getCPU();
+  solver.solve( p,f );   // solve the equations
+  Real time= ParallelUtility::getMaxValue(getCPU()-time0);
+  printF("\n*** getPressureFromDisplacement : max residual=%8.2e, time for pressure solve = %8.2e (iterations=%i) ***\n",
+         solver.getMaximumResidual(),time,solver.getNumberOfIterations());
+
+
+  return 0;
+}
+
+// =================================================================
+/// \brief Check residuals in psi equations 
+// =================================================================
+int Ogev::
+checkResidualsInPsi( int eigc, RealArray & eig, realMappedGridFunction & u, CompositeGrid & cg,  
+                     CompositeGridOperators & cgop, IntegerArray & bc, 
+                     int numberOfComponents, int orderOfAccuracy, int useWideStencils, Real mu, int includePressure )
+{
+
+  const Real lambda = eig(0,eigc);  
+
+  printF("\n>>> check residuals in psi equations: eigc=%d, lambda=%10.6f, orderOfAccuracy=%d, useWideStencils=%d\n",
+        eigc,lambda,orderOfAccuracy,useWideStencils);
+
+
+  const int psim = 0 + numberOfComponents*(eigc); // index for psi
+  const int pm   = 1 + numberOfComponents*(eigc); // index for p             
+
+  const int hw = orderOfAccuracy/2; // stencil half-width 
+
+  const int numberOfDimensions = cg.numberOfDimensions();
+  Index Iv[3],  &I1  =Iv[0], &I2  =Iv[1], &I3=  Iv[2];
+  Index Jv[3],  &J1  =Jv[0], &J2  =Jv[1], &J3=  Jv[2];
+  Index Dv[3],  &D1  =Dv[0], &D2  =Dv[1], &D3=  Dv[2];
+  Index Ibv[3], &Ib1=Ibv[0], &Ib2=Ibv[1], &Ib3=Ibv[2];
+  Index Igv[3], &Ig1=Igv[0], &Ig2=Igv[1], &Ig3=Igv[2];
+
+  realCompositeGridFunction res(cg);
+  res=0.; 
+  for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+  {
+    MappedGrid & mg = cg[grid];
+    const IntegerArray & gid = mg.gridIndexRange();
+    MappedGridOperators & mgop = cgop[grid];
+
+    // const bool isRectangular = mg.isRectangular();
+    // Real dx[3]={1.,1.,1.};
+    // if( isRectangular )
+    //   mg.getDeltaX(dx);
+
+    getIndex(mg.dimension(),D1,D2,D3);
+    getIndex(mg.dimension(),J1,J2,J3,-hw);
+
+    // --- check interior equations first ---
+
+    // int extra=-1; // ** FIX ME *****************
+    // getIndex(mg.gridIndexRange(),I1,I2,I3,extra);
+    // ---- Interior equation for psi ----
+    //   bc = displacement : skip boundary for psi
+    //      = traction     : include boundary
+    getIndex(gid,I1,I2,I3);
+    for( int axis=0; axis<numberOfDimensions; axis++ )
+    {
+      int ia = bc(0,axis)==displacement ? gid(0,axis)+1 : gid(0,axis); 
+      int ib = bc(1,axis)==displacement ? gid(1,axis)-1 : gid(1,axis); 
+      Iv[axis] = Range(ia,ib); 
+    }      
+
+    OV_GET_SERIAL_ARRAY(Real,u,uLocal);
+    OV_GET_SERIAL_ARRAY(Real,res[grid],resLocal);
+
+    RealSerialArray lap(D1,D2,D3), lapSq(D1,D2,D3), resb(D1,D2,D3);
+    RealSerialArray ux(D1,D2,D3); 
+    RealSerialArray & uxx = lap; // reuse space
+    RealSerialArray & uyy = lapSq; // reuse space
+    mgop.derivative(MappedGridOperators::laplacianOperator,uLocal,lap,J1,J2,J3,psim);
+    mgop.derivative(MappedGridOperators::laplacianOperator,lap,lapSq,J1,J2,J3,psim);
+
+    if( useWideStencils )
+    {
+      // Eval lap to higer order
+      mgop.setOrderOfAccuracy( orderOfAccuracy+2 );
+      mgop.derivative(MappedGridOperators::laplacianOperator,uLocal,lap,J1,J2,J3,psim);
+      // mgop.setOrderOfAccuracy( orderOfAccuracy );  // reset 
+    }
+
+    resLocal(I1,I2,I3) = lapSq(I1,I2,I3) + lambda*lap(I1,I2,I3);
+
+    // --- check boundary conditions ----
+    Real boundaryRes1=0., boundaryRes2=0.; 
+    ForBoundary(side,axis) 
+    {
+      if( bc(side,axis)==displacement )
+      {
+        getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+        if( axis==0 )
+        {
+          mgop.derivative(MappedGridOperators::xDerivative,uLocal,ux,Ib1,Ib2,Ib3,psim);
+        }
+        else
+        {
+          mgop.derivative(MappedGridOperators::yDerivative,uLocal,ux,Ib1,Ib2,Ib3,psim);
+        }
+        boundaryRes1 = max( fabs(u(Ib1,Ib2,Ib3,psim)) );    // psi = 0 ? 
+        boundaryRes2 = max( fabs(ux(Ib1,Ib2,Ib3))     );    // psi.n = 0 ? 
+      }
+      else if( bc(side,axis)==traction )
+      { 
+        int extra=-1;   // skip ends for now
+        getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3,extra);
+
+        mgop.derivative(MappedGridOperators::xxDerivative,uLocal,uxx,Ib1,Ib2,Ib3,psim);
+        mgop.derivative(MappedGridOperators::yyDerivative,uLocal,uyy,Ib1,Ib2,Ib3,psim);
+        ux(Ib1,Ib2,Ib3) = uxx(Ib1,Ib2,Ib3) - uyy(Ib1,Ib2,Ib3);
+        // display(ux(Ib1,Ib2,Ib3),"resid in u.xx - u.yy","%9.2e ");
+        boundaryRes1 = max(fabs( ux(Ib1,Ib2,Ib3) ));          // psi.xx - psi.yy = 0 ? 
+
+        realSerialArray & uxxx = lap;
+        realSerialArray & uxyy = lapSq;
+        if( axis==0 )
+        {
+          // first eval ux,and use this to compute uxxx and uxyy
+          mgop.derivative(MappedGridOperators::xDerivative,uLocal,ux,J1,J2,J3,psim); // over kill
+
+          mgop.derivative(MappedGridOperators::xxDerivative,ux,uxxx,Ib1,Ib2,Ib3,psim);
+          mgop.derivative(MappedGridOperators::yyDerivative,ux,uxyy,Ib1,Ib2,Ib3,psim);
+        }
+        else
+        {
+          mgop.derivative(MappedGridOperators::yDerivative,uLocal,ux,J1,J2,J3,psim);        // really psi.y, over kill
+
+          mgop.derivative(MappedGridOperators::yyDerivative,ux,uxxx,Ib1,Ib2,Ib3,psim); // really psi.yyy
+          mgop.derivative(MappedGridOperators::xxDerivative,ux,uxyy,Ib1,Ib2,Ib3,psim); // really psi.xxy 
+
+        }
+        ux(Ib1,Ib2,Ib3) = mu*( uxxx(Ib1,Ib2,Ib3) + 3.*uxyy(Ib1,Ib2,Ib3) ) + lambda*ux(Ib1,Ib2,Ib3);
+        boundaryRes2 = max(fabs( ux(Ib1,Ib2,Ib3) ));         
+      }
+      printF(" (side,axis)=(%d,%d) bc=%s : boundary residuals=[%8.2e,%8.2e]\n",
+               side,axis,(const char*)bcName(bc(side,axis)),boundaryRes1,boundaryRes2);
+    }
+
+  }
+  Real resMax = maxNorm(res); 
+  printF(" Max residual in Delta^2(psi) + lambda*Delta(psi) = %8.2e\n",resMax);
+  printF("\n"); 
+
+
+  if( includePressure )
+  {
+    // --- check residuals in the p equations ----
+    res=0.; 
+    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+    {
+      MappedGrid & mg = cg[grid];
+      const IntegerArray & gid = mg.gridIndexRange();
+      MappedGridOperators & mgop = cgop[grid];
+
+      getIndex(mg.dimension(),D1,D2,D3);
+      getIndex(mg.dimension(),J1,J2,J3,-hw);
+
+      // --- check interior equations first ---
+
+      getIndex(gid,I1,I2,I3);
+      for( int axis=0; axis<numberOfDimensions; axis++ )
+      {
+        int ia = bc(0,axis)==traction ? gid(0,axis)+1 : gid(0,axis); 
+        int ib = bc(1,axis)==traction ? gid(1,axis)-1 : gid(1,axis); 
+        Iv[axis] = Range(ia,ib); 
+      }      
+
+      OV_GET_SERIAL_ARRAY(Real,u,uLocal);
+      OV_GET_SERIAL_ARRAY(Real,res[grid],resLocal);
+
+      RealSerialArray lap(D1,D2,D3), px(D1,D2,D3), uxx(D1,D2,D3), uxxy(D1,D2,D3); 
+      RealSerialArray & uxy = uxx; // reuse space
+      RealSerialArray & uyy = uxx; // reuse space
+      RealSerialArray & uxyy = uxxy; // reuse space
+      RealSerialArray & py = px; // reuse space
+
+      if( !useWideStencils )
+      {
+        mgop.derivative(MappedGridOperators::laplacianOperator,uLocal,lap,J1,J2,J3,pm);
+      }
+      else
+      {
+        // Eval lap to higer order
+        mgop.setOrderOfAccuracy( orderOfAccuracy+2 );
+        mgop.derivative(MappedGridOperators::laplacianOperator,uLocal,lap,J1,J2,J3,pm);
+
+      }
+
+      resLocal(I1,I2,I3) = lap(I1,I2,I3);
+
+      // --- check boundary conditions ----
+      Real boundaryRes1=0., boundaryRes2=0.; 
+      ForBoundary(side,axis) 
+      {
+        if( bc(side,axis)==displacement )
+        {
+          int extra=-1; // skip ends - DO THIS FOR NOW -- FIX ME 
+          getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3,extra);
+          getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3,1,extra);
+          if( axis==0 )
+          {
+
+            mgop.derivative(MappedGridOperators::xxDerivative,uLocal,uxx,D1,D2,D3,psim); // over kill
+            mgop.derivative(MappedGridOperators::yDerivative,uxx,uxxy,Ib1,Ib2,Ib3,psim);
+
+            mgop.derivative(MappedGridOperators::xDerivative,uLocal,px,Ib1,Ib2,Ib3,pm);  // p.x 
+
+            resLocal(Ig1,Ig2,Ig3) = px(Ib1,Ib2,Ib3) - mu*uxxy(Ib1,Ib2,Ib3); 
+            boundaryRes1 = max( fabs(resLocal(Ig1,Ig2,Ig3)) );                                // p.x = mu*u1.xx = mu*psi.xxy
+          }
+          else
+          {
+            mgop.derivative(MappedGridOperators::yyDerivative,uLocal,uyy,D1,D2,D3,psim); // over kill
+            mgop.derivative(MappedGridOperators::xDerivative,uyy,uxyy,Ib1,Ib2,Ib3,psim);
+
+            mgop.derivative(MappedGridOperators::yDerivative,uLocal,py,Ib1,Ib2,Ib3,pm); // p.y 
+
+            resLocal(Ig1,Ig2,Ig3) = py(Ib1,Ib2,Ib3) + mu*uxyy(Ib1,Ib2,Ib3);                  // p.y = mu*u2.yy = -mu*psi.xyy
+            boundaryRes1 = max( fabs(resLocal(Ig1,Ig2,Ig3)) );                             
+          }
+
+        }
+        else if( bc(side,axis)==traction )
+        { 
+          int extra=-1;
+          getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3,extra);
+          getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3,1,extra);
+
+          mgop.derivative(MappedGridOperators::xyDerivative,uLocal,uxy,Ib1,Ib2,Ib3,psim);
+
+          // p = 2*mu*u1.x =  2*mu*psi.xy     x=0 
+          //   = 2*mu*u2.y = -2*mu*psi.xy     y=0      
+          Real sign = axis==0 ? 1. : -1; 
+          resLocal(Ig1,Ig2,Ig3) = u(Ib1,Ib2,Ib3,pm) - 2.*sign*mu*uxy(Ib1,Ib2,Ib3);                 
+
+          // display(resLocal(Ig1,Ig2,Ig3),"traction BC residual","%8.1e ");
+
+          boundaryRes1 = max( fabs(resLocal(Ig1,Ig2,Ig3)) );
+
+        }
+        printF(" Pressure: (side,axis)=(%d,%d) bc=%s : boundary residual=%8.2e\n",
+                 side,axis,(const char*)bcName(bc(side,axis)),boundaryRes1);
+      }
+
+    }
+    Real resMax = maxNorm(res); 
+    printF(" Max residual in Delta(p) = %8.2e\n",resMax);
+    printF("\n");
+
+
+
+
+  }
+
+
+  return 0;
+}
+
+

@@ -1,0 +1,1492 @@
+// This file automatically generated from fillMatrixLaplacian.bC with bpp.
+
+
+#include "mpi.h"
+#include "Overture.h"
+#include "display.h"
+// #include "PlotStuff.h"  
+// #include "SquareMapping.h" 
+// #include "Ogshow.h"
+
+#include "CompositeGridOperators.h"
+#include "SparseRep.h" 
+#include "Oges.h"
+#include "ParallelUtility.h"
+#include "gridFunctionNorms.h"
+// #include "CgSolverUtil.h"
+
+#include "Ogev.h"
+
+
+
+// Boundary conditions:
+const int periodic=-1, interpolation=0, displacement=1, traction=2, dirichlet=1, neumann=2;
+
+#define FOR_3D(i1,i2,i3,I1,I2,I3) int I1Base =I1.getBase(),   I2Base =I2.getBase(),  I3Base =I3.getBase();  int I1Bound=I1.getBound(),  I2Bound=I2.getBound(), I3Bound=I3.getBound(); for(i3=I3Base; i3<=I3Bound; i3++) for(i2=I2Base; i2<=I2Bound; i2++) for(i1=I1Base; i1<=I1Bound; i1++)  
+
+#define FOR_3(i1,i2,i3,I1,I2,I3) I1Base =I1.getBase(),   I2Base =I2.getBase(),  I3Base =I3.getBase();  I1Bound=I1.getBound(),  I2Bound=I2.getBound(), I3Bound=I3.getBound(); for(i3=I3Base; i3<=I3Bound; i3++) for(i2=I2Base; i2<=I2Bound; i2++) for(i1=I1Base; i1<=I1Bound; i1++)  
+
+#define ForBoundary(side,axis)   for( int axis=0; axis<numberOfDimensions; axis++ ) for( int side=0; side<=1; side++ )  
+
+
+#define nab(side,axis,p,grid) pnab[(side)+2*( (axis) + 3*( (p) + numberOfProcessors*( (grid) ) ) )]
+#define ndab(axis,p,grid) (nab(1,axis,p,grid)-nab(0,axis,p,grid)+1)
+#define noffset(p,grid) pnoffset[(p)+numberOfProcessors*(grid)]
+
+// ============================================================================
+// Compute the global matrix index ig from the grid-function index (i1,i2,i3,n)
+// ===========================================================================
+
+// =================================================================================
+// Compute the local grid-function index (i1,i2,i3,n) from the global matrix index ig
+// ================================================================================
+// #beginMacro getLocalIndex( ig,i1,i2,i3,n )
+//    i3 = 0;
+//    n = ig/(nd1a*nd2a); 
+//    i2 = n2a + (ig- nd1a*nd2a*(n) )/nd1a;
+//    i1 = ig + n1a - nd1a*( (i2)-n2a + nd2a*(n) );
+// #endMacro
+
+
+// =============================================================================
+// Macro: get the coefficients for the -Laplacian, rectangular grids   
+// =============================================================================
+    
+#define ForStencil(m1,m2,m3)   for( m3=-halfWidth3; m3<=halfWidth3; m3++) for( m2=-halfWidth2; m2<=halfWidth2; m2++) for( m1=-halfWidth1; m1<=halfWidth1; m1++)
+
+
+// Use these for indexing into coefficient matrices 
+#define M123(m1,m2,m3) (m1+halfWidth1+width*(m2+halfWidth2+width*(m3+halfWidth3)))      
+
+// ================================================================
+// Macro: 
+// ---- Find the index range for the interior equations ----  
+// ================================================================
+
+// ======================================================================================
+//  Macro: Fill coefficients for ghost points along an EDGE in 3D where two faces meet
+// ======================================================================================
+
+// ======================================================================================
+//  Macro: Fill coefficients for ghost points at a VERTEX in 3D 
+// ======================================================================================
+
+// ==================================================================================
+// Fill in the PETSc matrices A and B 
+//          minus-Laplacian 
+/// \param lambdaShift : diagonal shift   :
+///      - Delta  I   
+// ==================================================================================
+int Ogev::
+fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, CompositeGridOperators & cgop, 
+                                          Mat & A, Mat & B, int numGhost, bool useNew, 
+                                          Real tol, int eigOption, IntegerArray & bc, int saveMatlab, Real lambdaShift )
+{
+
+    CompositeGrid & cg = *ucg.getCompositeGrid();
+
+    PetscBool flag;
+    int Istart,Iend,ierr;
+
+    const int numberOfDimensions = cg.numberOfDimensions();
+
+    assert( numGhost == (orderOfAccuracy/2) );
+
+
+  // int orderOfAccuracy=2;
+    const int extrapOrder = orderOfAccuracy+1;
+
+    const Real extraplapCoeff3[] = {1.,-3.,3.,-1.};
+    const Real extraplapCoeff4[] = {1.,-4.,6.,-4.,1.};
+    const Real extraplapCoeff5[] = {1.,-5.,10.,-10.,5.,-1.};
+    const Real extraplapCoeff6[] = {1.,-6.,15.,-20.,15.,-6.,1.};
+    const Real extraplapCoeff7[] = {1.,-7.,21.,-35.,35.,-21.,7.,-1.};
+    const Real extraplapCoeff8[] = {1.,-8.,28.,-56.,70.,-56.,28.,-8.,1.};
+    const Real extraplapCoeff9[] = {1.,-9.,36.,-84.,126.,-126.,84.,-36.,9.,-1.};
+    const Real *extraplapCoeff;
+    if( extrapOrder==3 )
+        extraplapCoeff = extraplapCoeff3;
+    else if( extrapOrder==4 )
+        extraplapCoeff = extraplapCoeff4;
+    else if( extrapOrder==5 )
+        extraplapCoeff = extraplapCoeff5;
+    else if( extrapOrder==6 )
+        extraplapCoeff = extraplapCoeff6;
+    else if( extrapOrder==7 )
+        extraplapCoeff = extraplapCoeff7;    
+    else if( extrapOrder==8 )
+        extraplapCoeff = extraplapCoeff8;     
+    else if( extrapOrder==9 )
+        extraplapCoeff = extraplapCoeff9;               
+    else
+      {
+        printF("fillMatrixLaplacian:: unexpected extrapOrder=%d\n",extrapOrder);
+        OV_ABORT("ERROR");
+      }
+
+  // ---- Count the total number of grid points -----
+  // const int numberOfComponents=1; 
+  // int totalNumberOfGridPoints=0; 
+
+  // // gridOffset(grid) = total number of points on previous grids
+  // int *pGridOffset = new int [cg.numberOfComponentGrids()+1];
+  // #define gridOffset(grid) pGridOffset[grid]
+
+  // int *pnd1 = new int [cg.numberOfComponentGrids()];
+  // #define nd1(grid) pnd1[grid]
+  // int *pnd2 = new int [cg.numberOfComponentGrids()];
+  // #define nd2(grid) pnd2[grid]  
+  // int *pnd3 = new int [cg.numberOfComponentGrids()];
+  // #define nd3(grid) pnd3[grid]  
+
+
+
+  // gridOffset(0)=0; 
+  // for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+  // {
+  //   MappedGrid & mg = cg[grid];
+  //   const IntegerArray & gid = mg.gridIndexRange();
+  //   const int nd1a = gid(1,0)-gid(0,0)+1 + 2*numGhost;
+  //   const int nd2a = gid(1,1)-gid(0,1)+1 + 2*numGhost;
+  //   const int nd3a = numberOfDimensions == 2 ? 1 : gid(1,2)-gid(0,2)+1 + 2*numGhost;
+  //   const int n1a = gid(0,0)-numGhost;
+  //   const int n2a = gid(0,1)-numGhost;
+  //   const int n1b = gid(1,0)+numGhost;
+  //   const int n2b = gid(1,1)+numGhost;  
+
+  //   const int numPointsThisGrid = nd1a*nd2a*nd3a*numberOfComponents; 
+  //   totalNumberOfGridPoints += numPointsThisGrid; // total number of grid points  
+  //   gridOffset(grid+1) = gridOffset(grid) + numPointsThisGrid; 
+
+  //   nd1(grid) = nd1a;  
+  //   nd2(grid) = nd2a;  
+  //   nd3(grid) = nd3a;  
+
+
+  // }
+    printF("#### fillMatrixLaplacian: numberOfComponentGrids=%d, numberOfGridPoints=%d\n",
+                  cg.numberOfComponentGrids(),numberOfGridPoints);
+
+
+    const int N = numberOfGridPoints;
+    const int n=0; // component number   
+    const int p=0; // processor number 
+    int ige;  
+
+
+    Index Iv[3], &I1=Iv[0], &I2=Iv[1], &I3=Iv[2];
+    Index Ibv[3], &Ib1=Ibv[0], &Ib2=Ibv[1], &Ib3=Ibv[2];
+    Index Igv[3], &Ig1=Igv[0], &Ig2=Igv[1], &Ig3=Igv[2];
+    int isv[3], &is1=isv[0], &is2=isv[1], &is3=isv[2];
+    int iv[3], &i1=iv[0], &i2=iv[1], &i3=iv[2];
+    int jv[3], &j1=jv[0], &j2=jv[1], &j3=jv[2];
+
+    int m1,m2,m3;
+
+  // stencil width's and half-width's :
+    const int width = orderOfAccuracy+1;
+  // const int width      = stencilWidth;
+    const int halfWidth1 = (width-1)/2;
+    const int halfWidth2 = numberOfDimensions>1 ? halfWidth1 : 0;
+    const int halfWidth3 = numberOfDimensions>2 ? halfWidth1 : 0;
+
+    const int stencilSize = numberOfDimensions==2 ? width*width : width*width*width;  
+    Range M0 = stencilSize;              
+
+
+  // ===============================================
+  // ================ MATRIX A =====================
+  // ===============================================
+
+
+  // --- ESTIMATE SPACE NEEDED ----
+    const int numberOfEquations = numberOfGridPoints*numberOfComponents;
+
+  // nzzAlloc[i] = estimated number of non-zeros per row i 
+    int *nzzAlloc = new int [numberOfEquations]; assert( nzzAlloc != NULL );
+    for( int i=0; i<numberOfEquations; i++ )
+    {
+        nzzAlloc[i]=1; // default 
+    }
+
+    int ig0, ig; // holds global index numbers
+    if( true )
+    {
+        for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+        {
+            MappedGrid & mg = cg[grid];
+            const IntegerArray & gid = mg.gridIndexRange();
+      // const IntegerArray & dim = mg.dimension();
+      // const IntegerArray & bc = mg.boundaryCondition();
+
+            mg.update(MappedGrid::THEmask );
+            OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
+
+      // ---- Find the index range for the interior equations ----
+        //int extra=-1;
+        //getIndex(gid,I1,I2,I3,extra,extra,0);
+                Iv[2]=Range(0,0); 
+                for( int axis=0; axis<numberOfDimensions; axis++ )
+                {
+          // int n1=Iv[axis].getBase(), n2=Iv[axis].getBound();
+                    int n1=gid(0,axis)+1, n2=gid(1,axis)-1; // default interior points 
+                    if( mg.boundaryCondition(0,axis)<=0 || mg.boundaryCondition(0,axis)==neumann )
+                        n1 = gid(0,axis); // include left boundary in interior,  if bc = periodic, interp or neuman 
+                    if( mg.boundaryCondition(1,axis)==0 || mg.boundaryCondition(1,axis)==neumann )
+                        n2 = gid(1,axis); // include right boundary in interior,  if bc = periodic, interp or neuman 
+                    Iv[axis] = Range(n1,n2);
+                }
+      // ---- interior points ----
+            FOR_3D(i1,i2,i3,I1,I2,I3) 
+            {
+          // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+          // assert( ig0>=0 && ig0<N );
+          // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+          // assert( ig0==ige );
+          // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+          // inline Ogev::getGlobalIndex
+                    ig0 = (n) + numberOfComponents*(
+                                  ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                    (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                    (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+
+                if( maskLocal(i1,i2,i3)>0 )
+                {
+          // assert( ig0>=0 && ig0<numberOfEquations );
+                    nzzAlloc[ig0]=stencilSize;
+                }
+                else if( maskLocal(i1,i2,i3)<0 ) 
+                {
+          // assert( ig0>=0 && ig0<numberOfEquations );
+                    nzzAlloc[ig0]=stencilSize+1;          
+                }
+            }
+      // ---  boundaries and ghost ----
+            ForBoundary(side,axis)
+            {
+                const int is = 1 - 2*side; 
+                for( int ghost=0; ghost<=numGhost; ghost++ )
+                {
+                    int extra = numGhost;
+                    getBoundaryIndex(gid,side,axis,Ig1,Ig2,Ig3,extra);
+                    Igv[axis] = gid(side,axis) - is*ghost;
+                    FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+                    {
+              // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+              // assert( ig0>=0 && ig0<N );
+              // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+              // assert( ig0==ige );
+              // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+              // inline Ogev::getGlobalIndex
+                            ig0 = (n) + numberOfComponents*(
+                                          ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                            (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                            (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                        if( maskLocal(i1,i2,i3)>0 )
+                        {
+              // assert( ig0>=0 && ig0<numberOfEquations );
+                            nzzAlloc[ig0]=stencilSize;              
+              // nzzAlloc[ig0]=stencilSize+1;  // do this for now : could improve for extrapolation
+                        }
+                        else if( maskLocal(i1,i2,i3)<0 ) 
+                        {
+                            nzzAlloc[ig0]=stencilSize+1; // interpolation point 
+                        }   
+                    }
+                }
+            }
+
+        } // end for grid 
+
+    }
+  // PETSc NOW recommends: 
+  // It is recommended that one use the MatCreate(), MatSetType() and/or MatSetFromOptions(), MatXXXXSetPreallocation() paradigm 
+  // instead of this routine directly. [MatXXXXSetPreallocation() is, for example, MatSeqAIJSetPreallocation]
+
+    const int numberOfNonZerosPerRow = stencilSize; // number of non-zeros per row (IGNORED if nzzAlloc is given)
+    ierr = MatCreateSeqAIJ(PETSC_COMM_WORLD,numberOfEquations,numberOfEquations,numberOfNonZerosPerRow,nzzAlloc,&A); CHKERRQ(ierr);
+
+  //ierr = MatCreate(PETSC_COMM_WORLD,&A);CHKERRQ(ierr);
+  //ierr = MatSetSizes(A,PETSC_DECIDE,PETSC_DECIDE,N,N);CHKERRQ(ierr);
+
+    ierr = MatSetFromOptions(A);CHKERRQ(ierr);
+    ierr = MatSetUp(A);CHKERRQ(ierr);
+
+    ierr = MatGetOwnershipRange(A,&Istart,&Iend);CHKERRQ(ierr);
+
+
+
+
+  // --------------- START LOOP OVER GRIDS ------------------
+    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+    {
+        MappedGrid & mg = cg[grid];
+        const IntegerArray & gid = mg.gridIndexRange();
+        const IntegerArray & dim = mg.dimension();
+        const IntegerArray & bc = mg.boundaryCondition();
+
+        mg.update(MappedGrid::THEmask );
+        OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
+
+        MappedGridOperators & mgop = cgop[grid];    
+
+        const int nd1a = gid(1,0)-gid(0,0)+1 + 2*numGhost;
+        const int nd2a = gid(1,1)-gid(0,1)+1 + 2*numGhost;
+
+        const int n1a = gid(0,0)-numGhost;
+        const int n2a = gid(0,1)-numGhost;
+
+        const int n1b = gid(1,0)+numGhost;
+        const int n2b = gid(1,1)+numGhost;
+
+        Real cpu0 = getCPU();
+        printF("  fillMatrixLaplacian grid=%d (%s) ...\n",grid,(const char*)mg.getName()); fflush(0);
+
+    // int numberOfComponents=1; 
+    // const int N = nd1a*nd2a*numberOfComponents; // total number of grid points
+
+
+    // ---- Find the index range for the interior equations ----
+      //int extra=-1;
+      //getIndex(gid,I1,I2,I3,extra,extra,0);
+            Iv[2]=Range(0,0); 
+            for( int axis=0; axis<numberOfDimensions; axis++ )
+            {
+        // int n1=Iv[axis].getBase(), n2=Iv[axis].getBound();
+                int n1=gid(0,axis)+1, n2=gid(1,axis)-1; // default interior points 
+                if( mg.boundaryCondition(0,axis)<=0 || mg.boundaryCondition(0,axis)==neumann )
+                    n1 = gid(0,axis); // include left boundary in interior,  if bc = periodic, interp or neuman 
+                if( mg.boundaryCondition(1,axis)==0 || mg.boundaryCondition(1,axis)==neumann )
+                    n2 = gid(1,axis); // include right boundary in interior,  if bc = periodic, interp or neuman 
+                Iv[axis] = Range(n1,n2);
+            }
+
+    // SHOULD SET MANY VALUES AT ONCE FOR EFFICIENCY
+
+    // #include "petscmat.h" 
+    // PetscErrorCode MatSetValues(Mat mat,PetscInt m,const PetscInt idxm[],PetscInt n,const PetscInt idxn[],const PetscScalar v[],InsertMode addv)
+    // Not Collective
+    // Input Parameters
+
+    // mat - the matrix
+    // v - a logically two-dimensional array of values
+    // m, idxm - the number of rows and their global indices
+    // n, idxn - the number of columns and their global indices
+    // addv  - either ADD_VALUES or INSERT_VALUES, where ADD_VALUES adds values to any existing entries, and INSERT_VALUES replaces existing entries with new values
+    // Notes    
+
+
+        int ig0,ig;  
+
+        bool isRectangular = mg.isRectangular();
+    // isRectangular = false; // ************************ TEMP *********************
+
+
+        if(  isRectangular )
+        {
+      // ------- RECTANGULAR GRID ------
+
+            Real dx[3]={1.,1.,1.};
+            mg.getDeltaX(dx);
+
+      // These are really  coeff of -Delta
+                Real dx2i = 1./(dx[0]*dx[0]);
+                Real dy2i = 1./(dx[1]*dx[1]);
+                Real diag = 2.*dx2i + 2.*dy2i; 
+                const int hw = orderOfAccuracy/2; // stencil half with
+                const int hw3 = numberOfDimensions==3 ? hw : 0;
+                RealArray lapCoeff;
+                Range S(-hw,hw); // stencil
+                if( numberOfDimensions==2 )
+                {
+                    lapCoeff.redim(S,S);
+                    lapCoeff=0.;
+                    if( orderOfAccuracy==2 )
+                    {
+            // ----  -Delta : order=2 ----
+                        lapCoeff(0,0)  =  2./SQR(dx[0]) + 2./SQR(dx[1]);
+                        lapCoeff(-1,0) = -1./SQR(dx[0]);
+                        lapCoeff(+1,0) = -1./SQR(dx[0]);
+                        lapCoeff(0,-1) = -1./SQR(dx[1]);
+                        lapCoeff(0,+1) = -1./SQR(dx[1]);    
+                    }
+                    else if( orderOfAccuracy==4 )
+                    {
+            // ----  -Delta : order=4 ----
+                        lapCoeff(0,0)  =  30./(12.*SQR(dx[0])) + 30./(12.*SQR(dx[1]));
+                        lapCoeff(-2,0) =   1./(12.*SQR(dx[0]));
+                        lapCoeff(-1,0) = -16./(12.*SQR(dx[0]));
+                        lapCoeff(+1,0) = -16./(12.*SQR(dx[0]));
+                        lapCoeff(+2,0) =   1./(12.*SQR(dx[0]));
+                        lapCoeff(0,-2) =   1./(12.*SQR(dx[1]));
+                        lapCoeff(0,-1) = -16./(12.*SQR(dx[1]));
+                        lapCoeff(0,+1) = -16./(12.*SQR(dx[1]));   
+                        lapCoeff(0,+2) =   1./(12.*SQR(dx[1]));   
+                    }
+                    else if( orderOfAccuracy==6 )
+                    {
+            // ----  -Delta : order=6 ----
+                        lapCoeff(0,0)  =  490./(180.*SQR(dx[0])) + 490./(180.*SQR(dx[1]));
+                        lapCoeff(-3,0) =   -2./(180.*SQR(dx[0]));
+                        lapCoeff(-2,0) =   27./(180.*SQR(dx[0]));
+                        lapCoeff(-1,0) = -270./(180.*SQR(dx[0]));
+                        lapCoeff(+1,0) = -270./(180.*SQR(dx[0]));
+                        lapCoeff(+2,0) =   27./(180.*SQR(dx[0]));
+                        lapCoeff(+3,0) =   -2./(180.*SQR(dx[0]));
+                        lapCoeff(0,-3) =   -2./(180.*SQR(dx[1]));
+                        lapCoeff(0,-2) =   27./(180.*SQR(dx[1]));
+                        lapCoeff(0,-1) = -270./(180.*SQR(dx[1]));
+                        lapCoeff(0,+1) = -270./(180.*SQR(dx[1]));   
+                        lapCoeff(0,+2) =   27./(180.*SQR(dx[1]));   
+                        lapCoeff(0,+3) =   -2./(180.*SQR(dx[1]));   
+                    }  
+                    else if( orderOfAccuracy==8 )
+                    {
+            // ----  -Delta : order=8 ----
+                        lapCoeff(0,0)  =  14350./(5040.*SQR(dx[0])) + 14350./(5040.*SQR(dx[1]));
+                        lapCoeff(-4,0) =     9./(5040.*SQR(dx[0]));
+                        lapCoeff(-3,0) =  -128./(5040.*SQR(dx[0]));
+                        lapCoeff(-2,0) =  1008./(5040.*SQR(dx[0]));
+                        lapCoeff(-1,0) = -8064./(5040.*SQR(dx[0]));
+                        lapCoeff(+1,0) = -8064./(5040.*SQR(dx[0]));
+                        lapCoeff(+2,0) =  1008./(5040.*SQR(dx[0]));
+                        lapCoeff(+3,0) =  -128./(5040.*SQR(dx[0]));
+                        lapCoeff(+4,0) =     9./(5040.*SQR(dx[0]));
+                        lapCoeff(0,-4) =     9./(5040.*SQR(dx[1]));
+                        lapCoeff(0,-3) =  -128./(5040.*SQR(dx[1]));
+                        lapCoeff(0,-2) =  1008./(5040.*SQR(dx[1]));
+                        lapCoeff(0,-1) = -8064./(5040.*SQR(dx[1]));
+                        lapCoeff(0,+1) = -8064./(5040.*SQR(dx[1]));   
+                        lapCoeff(0,+2) =  1008./(5040.*SQR(dx[1]));   
+                        lapCoeff(0,+3) =  -128./(5040.*SQR(dx[1]));   
+                        lapCoeff(0,+4) =     9./(5040.*SQR(dx[1]));   
+                    }    
+                    else
+                    {
+                        OV_ABORT("finish me - orderOfAccuracy");
+                    }
+                }
+                else
+                {
+          // -------- THREE DIMENSIONS ------------
+                    lapCoeff.redim(S,S,S);
+                    lapCoeff=0.;
+                    if( orderOfAccuracy==2 )
+                    {
+            // ----  -Delta : order=2 ----
+                        lapCoeff( 0,0,0)  =  2./SQR(dx[0]) + 2./SQR(dx[1]) + 2./SQR(dx[2]);
+                        lapCoeff(-1,0,0) = -1./SQR(dx[0]);
+                        lapCoeff(+1,0,0) = -1./SQR(dx[0]);
+                        lapCoeff(0,-1,0) = -1./SQR(dx[1]);
+                        lapCoeff(0,+1,0) = -1./SQR(dx[1]);
+                        lapCoeff(0,0,-1) = -1./SQR(dx[2]);
+                        lapCoeff(0,0,+1) = -1./SQR(dx[2]);           
+                    }  
+                    else if( orderOfAccuracy==4 )
+                    {
+            // ----  -Delta : order=4 ----
+                        lapCoeff( 0,0,0) =  30./(12.*SQR(dx[0])) + 30./(12.*SQR(dx[1])) + 30./(12.*SQR(dx[2]));
+                        lapCoeff(-2,0,0) =   1./(12.*SQR(dx[0]));
+                        lapCoeff(-1,0,0) = -16./(12.*SQR(dx[0]));
+                        lapCoeff(+1,0,0) = -16./(12.*SQR(dx[0]));
+                        lapCoeff(+2,0,0) =   1./(12.*SQR(dx[0]));
+                        lapCoeff(0,-2,0) =   1./(12.*SQR(dx[1]));
+                        lapCoeff(0,-1,0) = -16./(12.*SQR(dx[1]));
+                        lapCoeff(0,+1,0) = -16./(12.*SQR(dx[1]));   
+                        lapCoeff(0,+2,0) =   1./(12.*SQR(dx[1])); 
+                        lapCoeff(0,0,-2) =   1./(12.*SQR(dx[2]));
+                        lapCoeff(0,0,-1) = -16./(12.*SQR(dx[2]));
+                        lapCoeff(0,0,+1) = -16./(12.*SQR(dx[2]));   
+                        lapCoeff(0,0,+2) =   1./(12.*SQR(dx[2]));         
+                    }    
+                    else if( orderOfAccuracy==6 )
+                    {
+            // ----  -Delta : order=6 ----
+                        lapCoeff( 0,0,0)  =  490./(180.*SQR(dx[0])) + 490./(180.*SQR(dx[1]))+ 490./(180.*SQR(dx[2]));
+                        lapCoeff(-3,0,0) =   -2./(180.*SQR(dx[0]));
+                        lapCoeff(-2,0,0) =   27./(180.*SQR(dx[0]));
+                        lapCoeff(-1,0,0) = -270./(180.*SQR(dx[0]));
+                        lapCoeff(+1,0,0) = -270./(180.*SQR(dx[0]));
+                        lapCoeff(+2,0,0) =   27./(180.*SQR(dx[0]));
+                        lapCoeff(+3,0,0) =   -2./(180.*SQR(dx[0]));
+                        lapCoeff(0,-3,0) =   -2./(180.*SQR(dx[1]));
+                        lapCoeff(0,-2,0) =   27./(180.*SQR(dx[1]));
+                        lapCoeff(0,-1,0) = -270./(180.*SQR(dx[1]));
+                        lapCoeff(0,+1,0) = -270./(180.*SQR(dx[1]));   
+                        lapCoeff(0,+2,0) =   27./(180.*SQR(dx[1]));   
+                        lapCoeff(0,+3,0) =   -2./(180.*SQR(dx[1])); 
+                        lapCoeff(0,0,-3) =   -2./(180.*SQR(dx[2]));
+                        lapCoeff(0,0,-2) =   27./(180.*SQR(dx[2]));
+                        lapCoeff(0,0,-1) = -270./(180.*SQR(dx[2]));
+                        lapCoeff(0,0,+1) = -270./(180.*SQR(dx[2]));   
+                        lapCoeff(0,0,+2) =   27./(180.*SQR(dx[2]));   
+                        lapCoeff(0,0,+3) =   -2./(180.*SQR(dx[2])); 
+                    }    
+                    else
+                    {
+                        OV_ABORT("lapCoeff: rectangular 3d: finish me - orderOfAccuracy");
+                    }       
+                }
+
+
+
+      // ---- interior points ----
+            FOR_3D(i1,i2,i3,I1,I2,I3) 
+            {
+          // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+          // assert( ig0>=0 && ig0<N );
+          // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+          // assert( ig0==ige );
+          // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+          // inline Ogev::getGlobalIndex
+                    ig0 = (n) + numberOfComponents*(
+                                  ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                    (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                    (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+
+        // ige = getGlobalIndex( n, iv, grid, p ); // new way 
+
+                if( maskLocal(i1,i2,i3)>0 )
+                {
+
+          // printF("fillMatLap: interior: i1=%d, i2=%d, ig0=%d, ige=%d\n",i1,i2,ig0,ige);
+
+          // --- loop over stencil ---
+                    for( int iw3=-hw3; iw3<=hw3; iw3++ )
+                    {
+                        for( int iw2=-hw;  iw2<=hw;  iw2++ )
+                        {
+                            for( int iw1=-hw; iw1<=hw; iw1++ )
+                            {
+                                if( lapCoeff(iw1,iw2,iw3) != 0. )
+                                {
+                     // ig = (i1+iw1)-n1a + nd1a*( (i2+iw2)-n2a + nd2a*(n) );
+                     // assert( ig>=0 && ig<N );
+                     // ige = getGlobalIndex( n, i1+iw1,i2+iw2,i3+iw3, grid, p ); // new way 
+                     // assert( ig==ige );
+                     // ig = getGlobalIndex( n, i1+iw1,i2+iw2,i3+iw3, grid, p ); // new way 
+                     // inline Ogev::getGlobalIndex
+                                          ig = (n) + numberOfComponents*(
+                                                        ((i1+iw1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                          (i2+iw2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                          (i3+iw3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                      Real coeffLap= lapCoeff(iw1,iw2,iw3);
+                                      if( iw1==0 && iw2==0 && iw3==0 )
+                                      {
+                                          coeffLap = coeffLap - lambdaShift;
+                                      }
+                                      ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
+                   // ierr = MatSetValue(A,ig0,ig,lapCoeff(iw1,iw2,iw3),INSERT_VALUES);CHKERRQ(ierr);
+
+                                }
+                            }
+                        }
+                    }
+                }
+                else if( maskLocal(i1,i2,i3)==0 )
+                {
+          // unused point : set A = I 
+                    ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+                }
+            }
+        }
+        else
+        {
+      // ------- CURVILINEAR GRID ------
+
+
+      // ---- Fill interior points ----
+            RealArray lapCoeff(M0,I1,I2,I3);
+            mgop.assignCoefficients(MappedGridOperators::laplacianOperator,lapCoeff,I1,I2,I3,0,0); // 
+
+            FOR_3D(i1,i2,i3,I1,I2,I3) 
+            {
+          // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+          // assert( ig0>=0 && ig0<N );
+          // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+          // assert( ig0==ige );
+          // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+          // inline Ogev::getGlobalIndex
+                    ig0 = (n) + numberOfComponents*(
+                                  ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                    (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                    (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                if( maskLocal(i1,i2,i3)>0 )
+                {        
+
+          // printF("Interior: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+          // printF("fillMatLap: interior: i1=%d, i2=%d, ig0=%d, ige=%d\n",i1,i2,ig0,ige);
+
+          // --- loop over stencil ---
+                    ForStencil(m1,m2,m3)         
+                    {
+                        const int m = M123(m1,m2,m3); 
+                        Real coeffLap = -lapCoeff(m,i1,i2,i3);  // Note minus 
+                        if( coeffLap != 0. )
+                        {
+                              if( m1==0 && m2==0 && m3==0 )
+                              {
+                                  coeffLap = coeffLap - lambdaShift;
+                              }              
+                // ig = (i1+m1)-n1a + nd1a*( (i2+m2)-n2a + nd2a*(n) );
+                // assert( ig>=0 && ig<N );
+                // ige = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
+                // assert( ig==ige );
+                // ig = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
+                // inline Ogev::getGlobalIndex
+                                ig = (n) + numberOfComponents*(
+                                              ((i1+m1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                (i2+m2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                (i3+m3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                            ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
+                        }
+                    }
+                }
+                else if( maskLocal(i1,i2,i3)==0 )
+                {
+          // unused point : set A = I 
+                    ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+                }        
+            }
+
+        } // end curvilinear grid
+            
+        Real cpu1 = getCPU()-cpu0;
+
+        printF("  ... done interior grid=%d (%s) (cpu=%9.2e)...\n",grid,(const char*)mg.getName(),cpu1); fflush(0); 
+                  
+    // --- fill in boundary points (constraints) ----
+        ForBoundary(side,axis)
+        {
+            if( bc(side,axis) > 0 )
+            {
+                getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+                {
+                    if( maskLocal(i1,i2,i3)>0 )
+                    {  
+
+              // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+              // assert( ig0>=0 && ig0<N );
+              // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+              // assert( ig0==ige );
+              // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+              // inline Ogev::getGlobalIndex
+                            ig0 = (n) + numberOfComponents*(
+                                          ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                            (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                            (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+            // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+
+                        if( bc(side,axis)==dirichlet )
+                        {
+                            ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                        }
+                        else if( bc(side,axis)==neumann )
+                        {
+              // Nothing to do here 
+                        }
+                        else
+                        {
+                            printF("fillMatrixLaplacian: grid=%d, side=%d, axis=%d, bc=%d is unknown!\n",grid,side,axis,bc(side,axis));
+                            ::display(bc,"bc");
+                            OV_ABORT("fillMatrixLaplacian: unknown bc");
+                        }
+
+                    }
+                    else if( maskLocal(i1,i2,i3)==0 )
+                    {
+            // unused point -- set to identity equation
+              // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+              // assert( ig0>=0 && ig0<N );
+              // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+              // assert( ig0==ige );
+              // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+              // inline Ogev::getGlobalIndex
+                            ig0 = (n) + numberOfComponents*(
+                                          ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                            (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                            (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                        ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                    }
+
+                } 
+            }
+  
+        } 
+
+    // --- periodic boundaries ----
+        ForBoundary(side,axis)
+        {
+            if( bc(side,axis) < 0 )
+            {
+        // periodic boundary 
+
+                const int is = 1 - 2*side;
+                const int ndp = gid(1,axis) - gid(0,axis); 
+                const int startGhost = side==0 ? 1 : 0;       
+                for( int ghost=startGhost; ghost<=numGhost; ghost++ )
+                {
+                    getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3,ghost);
+                    for( int dir=0; dir<3; dir++ )
+                    { // Include ghost in tangential directions for non periodic adjacent sides
+                        if( dir!=axis && bc(0,dir)>=0 )
+                            Igv[dir] = Range( gid(0,dir)-numGhost, gid(1,dir)+numGhost ); 
+                    }
+              
+
+                    FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+                    {
+            // NOTE: some periodic points may have mask<0 but not be interp points *check me* 
+            //          |  |  |  |  |  
+            //   :   P--X--+--+--+--X--P  <- lower boundary is interpolation 
+            //          |  |  |  |  |  
+            //   :   P--I--I--I--I--B--P  <- ghost points below lower boundary 
+            //  
+            // Point B on right side has mask<0 but is not an interpolation point (I) *check me*
+            // It should be a periodic point 
+            //            
+            // if( maskLocal(i1,i2,i3)>0 )
+                        if( maskLocal(i1,i2,i3) !=0  )    // NOTE
+                        {          
+                // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                // assert( ig0>=0 && ig0<N );
+                // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                // assert( ig0==ige );
+                // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                // inline Ogev::getGlobalIndex
+                                ig0 = (n) + numberOfComponents*(
+                                              ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+              // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+                            ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+
+                            j1=i1; j2=i2; j3=i3;
+                            jv[axis] += is*( ndp ); // periodic image 
+
+                // ig = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                // assert( ig>=0 && ig<N );
+                // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                // assert( ig==ige );
+                // ig = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                // inline Ogev::getGlobalIndex
+                                ig = (n) + numberOfComponents*(
+                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                            ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);            
+                        }
+                        else if( maskLocal(i1,i2,i3)==0 )
+                        {
+              // unused point -- set to identity equation
+                // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                // assert( ig0>=0 && ig0<N );
+                // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                // assert( ig0==ige );
+                // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                // inline Ogev::getGlobalIndex
+                                ig0 = (n) + numberOfComponents*(
+                                              ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                            ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                        }
+                    } 
+                }        
+            }         
+        }
+
+
+    // --- fill in ghost points (constraints) ----
+        ForBoundary(side,axis)
+        {
+            is1=is2=is3=0;  isv[axis]=1-2*side;   // +1 on left and -1 on right     
+                
+            if( !isRectangular && mg.boundaryCondition(side,axis)==neumann )
+            {
+        // --- Neumann BC -- curvilinear grid ---
+
+                mg.update(MappedGrid::THEvertexBoundaryNormal);
+                OV_GET_VERTEX_BOUNDARY_NORMAL(mg,side,axis,normal); 
+
+                getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+                
+        // Get coefficient matrices on boundary needed for the normal derivative
+                realSerialArray xCoeff(M0,Ib1,Ib2,Ib3), yCoeff(M0,Ib1,Ib2,Ib3), zCoeff; 
+                mgop.assignCoefficients(MappedGridOperators::xDerivative ,xCoeff, Ib1,Ib2,Ib3,0,0);
+                mgop.assignCoefficients(MappedGridOperators::yDerivative ,yCoeff, Ib1,Ib2,Ib3,0,0);
+                if( numberOfDimensions==3 )
+                {
+                    zCoeff.redim(M0,Ib1,Ib2,Ib3);
+                    mgop.assignCoefficients(MappedGridOperators::zDerivative ,zCoeff, Ib1,Ib2,Ib3,0,0);
+                }  
+
+                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) // loop over points on the boundary
+                {
+                    int ghost=1; 
+                    int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // first ghost point          
+            // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+            // assert( ig0>=0 && ig0<N );
+            // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+            // assert( ig0==ige );
+            // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+            // inline Ogev::getGlobalIndex
+                        ig0 = (n) + numberOfComponents*(
+                                      ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                        (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                        (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+
+                    if( maskLocal(i1,i2,i3)>0 )
+                    {               
+                        ForStencil(m1,m2,m3)
+                        {
+                            const int m  = M123(m1,m2,m3);        // the single-component coeff-index
+                            Real coeff123 = normal(i1,i2,i3,0)*xCoeff(m,i1,i2,i3) + normal(i1,i2,i3,1)*yCoeff(m,i1,i2,i3);
+                            if( numberOfDimensions==3 )
+                                coeff123 += normal(i1,i2,i3,2)*zCoeff(m,i1,i2,i3);
+
+                            if( coeff123 != 0. )
+                            {
+                  // ig = (i1+m1)-n1a + nd1a*( (i2+m2)-n2a + nd2a*(n) );
+                  // assert( ig>=0 && ig<N );
+                  // ige = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
+                  // assert( ig==ige );
+                  // ig = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
+                  // inline Ogev::getGlobalIndex
+                                    ig = (n) + numberOfComponents*(
+                                                  ((i1+m1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                    (i2+m2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                    (i3+m3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                ierr = MatSetValue(A,ig0,ig,coeff123,INSERT_VALUES);CHKERRQ(ierr);
+                            }            
+
+                        } // end for stencil 
+
+            // Fill additional ghost with extrapolation
+                        for( int ghost=2; ghost<=numGhost; ghost++ )
+                        {
+                            int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+                // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                // assert( ig0>=0 && ig0<N );
+                // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                // assert( ig0==ige );
+                // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                // inline Ogev::getGlobalIndex
+                                ig0 = (n) + numberOfComponents*(
+                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+
+              // extrapolate      
+                            for( int k=0; k<=extrapOrder; k++ )
+                            {
+                  // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                  // assert( ig>=0 && ig<N );
+                  // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                  // assert( ig==ige );
+                  // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                  // inline Ogev::getGlobalIndex
+                                    ig = (n) + numberOfComponents*(
+                                                  ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                    (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                    (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+                            }
+                        }  
+
+                    }
+                    else
+                    {
+            // unused point : set A = I 
+                        ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);            
+                    }
+
+                } // end FOR_3D
+
+            }  // end if curvilinear and rectangular 
+
+
+            if( mg.boundaryCondition(side,axis) >= 0 )  
+            {    
+
+                getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+                {
+                    for( int ghost=1; ghost<=numGhost; ghost++ )
+                    {
+                        int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+              // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+              // assert( ig0>=0 && ig0<N );
+              // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+              // assert( ig0==ige );
+              // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+              // inline Ogev::getGlobalIndex
+                            ig0 = (n) + numberOfComponents*(
+                                          ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                            (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                            (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+            // printF("Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
+
+                        if( maskLocal(j1,j2,j3)>0 )  
+                        {
+                            if( bc(side,axis)==neumann )   
+                            {
+                // Note : curvilinear case is done above 
+                                if( isRectangular )
+                                {
+                  // --- even symmetry for Cartesian ----
+                  //   u(-g) -   u(g) = 0 
+                                    ierr = MatSetValue(A,ig0,ig0,1.,INSERT_VALUES);CHKERRQ(ierr);
+
+                                    j1 = i1 + is1*ghost; j2 = i2 + is2*ghost;  j3 = i3 + is3*ghost;  // point inside 
+                    // ig = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                    // assert( ig>=0 && ig<N );
+                    // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                    // assert( ig==ige );
+                    // ig = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                    // inline Ogev::getGlobalIndex
+                                        ig = (n) + numberOfComponents*(
+                                                      ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                        (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                        (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                    ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
+                                }
+                            }   
+                            else
+                            { // extrapolate      
+                                for( int k=0; k<=extrapOrder; k++ )
+                                {
+                    // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                    // assert( ig>=0 && ig<N );
+                    // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3, grid, p ); // new way 
+                    // assert( ig==ige );
+                    // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3, grid, p ); // new way 
+                    // inline Ogev::getGlobalIndex
+                                        ig = (n) + numberOfComponents*(
+                                                      ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                        (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                        (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                    ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+                                }
+                            }
+                        }
+                        else if( maskLocal(j1,j2,j3)==0 )
+                        {
+              // unused point -- set to identity equation
+                            ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                        }            
+
+                    }
+                }
+            }          
+        }
+
+    // ------ fill corners ----
+
+    // assert( numberOfDimensions==2 ); // finish me for 3D 
+        if( numberOfDimensions==2 )
+        {
+      // ----------- FILL CORNERS 2D -----
+            for( int side2=0; side2<=1; side2++ ) 
+            {
+                for( int side1=0; side1<=1; side1++ ) 
+                {
+                    is1=1-2*side1; is2=1-2*side2; is3=0;
+                    i1 = gid(side1,0); i2=gid(side2,1); i3=0; // corner point 
+                    for( int ghost2=1; ghost2<=numGhost; ghost2++ )
+                    {
+                        for( int ghost1=1; ghost1<=numGhost; ghost1++ )
+                        {
+                            int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3;  // ghost point
+                // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                // assert( ig0>=0 && ig0<N );
+                // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                // assert( ig0==ige );
+                // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                // inline Ogev::getGlobalIndex
+                                ig0 = (n) + numberOfComponents*(
+                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+
+                            if( maskLocal(j1,j2,j3)>0 )  
+                            {
+                // printF("Corner Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
+                                if( bc(side1,0)>=0 && bc(side2,1)>=0  )
+                                { // corner with no periodic faces 
+                                    for( int k=0; k<=extrapOrder; k++ )
+                                    {
+                      // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                      // assert( ig>=0 && ig<N );
+                      // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3, grid, p ); // new way 
+                      // assert( ig==ige );
+                      // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3, grid, p ); // new way 
+                      // inline Ogev::getGlobalIndex
+                                            ig = (n) + numberOfComponents*(
+                                                          ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                            (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                            (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                        ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+                                    }
+                                }
+                                else if( bc(side1,0)<0 && bc(side2,1)<0  ) 
+                                {
+                  // corner between two adjacent periodic sides *check me*
+                                    
+                                    int j1p = j1 + (1-2*side1)*( gid(1,0)-gid(0,0) ); // periodic image 
+                                    int j2p = j2 + (1-2*side2)*( gid(1,1)-gid(0,1) ); // periodic image 
+                                    int j3p = j3; 
+                    // ig = (j1p)-n1a + nd1a*( (j2p)-n2a + nd2a*(n) );
+                    // assert( ig>=0 && ig<N );
+                    // ige = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                    // assert( ig==ige );
+                    // ig = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                    // inline Ogev::getGlobalIndex
+                                        ig = (n) + numberOfComponents*(
+                                                      ((j1p)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                        (j2p)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                        (j3p)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                    ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
+
+                                }
+                            }
+                            else if( maskLocal(j1,j2,j3)==0 )
+                            {
+                // unused point -- set to identity equation
+                                ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                            } 
+
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+      // --------- FILL EDGES AND CORNERS 3D ---------
+      // side1=-1 : means an edge where side2 and side3 meet
+            int ghostStart1, ghostEnd1, ghostStart2, ghostEnd2, ghostStart3, ghostEnd3;
+            for( int side3=-1; side3<=1; side3++ ) 
+            for( int side2=-1; side2<=1; side2++ ) 
+            for( int side1=-1; side1<=1; side1++ ) 
+            {
+                if( (side1==-1 && ( side2>=0 && side3>=0 ) ) ||
+                        (side2==-1 && ( side3>=0 && side1>=0 ) ) ||
+                        (side3==-1 && ( side1>=0 && side2>=0 ) ) )
+                {
+          // Edge where two faces meet
+            // default: 
+                        Iv[0]=Range(gid(side1,0),gid(side1,0)); is1=1-2*side1;  ghostStart1=1; ghostEnd1=numGhost;
+                        Iv[1]=Range(gid(side2,1),gid(side2,1)); is2=1-2*side2;  ghostStart2=1; ghostEnd2=numGhost;
+                        Iv[2]=Range(gid(side3,2),gid(side3,2)); is3=1-2*side3;  ghostStart3=1; ghostEnd3=numGhost;
+                        if( side1==-1 )
+                        { // edge lies along this axis 
+                            Iv[0]=Range(gid(0,0),gid(1,0));  is1=0; ghostStart1=0; ghostEnd1=0; 
+                        }
+                        if( side2==-1 )
+                        {
+                            Iv[1]=Range(gid(0,1),gid(1,1));  is2=0; ghostStart2=0; ghostEnd2=0;
+                        }
+                        if( side3 ==-1 )
+                        {
+                            Iv[2]=Range(gid(0,2),gid(1,2));  is3=0; ghostStart3=0; ghostEnd3=0;
+                        }  
+                        for( int i3=I3.getBase(); i3<=I3.getBound(); i3++ )
+                        for( int i2=I2.getBase(); i2<=I2.getBound(); i2++ )
+                        for( int i1=I1.getBase(); i1<=I1.getBound(); i1++ )
+                        {
+                            for( int ghost3=ghostStart3; ghost3<=ghostEnd3; ghost3++ )
+                            for( int ghost2=ghostStart2; ghost2<=ghostEnd2; ghost2++ )
+                            for( int ghost1=ghostStart1; ghost1<=ghostEnd1; ghost1++ )
+                            {
+                                int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3 - is3*ghost3;  // ghost point
+                  // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                  // assert( ig0>=0 && ig0<N );
+                  // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                  // assert( ig0==ige );
+                  // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                  // inline Ogev::getGlobalIndex
+                                    ig0 = (n) + numberOfComponents*(
+                                                  ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                    (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                    (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                if( maskLocal(j1,j2,j3)>0 )  
+                                {
+                  // printF("Corner Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
+                                    if( ( side3==-1 && bc(side1,0)>=0 && bc(side2,1)>=0 ) ||
+                                            ( side1==-1 && bc(side2,1)>=0 && bc(side3,2)>=0 ) ||
+                                            ( side2==-1 && bc(side3,2)>=0 && bc(side1,0)>=0 )  )
+                                    { // edge with no periodic faces 
+                                        for( int k=0; k<=extrapOrder; k++ )
+                                        {
+                        // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                        // assert( ig>=0 && ig<N );
+                        // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                        // assert( ig==ige );
+                        // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                        // inline Ogev::getGlobalIndex
+                                                ig = (n) + numberOfComponents*(
+                                                              ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                            ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+                                        }
+                                    }
+                                    else if( ( side3==-1 && bc(side1,0)<0 && bc(side2,1)<0 ) ||
+                                                      ( side1==-1 && bc(side2,1)<0 && bc(side3,2)<0 ) ||
+                                                      ( side2==-1 && bc(side3,2)<0 && bc(side1,0)<0 )  )          
+                                    {
+                    // edge with a periodic BC in one or two directions
+                                        ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                    // perioidic image: 
+                                        const int j1p = bc(side1,0)<0 ? j1 + is1*( gid(1,0)-gid(0,0) ) : j1; // periodic image, if bc<0
+                                        const int j2p = bc(side2,1)<0 ? j2 + is2*( gid(1,1)-gid(0,1) ) : j2; // periodic image, if bc<0
+                                        const int j3p = bc(side3,2)<0 ? j3 + is3*( gid(1,2)-gid(0,2) ) : j3; // periodic image, if bc<0
+                      // ig = (j1p)-n1a + nd1a*( (j2p)-n2a + nd2a*(n) );
+                      // assert( ig>=0 && ig<N );
+                      // ige = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                      // assert( ig==ige );
+                      // ig = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                      // inline Ogev::getGlobalIndex
+                                            ig = (n) + numberOfComponents*(
+                                                          ((j1p)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                            (j2p)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                            (j3p)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                        ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
+                                    }
+                                }
+                                else if( maskLocal(j1,j2,j3)==0 )
+                                {
+                  // unused point -- set to identity equation
+                                    ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                                } 
+                            }
+                        }
+                }
+                else if( side1>=0 && side2>=0 && side3>=0 )
+                {
+          // Vertex where 3 faces meet.
+            // vertex: 
+                        i1=gid(side1,0); is1=1-2*side1; 
+                        i2=gid(side2,1); is2=1-2*side2; 
+                        i3=gid(side3,2); is3=1-2*side3; 
+                        for( int ghost3=1; ghost3<=numGhost; ghost3++ )
+                        for( int ghost2=1; ghost2<=numGhost; ghost2++ )
+                        for( int ghost1=1; ghost1<=numGhost; ghost1++ )
+                        {
+                            int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3 - is3*ghost3;  // ghost point
+                // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                // assert( ig0>=0 && ig0<N );
+                // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                // assert( ig0==ige );
+                // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                // inline Ogev::getGlobalIndex
+                                ig0 = (n) + numberOfComponents*(
+                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                            if( maskLocal(j1,j2,j3)>0 )  
+                            {
+                // printF("VERTEX Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
+                                if( bc(side1,0)>=0 && bc(side2,1)>=0 && bc(side3,2)>=0 )
+                                { // vertex with no periodic faces 
+                                    for( int k=0; k<=extrapOrder; k++ )
+                                    {
+                      // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                      // assert( ig>=0 && ig<N );
+                      // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                      // assert( ig==ige );
+                      // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                      // inline Ogev::getGlobalIndex
+                                            ig = (n) + numberOfComponents*(
+                                                          ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                            (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                            (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                        ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+                                    }
+                                }
+                                else if( bc(side1,0)<0 || bc(side2,1)<0 || bc(side3,2)<0 )
+                                {
+                  // At least one direction is periodic
+                                    ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                  // perioidic image: 
+                                    int j1p = bc(side1,0)<0 ? j1 + is1*( gid(1,0)-gid(0,0) ) : j1; // periodic image, if bc<0
+                                    int j2p = bc(side2,1)<0 ? j2 + is2*( gid(1,1)-gid(0,1) ) : j2; // periodic image, if bc<0
+                                    int j3p = bc(side3,2)<0 ? j3 + is3*( gid(1,2)-gid(0,2) ) : j3; // periodic image, if bc<0
+                    // ig = (j1p)-n1a + nd1a*( (j2p)-n2a + nd2a*(n) );
+                    // assert( ig>=0 && ig<N );
+                    // ige = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                    // assert( ig==ige );
+                    // ig = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                    // inline Ogev::getGlobalIndex
+                                        ig = (n) + numberOfComponents*(
+                                                      ((j1p)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                        (j2p)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                        (j3p)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                    ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
+                                }
+                            }
+                            else if( maskLocal(j1,j2,j3)==0 )
+                            {
+                // unused point -- set to identity equation
+                                ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                            } 
+                        }
+                }
+            }
+
+      // OV_ABORT(" FILL EDGES AND CORNERS 3D - FINISH ME");
+        }
+
+
+
+
+    // --- fill in any UNUSED ghost points on ghost lines > numGhost ----
+        int n1,n2; 
+        ForBoundary(side,axis)
+        {   
+            if( side==0 )
+            {
+                n1 = mg.dimension(side,axis);
+                n2 = mg.gridIndexRange(side,axis)-numGhost-1;
+            }
+            else
+            {
+                n1 = mg.gridIndexRange(side,axis)+numGhost+1;
+                n2 = mg.dimension(side,axis);
+            }
+            if( n1<=n2 )
+            {
+        // there are unused ghost points
+
+                getBoundaryIndex(mg.dimension(),side,axis,Ig1,Ig2,Ig3);
+                Igv[axis] = Range(n1,n2);  // range of unused ghost 
+                FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+                {
+            // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+            // assert( ig0>=0 && ig0<N );
+            // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+            // assert( ig0==ige );
+            // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+            // inline Ogev::getGlobalIndex
+                        ig0 = (n) + numberOfComponents*(
+                                      ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                        (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                        (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                    ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                }
+            }
+        } 
+
+
+        cpu1 = getCPU()-cpu0;
+        printF("  ... done boundaries for grid=%d (%s) (total cpu=%9.2e)...\n",grid,(const char*)mg.getName(),cpu1); fflush(0);     
+
+    } // end for grid 
+
+
+  // --- fill in any interpolation equations into matrix A ----
+    fillInterpolationCoefficients( A,ucg );
+
+
+    ierr = MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    ierr = MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+
+
+
+  // -----------------------------------------
+  // ----- MATRIX B = I at active points -----
+  // -----------------------------------------
+
+    ierr = MatCreate(PETSC_COMM_WORLD,&B);CHKERRQ(ierr);
+    ierr = MatSetSizes(B,PETSC_DECIDE,PETSC_DECIDE,N,N);CHKERRQ(ierr);
+    ierr = MatSetFromOptions(B);CHKERRQ(ierr);
+    ierr = MatSetUp(B);CHKERRQ(ierr);
+
+    ierr = MatGetOwnershipRange(B,&Istart,&Iend);CHKERRQ(ierr);
+
+
+  // ------ LOOP OVER GRIDS -------
+    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+    {
+
+        MappedGrid & mg = cg[grid];
+        OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
+
+        const bool isRectangular = mg.isRectangular();
+        Real dx[3]={1.,1.,1.};
+        if( isRectangular )
+            mg.getDeltaX(dx);
+
+    //  assert( isRectangular );
+
+        const IntegerArray & gid = mg.gridIndexRange();
+
+        const int nd1a = gid(1,0)-gid(0,0)+1 + 2*numGhost;
+        const int nd2a = gid(1,1)-gid(0,1)+1 + 2*numGhost;
+
+        const int n1a = gid(0,0)-numGhost;
+        const int n2a = gid(0,1)-numGhost;
+
+        const int n1b = gid(1,0)+numGhost;
+        const int n2b = gid(1,1)+numGhost;
+
+    // int numberOfComponents=1; 
+    // const int N = nd1a*nd2a*numberOfComponents; // total number of grid points
+
+
+    // ---- get interior points ----
+        int extra=-1;
+        int ig0,ig;   
+
+
+    // --- Set B(i,j) =1 : interior points where PDE is applied ----
+      //int extra=-1;
+      //getIndex(gid,I1,I2,I3,extra,extra,0);
+            Iv[2]=Range(0,0); 
+            for( int axis=0; axis<numberOfDimensions; axis++ )
+            {
+        // int n1=Iv[axis].getBase(), n2=Iv[axis].getBound();
+                int n1=gid(0,axis)+1, n2=gid(1,axis)-1; // default interior points 
+                if( mg.boundaryCondition(0,axis)<=0 || mg.boundaryCondition(0,axis)==neumann )
+                    n1 = gid(0,axis); // include left boundary in interior,  if bc = periodic, interp or neuman 
+                if( mg.boundaryCondition(1,axis)==0 || mg.boundaryCondition(1,axis)==neumann )
+                    n2 = gid(1,axis); // include right boundary in interior,  if bc = periodic, interp or neuman 
+                Iv[axis] = Range(n1,n2);
+            }
+
+    // getIndex(gid,I1,I2,I3,extra,extra,0);
+    // for( int axis=0; axis<numberOfDimensions; axis++ )
+    // {
+    //   if( mg.boundaryCondition(0,axis)<0 )
+    //   {
+    //     Iv[axis]=Range(gid(0,axis),gid(1,axis)-1); // include left boundary in interior if periodic
+    //   }
+    // }    
+
+        FOR_3D(i1,i2,i3,I1,I2,I3) 
+        {
+            if( maskLocal(i1,i2,i3)>0 )
+            {
+          // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+          // assert( ig0>=0 && ig0<N );
+          // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+          // assert( ig0==ige );
+          // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+          // inline Ogev::getGlobalIndex
+                    ig0 = (n) + numberOfComponents*(
+                                  ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                    (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                    (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+        // printF("B ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+                ierr = MatSetValue(B,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);      
+            }
+        }
+        
+        if( eigOption==0 )
+        {      
+      // --- fill in boundary points (constraints) ----
+
+      // FILL in a small value instead of zero for eigOption=0, since SLEPc wants B to be invertible
+
+            const Real smallValue = eigOption==0 ? tol/( SQR(dx[0]) ) : 0.; // 1.e-8; 
+
+            ForBoundary(side,axis)
+            {
+                getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+                {
+            // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+            // assert( ig0>=0 && ig0<N );
+            // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+            // assert( ig0==ige );
+            // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+            // inline Ogev::getGlobalIndex
+                        ig0 = (n) + numberOfComponents*(
+                                      ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                        (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                        (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+          // printF("Boundary B: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+                    ierr = MatSetValue(B,ig0,ig0, smallValue,INSERT_VALUES);CHKERRQ(ierr);  
+                }          
+            } 
+
+      // --- fill in ghost points (constraints) ----
+            ForBoundary(side,axis)
+            {
+                is1=is2=is3=0;
+                isv[axis]=1-2*side;   // +1 on left and -1 on right 
+                getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+                {
+                    for( int ghost=1; ghost<=numGhost; ghost++ )
+                    {
+                        int j1 = i1 -is1*ghost, j2 = i2 -is2*ghost,  j3 = i3;  // ghost point
+              // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+              // assert( ig0>=0 && ig0<N );
+              // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+              // assert( ig0==ige );
+              // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+              // inline Ogev::getGlobalIndex
+                            ig0 = (n) + numberOfComponents*(
+                                          ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                            (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                            (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+            // printF("B Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
+                        ierr = MatSetValue(B,ig0,ig0, smallValue,INSERT_VALUES);CHKERRQ(ierr);             
+                    }
+                }          
+            }  
+
+      // --- fill corners ----
+            for( int side2=0; side2<=1; side2++ ) 
+            {
+                for( int side1=0; side1<=1; side1++ ) 
+                {
+                    is1=1-2*side1; is2=1-2*side2; is3=0;
+                    i1 = gid(side1,0); i2=gid(side2,1); i3=0; // corner point 
+                    for( int ghost2=1; ghost2<=numGhost; ghost2++ )
+                    {
+                        for( int ghost1=1; ghost1<=numGhost; ghost1++ )
+                        {
+                            int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3;  // ghost point
+                // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                // assert( ig0>=0 && ig0<N );
+                // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                // assert( ig0==ige );
+                // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                // inline Ogev::getGlobalIndex
+                                ig0 = (n) + numberOfComponents*(
+                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+              // printF("B Corner Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
+
+                            ierr = MatSetValue(B,ig0,ig0, smallValue,INSERT_VALUES);CHKERRQ(ierr);                  
+                        }
+                    }
+                }
+            }
+
+        }   
+    }
+
+    ierr = MatAssemblyBegin(B,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    ierr = MatAssemblyEnd(B,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+
+  // clean up
+    delete [] nzzAlloc;
+
+  // delete [] pGridOffset;
+  // delete [] pnd1;
+  // delete [] pnd2;
+  // delete [] pnd3;
+
+    return 0;
+}
+
+
+
+
+

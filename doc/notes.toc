@@ -1,0 +1,23 @@
+\babel@toc {english}{}
+\contentsline {section}{\numberline {1}Introduction}{2}{section.1}%
+\contentsline {subsection}{\numberline {1.1}EVE for the Wave Equation}{2}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Forced problem.}{3}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Inhomogeneous boundary conditions (I)}{4}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}Inhomogeneous boundary conditions (II)}{4}{subsection.1.4}%
+\contentsline {subsubsection}{\numberline {1.4.1}Example: inhomogeneous boundary conditions}{5}{subsubsection.1.4.1}%
+\contentsline {subsection}{\numberline {1.5}Correcting the Fourier series}{8}{subsection.1.5}%
+\contentsline {subsubsection}{\numberline {1.5.1}Error analysis of the corrected solution}{8}{subsubsection.1.5.1}%
+\contentsline {subsubsection}{\numberline {1.5.2}Correcting the Fourier series in a general geometry}{9}{subsubsection.1.5.2}%
+\contentsline {subsection}{\numberline {1.6}Filtering the Fourier series solution}{12}{subsection.1.6}%
+\contentsline {subsubsection}{\numberline {1.6.1}Fourier series for a Heaviside function}{12}{subsubsection.1.6.1}%
+\contentsline {subsubsection}{\numberline {1.6.2}Fourier series for $1-x/\pi $}{12}{subsubsection.1.6.2}%
+\contentsline {section}{\numberline {2}Parallel in time solver}{13}{section.2}%
+\contentsline {section}{\numberline {3}Motivational examples}{13}{section.3}%
+\contentsline {section}{\numberline {4}Computing eigenfunctions and fitting functions}{14}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Timings to compute eigenvalues and eigenvectors}{15}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Computed eigenfunctions of a square}{15}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Computed eigenfunctions of a disk}{17}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Computed eigenfunctions of an ellipse in a box}{19}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Computed eigenfunctions for some shapes in a box}{21}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.6}Scattering from a cylinder}{22}{subsection.4.6}%
+\contentsline {subsection}{\numberline {4.7}RPI Scattering}{25}{subsection.4.7}%
