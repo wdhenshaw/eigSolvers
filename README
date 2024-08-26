@@ -1,3 +1,27 @@
   Compute Eigenvalues and EigenVectors of PDE problems
+  ----------------------------------------------------
 
-  
+
+Set the following in your .cshrc (change the locations of the libraries as appropriate)
+
+setenv Overture /home/henshw/Overture.g
+setenv APlusPlus /home/henshw/software/AppPpp-0.8.3/A++/install
+setenv PPlusPlus /home/henshw/software/AppPpp-0.8.3/A++/install
+setenv PETSC_DIR /home/henshw/software/petsc-3.18.2-serial
+setenv PETSC_ARCH PETSC_ARCH=linux-gnu-opt
+setenv PETSC_LIB /home/henshw/software/petsc-3.18.2-serial/linux-gnu-opt/lib
+setenv SLEPC_DIR /home/henshw/software/slepc-3.18.2-serial
+setenv LAPACK /usr/lib/x86_64-linux-gnu
+setenv OvertureGridDirectories /home/henshw/Overture.g/sampleGrids:/home/henshw/grids
+alias plotStuff /home/henshw/Overture.g/bin/plotStuff
+alias ogen /home/henshw/Overture.g/bin/ogen
+
+
+Type 'make' to compile and build bin/genEigs (you will need Overture to be installed and PETSc)
+
+Example: 
+  Compute 64 eigenvalues and eigenvectors of the Laplacian on a square (grid square32.odrer2.hdf created with ogen)
+
+ genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order2.hdf -eigOption=1 -discreteEigenvalues=1 -eps_s=largest_magnitude -tol=1.0e-12 -bc1=d -show=square32O2Ev64.show -numEigenValues=64 -go=go
+
+ See cmd/memo for more sample commands 

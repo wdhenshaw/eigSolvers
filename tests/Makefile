@@ -1,17 +1,9 @@
-# --------------------------------------
-#     Various routines using SLEPc
-# --------------------------------------
 #
-# Main programs:
-#   genEigs      -- Compute eigevalues and eigenvectors of the Laplacian on overset grids 
-#   getnEigsILDE -- Compute eigevalues and eigenvectors of incompressible elasticity
+# Tests 
 #
 # NOTE: To compile optimized:
 #   setenv COMPILE [opt|dbg]
 #
-
-all = genEigs
-all: $(all);
 
 
 include ${Overture}/make.options
@@ -84,26 +76,7 @@ else
   endif
 endif
 
-# ifeq ($(COMPILE),opt)
-# 	CCFLAGS += -w -O 
-# 	FFLAGS  += -O
-# 	FFLAGSSO += -O3
-# else
-# 	ifeq ($(COMPILE),dbg)
-# 		# debug:
-# 		CCFLAGS += -w -g
-# 		FFLAGS  += -g
-# 		FFLAGSO += -g
-# 		FFLAGSSO += g   
-# 	else
-# 		# default case:
-# 		CCFLAGS += -w -g 
-# 		FFLAGS  += -g 
-# 		FFLAGSO += -O 
-# 		FFLAGSG += -g
-# 		FFLAGSSO += O   
-# 	endif
-# endif
+
 
 LIB_ARPACK = -Wl,-rpath,/home/henshw/software/arpack-ng/lib -L/home/henshw/software/arpack-ng/lib -larpack 
 
@@ -158,6 +131,9 @@ ogshow = $(current)/../ogshow
 
 VPATH = src:obj
 
+all = genEigs
+# all = cgWave
+all: $(all);
 
 
 Oges = $(Overture)/Oges
