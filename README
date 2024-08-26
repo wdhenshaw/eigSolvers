@@ -22,6 +22,14 @@ Type 'make' to compile and build bin/genEigs (you will need Overture to be insta
 Example: 
   Compute 64 eigenvalues and eigenvectors of the Laplacian on a square (grid square32.odrer2.hdf created with ogen)
 
- genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order2.hdf -eigOption=1 -discreteEigenvalues=1 -eps_s=largest_magnitude -tol=1.0e-12 -bc1=d -show=square32O2Ev64.show -numEigenValues=64 -go=go
+ bin/genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order2.hdf -eigOption=1 -discreteEigenvalues=1 -eps_s=largest_magnitude -tol=1.0e-12 -bc1=d -show=square32O2Ev64.show -numEigenValues=64 -go=go
+
+ Then use
+    plotStuff square32O2Ev64.show to view eigenvectors 
 
  See cmd/memo for more sample commands 
+
+
+ NOTE:
+   To push changes used:
+   git push origin HEAD:master
