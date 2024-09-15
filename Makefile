@@ -51,6 +51,9 @@ OPTFLAG = -O3
 CCFLAGS = -I$(SLEPC_DIR) $(SLEPC_INCLUDE)
 CCFLAGS += $(PETSC_INCLUDE)
 
+# for macos 
+CCFLAGS += -std=c++11 
+
 CCFLAGS += $(OV_CXX_FLAGS) -I. -I$(Overture)/include -I$(APlusPlus)/include -I$(OpenGL)/include $(USE_PPP_FLAG)
 # CCFLAGS += -I/home/henshw/software/slepc-3.4.4 -I/home/henshw/software/slepc-3.4.4/linux-gnu-opt/include -I/home/henshw/software/slepc-3.4.4/include 
 
@@ -122,7 +125,7 @@ LIBS = $(OVERTURE_LIBRARIES) $(OV_OPENGL_LIBRARIES) $(APP_LIBRARIES) $(OV_HDF_LI
 
 # SLEPc
 # LIBS += -Wl,-rpath,/home/henshw/software/slepc-3.4.4/linux-gnu-opt/lib -L/home/henshw/software/slepc-3.4.4/linux-gnu-opt/lib -lslepc
-LIBS += -Wl,-rpath,$(SLEPC_DIR)/linux-gnu-opt/lib -L$(SLEPC_DIR)/linux-gnu-opt/lib -lslepc
+LIBS += -Wl,-rpath,$(SLEPC_DIR)/$(PETSC_ARCH)/lib -L$(SLEPC_DIR)/$(PETSC_ARCH)/lib -lslepc
 
 # LIBS +=  $(PETSC_LIBS) $(OV_FORTRAN_LIBRARIES) $(OV_PERL_LIBRARIES) $(OV_MOTIF_LIBRARIES) $(OV_X_LIBRARIES) $(LAPACK_LIBS) 
 LIBS += $(PETSC_LIBS) $(OV_FORTRAN_LIBRARIES) $(OV_PERL_LIBRARIES) $(OV_MOTIF_LIBRARIES) $(OV_X_LIBRARIES) $(LAPACK_LIBS) 
