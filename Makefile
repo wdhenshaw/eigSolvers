@@ -27,6 +27,10 @@ ifeq ($(usePETSc),on)
 	# PETSC_INCLUDE = -I$(PETSC_DIR)/include  -I$(PETSC_DIR)/$(PETSC_ARCH)/include -DOVERTURE_USE_PETSC -I$(PETSC_LIB)/include -I$(PETSC_DIR)/include/mpiuni
 	PETSC_LIBS = -Wl,-rpath,$(PETSC_LIB) -L$(PETSC_LIB) -lpetsc
 
+  SLEPC_INCLUDE = -I$(SLEPC_DIR) -I$(SLEPC_DIR)/$(PETSC_ARCH)/include -I$(SLEPC_DIR)/include 
+
+  SLEPC_LIBS = $(LIB_ARPACK) -Wl,-rpath,$(SLEPC_DIR)/$(PETSC_ARCH)/lib -L$(SLEPC_DIR)/$(PETSC_ARCH)/lib -lslepc
+
 else
 	usePETSc   = off
 	petscSolver = obj/solvePETScNull.o
@@ -36,6 +40,7 @@ else
 	PETSC_LIBS = 
 endif
 
+
 # optimization flag:
 #  -Ofast = -O3 + disregards strict standard compliance 
 # OPTFLAG = -O
@@ -43,7 +48,7 @@ OPTFLAG = -O3
 # OPTFLAG = -Ofast
 
 
-CCFLAGS = -I$(SLEPC_DIR) -I$(SLEPC_DIR)/linux-gnu-opt/include -I$(SLEPC_DIR)/include 
+CCFLAGS = -I$(SLEPC_DIR) $(SLEPC_INCLUDE)
 CCFLAGS += $(PETSC_INCLUDE)
 
 CCFLAGS += $(OV_CXX_FLAGS) -I. -I$(Overture)/include -I$(APlusPlus)/include -I$(OpenGL)/include $(USE_PPP_FLAG)
