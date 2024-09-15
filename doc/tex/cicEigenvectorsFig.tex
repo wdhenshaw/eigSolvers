@@ -1,0 +1,41 @@
+% -------------------------------------------------------------------------------------------------
+{
+\newcommand{\width}{4cm}
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}
+   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
+  \begin{scope}[yshift=3*\width]   
+    \figByWidthb{       0}{0}{fig/cicEigenVector0}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/cicEigenVector1}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/cicEigenVector2}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/cicEigenVector3}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=2*\width]   
+    \figByWidthb{       0}{0}{fig/cicEigenVector4}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/cicEigenVector5}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/cicEigenVector6}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/cicEigenVector7}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=1*\width]   
+    \figByWidthb{       0}{0}{fig/cicEigenVector8}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/cicEigenVector9}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/cicEigenVector10}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/cicEigenVector11}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}
+  \begin{scope}[yshift=0*\width]   
+    \figByWidthb{       0}{0}{fig/cicEigenVector12}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{  \width}{0}{fig/cicEigenVector13}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{2*\width}{0}{fig/cicEigenVector14}{\width}[0.08][0.11][0.1][0.1]
+    \figByWidthb{3*\width}{0}{fig/cicEigenVector15}{\width}[0.08][0.11][0.1][0.1]
+  \end{scope}      
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (16,16);
+\end{tikzpicture}
+\end{center}
+\caption{Computed eigenfunctions of a cylinder in a channel (periodic in y), arranged by magnitude of the eigenvalues.
+    }
+\label{fig:cicEigenfunctions}
+\end{figure}
+}

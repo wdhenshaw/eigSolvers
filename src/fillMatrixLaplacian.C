@@ -626,7 +626,7 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
                         {
                               if( m1==0 && m2==0 && m3==0 )
                               {
-                                  coeffLap = coeffLap - lambdaShift;
+                                  coeffLap = coeffLap - lambdaShift; // diagonal shift
                               }              
                 // ig = (i1+m1)-n1a + nd1a*( (i2+m2)-n2a + nd2a*(n) );
                 // assert( ig>=0 && ig<N );
@@ -957,16 +957,17 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
                             { // extrapolate      
                                 for( int k=0; k<=extrapOrder; k++ )
                                 {
+                  // getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3,n, ig); 
                     // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
                     // assert( ig>=0 && ig<N );
-                    // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3, grid, p ); // new way 
+                    // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
                     // assert( ig==ige );
-                    // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3, grid, p ); // new way 
+                    // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
                     // inline Ogev::getGlobalIndex
                                         ig = (n) + numberOfComponents*(
                                                       ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
                                                         (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                        (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                        (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
                                     ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
                                 }
                             }

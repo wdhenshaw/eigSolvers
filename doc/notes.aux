@@ -2,13 +2,10 @@
 \providecommand\hyper@newdestlabel[2]{}
 \providecommand\HyperFirstAtBeginDocument{\AtBeginDocument}
 \HyperFirstAtBeginDocument{\ifx\hyper@anchor\@undefined
-\global\let\oldcontentsline\contentsline
-\gdef\contentsline#1#2#3#4{\oldcontentsline{#1}{#2}{#3}}
 \global\let\oldnewlabel\newlabel
 \gdef\newlabel#1#2{\newlabelxx{#1}#2}
 \gdef\newlabelxx#1#2#3#4#5#6{\oldnewlabel{#1}{{#2}{#3}}}
 \AtEndDocument{\ifx\hyper@anchor\@undefined
-\let\contentsline\oldcontentsline
 \let\newlabel\oldnewlabel
 \fi}
 \fi}
@@ -16,7 +13,8 @@
 \gdef\HyperFirstAtBeginDocument#1{#1}
 \providecommand\HyField@AuxAddToFields[1]{}
 \providecommand\HyField@AuxAddToCoFields[2]{}
-\bbl@cs{beforestart}
+\providecommand\babel@aux[2]{}
+\@nameuse{bbl@beforestart}
 \emailauthor{banksj3@rpi.edu}{Jeffrey W.~Banks}
 \emailauthor{henshw@rpi.edu}{William D.~Henshaw}
 \babel@aux{english}{}
@@ -33,12 +31,12 @@
 \newlabel{eq:EVEfourierCoeff}{{25}{5}{Inhomogeneous boundary conditions (II)}{equation.1.25}{}}
 \newlabel{eq:inhomogeneousBCII}{{31}{5}{Inhomogeneous boundary conditions (II)}{equation.1.31}{}}
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {1.4.1}Example: inhomogeneous boundary conditions}{5}{subsubsection.1.4.1}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Inhomogeneous BC. Top: boundary forcing $g(t)=\qopname  \relax o{sin}(\alpha t)$. Bottom: $g(t)={1\over 2}( 1 - \qopname  \relax o{cos}(\alpha t)) = \qopname  \relax o{sin}^2(\alpha t/2)$. }}{7}{figure.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Inhomogeneous BC. Top: boundary forcing $g(t)=\sin (\alpha t)$. Bottom: $g(t)={1\over 2}( 1 - \cos (\alpha t)) = \sin ^2(\alpha t/2)$. }}{7}{figure.1}\protected@file@percent }
 \newlabel{fig:eveForcedBC}{{1}{7}{Inhomogeneous BC. Top: boundary forcing $g(t)=\sin (\alpha t)$. Bottom: $g(t)=\half ( 1 - \cos (\alpha t)) = \sin ^2(\alpha t/2)$}{figure.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {1.5}Correcting the Fourier series}{8}{subsection.1.5}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Inhomogeneous BC with correction, $N_k=32$. $g(t)={1\over 2}( 1 - \qopname  \relax o{cos}(\alpha t)) = \qopname  \relax o{sin}^2(\alpha t/2)$. }}{8}{figure.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Inhomogeneous BC with correction, $N_k=32$. $g(t)={1\over 2}( 1 - \cos (\alpha t)) = \sin ^2(\alpha t/2)$. }}{8}{figure.2}\protected@file@percent }
 \newlabel{fig:eveForcedBCCorrectedN32}{{2}{8}{Inhomogeneous BC with correction, $N_k=32$. $g(t)=\half ( 1 - \cos (\alpha t)) = \sin ^2(\alpha t/2)$}{figure.2}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Inhomogeneous BC with correction, $N_k=64$. $g(t)={1\over 2}( 1 - \qopname  \relax o{cos}(\alpha t)) = \qopname  \relax o{sin}^2(\alpha t/2)$. }}{8}{figure.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Inhomogeneous BC with correction, $N_k=64$. $g(t)={1\over 2}( 1 - \cos (\alpha t)) = \sin ^2(\alpha t/2)$. }}{8}{figure.3}\protected@file@percent }
 \newlabel{fig:eveForcedBCCorrectedN64}{{3}{8}{Inhomogeneous BC with correction, $N_k=64$. $g(t)=\half ( 1 - \cos (\alpha t)) = \sin ^2(\alpha t/2)$}{figure.3}{}}
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {1.5.1}Error analysis of the corrected solution}{8}{subsubsection.1.5.1}\protected@file@percent }
 \newlabel{eq:forcedCorrection}{{56}{9}{Error analysis of the corrected solution}{equation.1.56}{}}
@@ -84,3 +82,4 @@
 \newlabel{fig:rpiEigenfunctions}{{14}{26}{Computed eigenfunctions for the letters RPI, arranged by magnitude of the eigenvalues. Outer boundary is periodic in x and Dirichlet on top/bottom, Neumann BCs on the letters}{figure.14}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {15}{\ignorespaces Selected computed eigenfunctions for the letters RPI, arranged by magnitude of the eigenvalues. Outer boundary is periodic in x and Dirichlet on top/bottom, Neumann BCs on the letters. Modes 64, 128, ... }}{27}{figure.15}\protected@file@percent }
 \newlabel{fig:rpiSelectedEigenfunctions}{{15}{27}{Selected computed eigenfunctions for the letters RPI, arranged by magnitude of the eigenvalues. Outer boundary is periodic in x and Dirichlet on top/bottom, Neumann BCs on the letters. Modes 64, 128, ..}{figure.15}{}}
+\gdef \@abspage@last{27}

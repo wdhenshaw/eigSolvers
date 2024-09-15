@@ -171,10 +171,13 @@ buildEquationSolvers.o : $(Oges)/buildEquationSolvers.C; $(CXX) $(CCFLAGS) -DOVE
 PETScEquationSolver.o : $(Oges)/PETScEquationSolver.C; $(CXX) $(CCFLAGS) -DOVERTURE_USE_PETSC -c $(Oges)/PETScEquationSolver.C
 
 OBJC = obj/genEigs.o obj/Ogev.o obj/computeEigenvalues.o obj/fillMatrixLaplacian.o \
-			 obj/fillMatrixIncompressibleElasticity.o obj/fillInterpolationCoefficients.o $(OGES_PETSC)
+			 obj/fillMatrixIncompressibleElasticity.o obj/fillInterpolationCoefficients.o obj/orthogonalize.o obj/residual.o \
+			 $(OGES_PETSC)
 
 # Fortran 90 (FN) object files: 
-FNOBJO = obj/sumEigenvectors.o
+FNOBJO = obj/sumEigenvectors.o 
+# Fortran obj:
+FOBJO =  obj/rjbesl.o obj/rybesl.o
 
 # OBJO = obj/advWave.o\
 #         obj/advWave2dOrder2r.o obj/advWave2dOrder2c.o obj/advWave2dOrder4r.o obj/advWave2dOrder4c.o 
@@ -185,12 +188,12 @@ checkCheckFiles = obj/checkCheckFiles.o
 checkCheckFiles: $(checkCheckFiles); $(CXX) $(CCFLAGS) -o check/checkCheckFiles $(checkCheckFiles) $(LIBS)
 
 # --- genEigs solver ---
-genEigsFiles = $(OBJC) $(OBJO) $(FNOBJO)
+genEigsFiles = $(OBJC) $(OBJO) $(FNOBJO) $(FOBJO)
 genEigs: $(genEigsFiles) ; $(CXX) $(CCFLAGS) -o bin/genEigs $(genEigsFiles) $(LIBS)
 
 
 # --- genEigsILE :  solver for incompressible linear elasticity ILE ---
-genEigsILEFiles = $(OBJC) $(OBJO) $(FNOBJO)
+genEigsILEFiles = $(OBJC) $(OBJO) $(FNOBJO)  $(FOBJO)
 genEigsILE: $(genEigsILEFiles) ; $(CXX) $(CCFLAGS) -o bin/genEigsILE $(genEigsILEFiles) $(LIBS)
 
 genEigsOld: genEigs.C
@@ -198,7 +201,7 @@ genEigsOld: genEigs.C
 	gcc -fPIC -Wall -Wwrite-strings -Wno-strict-aliasing -Wno-unknown-pragmas -O  -o genEigs genEigs.o -Wl,-rpath,$(SLEPC_DIR)/linux-gnu-opt/lib -L$(SLEPC_DIR)/linux-gnu-opt/lib -lslepc       -Wl,-rpath,/home/henshw/software/petsc-3.4.5-serial/linux-gnu-opt/lib -L/home/henshw/software/petsc-3.4.5-serial/linux-gnu-opt/lib  -lpetsc -llapack -lblas -lX11 -lpthread -lm -Wl,-rpath,/usr/lib/gcc/x86_64-linux-gnu/7 -L/usr/lib/gcc/x86_64-linux-gnu/7 -Wl,-rpath,/usr/lib/x86_64-linux-gnu -L/usr/lib/x86_64-linux-gnu -Wl,-rpath,/lib/x86_64-linux-gnu -L/lib/x86_64-linux-gnu -lstdc++ -ldl -lgcc_s -ldl
 
 
-eveSolverFiles = obj/eveSolver.o $(FNOBJO)
+eveSolverFiles = obj/eveSolver.o $(FNOBJO) $(FOBJO)
 eveSolver: $(eveSolverFiles); $(CXX) $(CCFLAGS) -o bin/eveSolver $(eveSolverFiles) $(LIBS)
 
 ex2: ex2.c
@@ -265,41 +268,21 @@ src/genEigsILE.C: src/genEigsILE.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)
 
 src/eveSolver.C: src/eveSolver.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include eveSolver.bC  
 
+src/Ogev.C: src/Ogev.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include Ogev.bC  
 
-# src/implicit.C: src/implicit.bC boundaryConditionMacros.h; @cd src; $(BPP) -clean -quiet -I$(Overture)/include implicit.bC
-# src/applyBoundaryConditions.C: src/applyBoundaryConditions.bC boundaryConditionMacros.h; @cd src; $(BPP) -clean -quiet -I$(Overture)/include applyBoundaryConditions.bC
-# src/plot.C: src/plot.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include plot.bC
-# src/userDefinedForcing.C: src/userDefinedForcing.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include userDefinedForcing.bC
-# src/getHelmholtzForcing.C: src/getHelmholtzForcing.bC boundaryConditionMacros.h; @cd src; $(BPP) -clean -quiet -I$(Overture)/include getHelmholtzForcing.bC
-
-# src/tcmWideStencil.C: src/tcmWideStencil.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include tcmWideStencil.bC
+src/orthogonalize.C: src/orthogonalize.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include orthogonalize.bC  
+src/residual.C: src/residual.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include residual.bC  
 
 
 #  -- optimized routines
 src/sumEigenvectors.f90: src/sumEigenvectors.bf90 
 	      @cd src; $(BPP) -clean -quiet -I$(Overture)/include sumEigenvectors.bf90
 
+
+
 # src/sumEigenvectors.f90 : src/sumEigenvectors.f90
 
-# src/advWave2dOrder2r.f90 : src/advWave.f90
-# src/advWave3dOrder2r.f90 : src/advWave.f90
-# src/advWave2dOrder2c.f90 : src/advWave.f90
-# src/advWave3dOrder2c.f90 : src/advWave.f90
 
-# src/advWave2dOrder4r.f90 : src/advWave.f90
-# src/advWave3dOrder4r.f90 : src/advWave.f90
-# src/advWave2dOrder4c.f90 : src/advWave.f90
-# src/advWave3dOrder4c.f90 : src/advWave.f90
-
-# src/advWave2dOrder6r.f90 : src/advWave.f90
-# src/advWave3dOrder6r.f90 : src/advWave.f90
-# src/advWave2dOrder6c.f90 : src/advWave.f90
-# src/advWave3dOrder6c.f90 : src/advWave.f90
-
-# src/advWave2dOrder8r.f90 : src/advWave.f90
-# src/advWave3dOrder8r.f90 : src/advWave.f90
-# src/advWave2dOrder8c.f90 : src/advWave.f90
-# src/advWave3dOrder8c.f90 : src/advWave.f90
 
 # # -- optimized BC routine
 # src/bcOptWave.f90: src/bcOptWave.bf90
@@ -327,28 +310,16 @@ obj/fillInterpolationCoefficients.o : src/fillInterpolationCoefficients.C; $(CXX
 
 obj/genEigsILE.o : src/genEigsILE.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
 
+obj/orthogonalize.o : src/orthogonalize.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
+obj/residual.o : src/residual.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
+
 obj/eveSolver.o : src/eveSolver.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
 
 
-# obj/advance.o : src/advance.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-# obj/plot.o : src/plot.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-# obj/applyBoundaryConditions.o : src/applyBoundaryConditions.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-# obj/implicit.o : src/implicit.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-# obj/userDefinedKnownSolution.o : src/userDefinedKnownSolution.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-# obj/outputHeader.o : src/outputHeader.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-# obj/printStatistics.o : src/printStatistics.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-# obj/userDefinedForcing.o : src/userDefinedForcing.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-# obj/updateTimeIntegral.o : src/updateTimeIntegral.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-# obj/getTimeStep.o : src/getTimeStep.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-# obj/getHelmholtzForcing.o : src/getHelmholtzForcing.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-# obj/getInitialConditions.o : src/getInitialConditions.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-# obj/saveShow.o : src/saveShow.C src/CgWave.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
-
-# # For regression testing:
-# obj/checkCheckFiles.o : src/checkCheckFiles.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
-
-
 obj/sumEigenvectors.o : src/sumEigenvectors.f90; $(FC) $(FFLAGSO) -ffree-line-length-none -o $*.o -c $<	
+
+obj/rjbesl.o : src/rjbesl.f; $(FC) $(FFLAGSO) -o $@ -c $<  
+obj/rybesl.o : src/rybesl.f; $(FC) $(FFLAGSO) -o $@ -c $<  
 
 
 # compile f90 files optimized by default:

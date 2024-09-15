@@ -1,6 +1,18 @@
   Compute Eigenvalues and EigenVectors of PDE problems
   ----------------------------------------------------
 
+Getting started:
+
+To clone a new version of eigSolvers from sourceforge (replace wdhenshaw by your sourceforge account name)
+
+  git clone https://git.code.sf.net/p/eisgSolvers/code eisgSolvers      (*CHECK ME*)
+
+OR if you have an account on sourceForge you can use
+
+  git clone ssh://USERNAME@git.code.sf.net/p/eigeSolvers/code eigeSolvers
+
+where USERNAME is your sourceForge account name.
+
 
 Set the following in your .cshrc (change the locations of the libraries as appropriate)
 

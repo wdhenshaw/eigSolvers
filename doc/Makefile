@@ -1,4 +1,8 @@
-all: notes
+all: eigDoc
+
+# main documentation for genEigs, Ogev
+eigDoc:
+	pdflatex eigDoc
 
 
 notes:
@@ -10,9 +14,9 @@ eve:
 	bibtex eve
 
 # Ogev doc
-ogev:
-	pdflatex ogev
-	bibtex ogev
+# ogev:
+# 	pdflatex ogev
+# 	bibtex ogev
 
 
 

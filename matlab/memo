@@ -1,6 +1,24 @@
-cd /Users/henshaw/Dropbox/research/eig/matlab
+cd /Users/henshaw/Dropbox/research/eigSolvers/matlab
 
 
+*******************************************
+******** Sun Sept 8, 2024
+
+plotEigErrors -case=sphereOrder4 -numEigsToPlot=10 -savePlots=0
+
+*******************************************
+******** Sat Sept 7, 2024
+
+plotEigErrors -case=sphereOrder2 -numEigsToPlot=10 -savePlots=0
+
+plotEigErrors -case=pipeOrder4 -numEigsToPlot=10 -savePlots=0
+plotEigErrors -case=pipeOrder2 -numEigsToPlot=10 -savePlots=0
+
+plotEigErrors -case=diskOrder2 -numEigsToPlot=10 -savePlots=0
+
+plotEigErrors -case=diskOrder4 -numEigsToPlot=10 -savePlots=0
+
+plotEigErrors -case=diskOrder4 -yMin=1e-11 -yMax=1e-4 -savePlots=0
 
 *******************************************
 ******** Wed Jan 24, 2024

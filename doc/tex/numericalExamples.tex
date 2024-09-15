@@ -205,46 +205,9 @@ Eigenvalue   8 : k=   49.2183375312 + (-0) I,  true=4.92184563216946e+01, err=1.
 Figure~\ref{fig:diskEigenfunctions} shows some computed eigenfunctions of a disk, arranged by magnitude of the
   eigenvalues.
 
-% -------------------------------------------------------------------------------------------------
-{
-\newcommand{\width}{4cm}
-\begin{figure}[htb]
-\begin{center}
-\begin{tikzpicture}
-   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
-  \begin{scope}[yshift=3*\width]   
-    \figByWidthb{       0}{0}{fig/diskEigenVector0}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/diskEigenVector1}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/diskEigenVector2}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/diskEigenVector3}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=2*\width]   
-    \figByWidthb{       0}{0}{fig/diskEigenVector4}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/diskEigenVector5}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/diskEigenVector6}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/diskEigenVector7}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=1*\width]   
-    \figByWidthb{       0}{0}{fig/diskEigenVector8}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/diskEigenVector9}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/diskEigenVector10}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/diskEigenVector11}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=0*\width]   
-    \figByWidthb{       0}{0}{fig/diskEigenVector12}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/diskEigenVector13}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/diskEigenVector14}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/diskEigenVector15}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}      
+\input tex/diskEigenvectorsFig.tex
 
-  % Draw grid for placing figure:
-  % \draw[step=1cm,gray] (0,0) grid (16,16);
-\end{tikzpicture}
-\end{center}
-\caption{Computed eigenfunctions of a disk, arranged by magnitude of the eigenvalues.}
-\label{fig:diskEigenfunctions}
-\end{figure}
-}
+
 % -------------------------------------------------------------------------------------------------
 
 
@@ -283,47 +246,9 @@ Eigenvalue  22 : k=   24.9029841436 + (-0) I,
 
 \end{Verbatim}
 
+\input tex/ellipseEigenvectorsFig.tex
 
-% -------------------------------------------------------------------------------------------------
-{
-\newcommand{\width}{4cm}
-\begin{figure}[htb]
-\begin{center}
-\begin{tikzpicture}
-   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
-  \begin{scope}[yshift=3*\width]   
-    \figByWidthb{       0}{0}{fig/ellipseEigenVector0}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/ellipseEigenVector1}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/ellipseEigenVector2}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/ellipseEigenVector3}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=2*\width]   
-    \figByWidthb{       0}{0}{fig/ellipseEigenVector4}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/ellipseEigenVector5}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/ellipseEigenVector6}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/ellipseEigenVector7}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=1*\width]   
-    \figByWidthb{       0}{0}{fig/ellipseEigenVector8}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/ellipseEigenVector9}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/ellipseEigenVector10}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/ellipseEigenVector11}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=0*\width]   
-    \figByWidthb{       0}{0}{fig/ellipseEigenVector12}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/ellipseEigenVector13}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/ellipseEigenVector14}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/ellipseEigenVector15}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}      
 
-  % Draw grid for placing figure:
-  % \draw[step=1cm,gray] (0,0) grid (16,16);
-\end{tikzpicture}
-\end{center}
-\caption{Computed eigenfunctions of an ellipse in a box, arranged by magnitude of the eigenvalues.}
-\label{fig:ellipseInABoxEigenfunctions}
-\end{figure}
-}
 
 
 
@@ -331,46 +256,8 @@ Eigenvalue  22 : k=   24.9029841436 + (-0) I,
 \clearpage
 \subsection{Computed eigenfunctions for some shapes in a box}
 
-% -------------------------------------------------------------------------------------------------
-{
-\newcommand{\width}{4cm}
-\begin{figure}[htb]
-\begin{center}
-\begin{tikzpicture}
-   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
-  \begin{scope}[yshift=3*\width]   
-    \figByWidthb{       0}{0}{fig/shapesEigenVector0}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/shapesEigenVector1}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/shapesEigenVector2}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/shapesEigenVector3}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=2*\width]   
-    \figByWidthb{       0}{0}{fig/shapesEigenVector4}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/shapesEigenVector5}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/shapesEigenVector6}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/shapesEigenVector7}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=1*\width]   
-    \figByWidthb{       0}{0}{fig/shapesEigenVector8}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/shapesEigenVector9}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/shapesEigenVector10}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/shapesEigenVector11}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=0*\width]   
-    \figByWidthb{       0}{0}{fig/shapesEigenVector12}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/shapesEigenVector13}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/shapesEigenVector14}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/shapesEigenVector15}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}      
+\input tex/shapesEigenvectorsFig.tex
 
-  % Draw grid for placing figure:
-  % \draw[step=1cm,gray] (0,0) grid (16,16);
-\end{tikzpicture}
-\end{center}
-\caption{Computed eigenfunctions of some shapes in a box, arranged by magnitude of the eigenvalues.}
-\label{fig:shapesInABoxEigenfunctions}
-\end{figure}
-}
 % -------------------------------------------------------------------------------------------------------
 
 
@@ -382,48 +269,8 @@ We consider scattering of a Gaussian plane wave from a cylinder (periodic in y).
 Figure~\ref{fig:cicEigenfunctions} shows some eigenfunctions.
 
 
+\input tex/cicEigenvectorsFig
 
-% -------------------------------------------------------------------------------------------------
-{
-\newcommand{\width}{4cm}
-\begin{figure}[htb]
-\begin{center}
-\begin{tikzpicture}
-   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
-  \begin{scope}[yshift=3*\width]   
-    \figByWidthb{       0}{0}{fig/cicEigenVector0}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/cicEigenVector1}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/cicEigenVector2}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/cicEigenVector3}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=2*\width]   
-    \figByWidthb{       0}{0}{fig/cicEigenVector4}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/cicEigenVector5}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/cicEigenVector6}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/cicEigenVector7}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=1*\width]   
-    \figByWidthb{       0}{0}{fig/cicEigenVector8}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/cicEigenVector9}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/cicEigenVector10}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/cicEigenVector11}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=0*\width]   
-    \figByWidthb{       0}{0}{fig/cicEigenVector12}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/cicEigenVector13}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/cicEigenVector14}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/cicEigenVector15}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}      
-
-  % Draw grid for placing figure:
-  % \draw[step=1cm,gray] (0,0) grid (16,16);
-\end{tikzpicture}
-\end{center}
-\caption{Computed eigenfunctions of a cylinder in a box, arranged by magnitude of the eigenvalues.
-    }
-\label{fig:cicEigenfunctions}
-\end{figure}
-}
 % -------------------------------------------------------------------------------------------------------
 
 \clearpage
@@ -538,92 +385,10 @@ Figure~\ref{fig:rpiEigenfunctions} shows some eigenfunctions.
 % -------------------------------------------------------------------------------------------------------
 
 
+\input tex/rpiEigenvectorsFig
 
-% -------------------------------------------------------------------------------------------------
-{
-\newcommand{\width}{4cm}
-\begin{figure}[htb]
-\begin{center}
-\begin{tikzpicture}
-   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
-  \begin{scope}[yshift=3*\width]   
-    \figByWidthb{       0}{0}{fig/rpiEigenVector0}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/rpiEigenVector1}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/rpiEigenVector2}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/rpiEigenVector3}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=2*\width]   
-    \figByWidthb{       0}{0}{fig/rpiEigenVector4}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/rpiEigenVector5}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/rpiEigenVector6}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/rpiEigenVector7}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=1*\width]   
-    \figByWidthb{       0}{0}{fig/rpiEigenVector8}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/rpiEigenVector9}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/rpiEigenVector10}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/rpiEigenVector11}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=0*\width]   
-    \figByWidthb{       0}{0}{fig/rpiEigenVector12}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/rpiEigenVector13}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/rpiEigenVector14}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/rpiEigenVector15}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}      
 
-  % Draw grid for placing figure:
-  % \draw[step=1cm,gray] (0,0) grid (16,16);
-\end{tikzpicture}
-\end{center}
-\caption{Computed eigenfunctions for the letters RPI, arranged by magnitude of the eigenvalues.
-     Outer boundary is periodic in x and Dirichlet on top/bottom, Neumann BCs on the letters.
-    }
-\label{fig:rpiEigenfunctions}
-\end{figure}
-}
 % -------------------------------------------------------------------------------------------------------
 
-% -------------------------------------------------------------------------------------------------
-{
-\newcommand{\width}{4cm}
-\begin{figure}[htb]
-\begin{center}
-\begin{tikzpicture}
-   \useasboundingbox (0,.5) rectangle (16,16);  % set the bounding box (so we have less surrounding white space)
-  \begin{scope}[yshift=3*\width]   
-    \figByWidthb{       0}{0}{fig/rpiSelectedEigenVector64}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/rpiSelectedEigenVector128}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/rpiSelectedEigenVector192}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/rpiSelectedEigenVector256}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=2*\width]   
-    \figByWidthb{       0}{0}{fig/rpiSelectedEigenVector320}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/rpiSelectedEigenVector384}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/rpiSelectedEigenVector448}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/rpiSelectedEigenVector512}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=1*\width]   
-    \figByWidthb{       0}{0}{fig/rpiSelectedEigenVector576}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/rpiSelectedEigenVector640}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/rpiSelectedEigenVector704}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{3*\width}{0}{fig/rpiSelectedEigenVector768}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}
-  \begin{scope}[yshift=0*\width]   
-    \figByWidthb{       0}{0}{fig/rpiSelectedEigenVector832}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{  \width}{0}{fig/rpiSelectedEigenVector896}{\width}[0.08][0.11][0.1][0.1]
-    \figByWidthb{2*\width}{0}{fig/rpiSelectedEigenVector960}{\width}[0.08][0.11][0.1][0.1]
-   %  \figByWidthb{3*\width}{0}{fig/rpiSelectedEigenVector15}{\width}[0.08][0.11][0.1][0.1]
-  \end{scope}      
 
-  % Draw grid for placing figure:
-  % \draw[step=1cm,gray] (0,0) grid (16,16);
-\end{tikzpicture}
-\end{center}
-\caption{Selected computed eigenfunctions for the letters RPI, arranged by magnitude of the eigenvalues.
-     Outer boundary is periodic in x and Dirichlet on top/bottom, Neumann BCs on the letters.
-     Modes 64, 128, ...
-    }
-\label{fig:rpiSelectedEigenfunctions}
-\end{figure}
-}
 % -------------------------------------------------------------------------------------------------------

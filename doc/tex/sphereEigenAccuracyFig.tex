@@ -1,0 +1,53 @@
+{
+\newcommand{\figw}{6cm}
+\newcommand{\figh}{6cm}
+
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}[scale=1]
+  \useasboundingbox (0,.7) rectangle (2.2*\figw,1.05*\figh);  % set the bounding box (so we have less surrounding white space)
+
+  \begin{scope}[xshift=0cm]
+    \figByWidth{0.0}{0}{fig/sphereOrder2EigenvalueErrors}{\figw}[0][0][0][0];
+  \end{scope}
+  \begin{scope}[xshift=1.1*\figw]
+    \figByWidth{0.0}{0}{fig/sphereOrder2EigenvectorErrors}{\figw}[0][0][0][0];
+  \end{scope}  
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (2.2*\figw,\figh);
+\end{tikzpicture}
+\end{center}
+\caption{Accuracy of some computed eigenvalues and eigenvalues on a solid sphere (order 2) compared to the true continuous values.
+}
+\label{fig:sphereAccuracyOfEigenpairsOrder2}
+\end{figure}
+}
+
+
+{
+\newcommand{\figw}{6cm}
+\newcommand{\figh}{6cm}
+
+\begin{figure}[htb]
+\begin{center}
+\begin{tikzpicture}[scale=1]
+  \useasboundingbox (0,.7) rectangle (2.2*\figw,1.05*\figh);  % set the bounding box (so we have less surrounding white space)
+
+  \begin{scope}[xshift=0cm]
+    \figByWidth{0.0}{0}{fig/sphereOrder4EigenvalueErrors}{\figw}[0][0][0][0];
+  \end{scope}
+  \begin{scope}[xshift=1.1*\figw]
+    \figByWidth{0.0}{0}{fig/sphereOrder4EigenvectorErrors}{\figw}[0][0][0][0];
+  \end{scope}  
+
+  % Draw grid for placing figure:
+  % \draw[step=1cm,gray] (0,0) grid (2.2*\figw,\figh);
+\end{tikzpicture}
+\end{center}
+\caption{Accuracy of some computed eigenvalues and eigenvalues on a solid sphere (order 4) compared to the true continuous values.
+}
+\label{fig:sphereAccuracyOfEigenpairsOrder4}
+\end{figure}
+}
+

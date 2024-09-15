@@ -47,7 +47,7 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
                                         int orderOfAccuracy, int & numEigenValues, int & numEigenVectors, 
                                         RealArray & eig, CompositeGrid & cg, realCompositeGridFunction & ucg, 
                                         CompositeGridOperators & cgop, 
-                                        Real tol, int eigOption,
+                                        Real tol, int eigOption, int maxIterations,
                                         const int setTargetEigenvalue, const Real targetEigenvalue,
                                         IntegerArray & bc, int numGhost, int saveMatlab, int useWideStencils,
                                         int maximumProjectedDimension /* = -1 */  )
@@ -359,8 +359,8 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
     
 
 
-    PetscInt maxIt = 20000; 
-    ierr = EPSSetTolerances(eps,tol,maxIt); CHKERRQ(ierr);
+  // PetscInt maxIt = 20000; 
+    ierr = EPSSetTolerances(eps,tol,maxIterations); CHKERRQ(ierr);
 
     /*
           Set solver parameters at runtime
@@ -371,8 +371,8 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
     if( maximumProjectedDimension>0 )
         mpd = maximumProjectedDimension;
 
-    printF("Setting numEigenValues=%d, numEigenVectors=%d, maximumProjectedDimension=%d\n",
-                numEigenValues,numEigenVectors,maximumProjectedDimension );
+    printF("Setting numEigenValues=%d, numEigenVectors=%d, maximumProjectedDimension=%d, maxIterations=%d\n",
+                numEigenValues,numEigenVectors,maximumProjectedDimension,maxIterations );
     PetscInt ncv = PETSC_DEFAULT; // numEigenValues*2+1; // size of column space 
     ierr = EPSSetDimensions(eps,numEigenValues,ncv,mpd); CHKERRQ(ierr);
 
@@ -396,12 +396,22 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
     {
         PCType type;
         PCGetType(pc,&type);
-        PetscInt levels;
-        PCFactorGetLevels(pc, &levels);
+        if( type == PCILU )
+        {
+      // trouble here if -st_pc_type bjacobi
+            PetscInt levels=0;
+      // printF("computeEigenvalues: call PCFactorGetLevels...\n"); 
+            ierr = PCFactorGetLevels(pc, &levels); CHKERRQ(ierr);
+      // printF("computeEigenvalues: ... done call PCFactorGetLevels\n"); 
 
-        name = name + " pc[" + type + sPrintF("(%d)",levels) + "]";
+            name = name + " pc[" + type + sPrintF("(%d)",levels) + "]";
+        }
+        else
+        {
+              name = name + " pc[" + type + "]";
+        }
     } 
-    printf("****** computeEigenvalues: KSP name=%s\n",(const char *)name);
+    printF("****** computeEigenvalues: KSP name=%s\n",(const char *)name);
 
 
     /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -409,6 +419,7 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
           - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
     ierr = EPSSolve(eps);     CHKERRQ(ierr);
+
 
 
     Real cpuTotal = getCPU()-cpu0;
@@ -642,6 +653,11 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
     }
   // ierr = SlepcFinalize();
 
+
+
+
+
+    return 0;
 
 }// end compute Eigenvalues 
 

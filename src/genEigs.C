@@ -10,9 +10,6 @@
 
 
 
-
-
-
 static char help[] = "Compute some  eigenvalues\n";
 
 
@@ -20,8 +17,6 @@ static char help[] = "Compute some  eigenvalues\n";
 
 #include "mpi.h"
 #include "Overture.h"
-
-
 
 #include "display.h"
 #include "PlotStuff.h"  
@@ -43,20 +38,21 @@ static char help[] = "Compute some  eigenvalues\n";
 #include "Ogev.h"
 
 
+
 // lapack routines
 #ifdef OV_USE_DOUBLE
     #define GETRF EXTERN_C_NAME(dgetrf)
     #define GETRI EXTERN_C_NAME(dgetri)
     #define GETRS EXTERN_C_NAME(dgetrs)
-  // #define GECON EXTERN_C_NAME(dgecon)
-  // #define LANGE EXTERN_C_NAME(dlange)
+    #define GECON EXTERN_C_NAME(dgecon)
+    #define LANGE EXTERN_C_NAME(dlange)
   // #define GEEV  EXTERN_C_NAME(dgeev)
 #else
     #define GETRF EXTERN_C_NAME(sgetrf)
     #define GETRI EXTERN_C_NAME(sgetri)
     #define GETRS EXTERN_C_NAME(sgetrs)
-  // #define GECON EXTERN_C_NAME(sgecon)
-  // #define LANGE EXTERN_C_NAME(slange)
+    #define GECON EXTERN_C_NAME(sgecon)
+    #define LANGE EXTERN_C_NAME(slange)
   // #define GEEV  EXTERN_C_NAME(sgeev)
 #endif
 
@@ -73,8 +69,8 @@ extern "C"
     void GECON( char *norm, int & n, Real & a, const int & lda, Real & anorm, Real & rcond, Real & work, int & iwork, int & info );
     Real LANGE( char *norm, int & m, int & n, Real & a, const int & lda, Real & work );
 
-      void GEEV( char *jobvl, char* jobvr, int & n, Real & a, const int & lda,
-                            Real & wr, Real & wi, Real &vl, int & ldvl, Real & vr, int & ldvr, Real & work, int & lwork, int & info );
+  // void GEEV( char *jobvl, char* jobvr, int & n, Real & a, const int & lda,
+  //             Real & wr, Real & wi, Real &vl, int & ldvl, Real & vr, int & ldvr, Real & work, int & lwork, int & info );
 
 }
 
@@ -182,6 +178,15 @@ aString bcName( int bc )
 // Macro: Compute the inner product of two grid functions          
 // ===============================================================
 
+// =================================================================================
+// Macro: Compute the errors between the true (continuous) and discrete eigenvectors
+// =================================================================================
+
+
+// =================================================================================
+// Macro: Compute multiplicities for the true eigenvalues
+// =================================================================================
+
 
 // ==================================================================================
 // ================================ MAIN ============================================
@@ -205,6 +210,8 @@ int main(int argc,char **argv)
     int flushFrequency = 100; // number of solutions per show sub-file
     aString nameOfGridFile="square32.order2.hdf";
 
+    aString tableFileName = "genEigsTable"; // name of LaTeX file with table of results 
+
 
     bool loadBalance=true; // false;
     int numberOfParallelGhost=2;
@@ -216,7 +223,9 @@ int main(int argc,char **argv)
     int numEigenValues  = 1;            // number of eigenvalues to compute 
     int numEigenVectors = -1;           // number of eigenvectors to save
     int maximumProjectedDimension = -1; // reduce storage when solving for many eigs (default=ncv)
-    int discreteEigenvalues=false;      // if true, use exact discrete eigs' instead of exact continuous eis
+    int discreteEigenvalues=false;      // if true, use exact discrete eigs' instead of exact continuous eigs (if available)
+
+    int orthogonalize=true;            // if true, count multiplicities, orthogonalize eigenvectors, choose a basis of EVs for multiple eigs *new* Sept 3, 2024
 
     bool useAccurateInnerProduct=false; // if true, use an accurate inner product
   // int orderOfAccuracy = 2 ;
@@ -235,8 +244,11 @@ int main(int argc,char **argv)
 
   // eigOption = 0 : =solve Ax =kBx for smallest k, 
   //           = 1 : solve Bx = k A x for largest k 
-    int eigOption = 0;
+
+    int eigOption = 1;
+
     Real eigSign = 1.;  // use to change sign of the eigenfunction
+    int maxIterations = 200000; // for PETSc solves to invert the shifted matrix 
 
     int setTargetEigenvalue=0;  // 1 = look for eigenvalues near the target: targetEigenvalue
     Real targetEigenvalue=0; 
@@ -252,7 +264,37 @@ int main(int argc,char **argv)
 
     aString matlabFileName = "genEigs"; 
 
-    printF("Usage: genEigs [-debug=<i>]\n");
+    if( argc<=1 )
+    {
+          printF(" ------------------ genEigs: Compute eigenvalues and eigenvectors --------------------------\n"
+          "Usage:\n"
+          "  genEigs [-noplot] eigs.cmd -problem=<s> -eigCase=<s> -g=<s> -numEigenValues=<i> -tol=<f> \n"
+          "          -bc[123456]=[d|n] -show=<s> -matlab=<s> -table=<s> -orthogonalize=[0|1] \n"
+          "          -discreteEigenValues=[0|1] -go=<s>\n"
+          "  \n"
+          "   -noplot : run without graphics\n"
+          "   -problem=[laplace|ile] : laplace = (negative) laplacian\n"
+          "                           :ile = incompressible elasticity\n"
+          "   -eigCase=[square|disk|sphere] : compare answers to the known eigenpairs for a square (or box),\n"
+          "         disk (or annulus or cylinder) or sphere.\n"
+          "   -g=gridName : name of overset grid generated by ogen, example -g=square32.order2.hdf\n"
+          "   -numEigenValues=i : number of eigenvalues to compute (and eigenvectors)\n"
+          "   -tol=f : tolerance for the eigenvalues, e.g. -tol=1e-12.\n"
+          "   -bc[1234567]=[d|n] : set boundary condition to Dirichlet or Neumann on a boundary with bc flag 1,2,3,4,6.\n"
+          "               e.g. -bc1=d sets boundaries with bc flag=1 to Dirichlet.\n"
+          "   -orthogonalize=[0|1] : 1=orthogonalize and eigenvectors corresponding to multiple eigenvalues.\n"
+          "   -discreteEigenValues=[0|1] : 1=compare to true discrete eigenvalues (square or box only)\n"
+          "   -matlab=matlabFileName : name of Matlab output file holding eigenvalues and errors,\n"
+          "                            e.g. -matlab=diskG4Order2\n"
+          "   -table=nameOfTableFile : name of file holding a LaTeX table of results, \n"
+          "                            e.g. -table=square32Order4Table.\n"
+          "   -show=showFileName : save results to a show file with this name. e.g. -show=myShowFile.show \n"
+          "                        (use plotStuff to display results from the show file).\n" 
+          "   -go=[go|og] : -go=go : run and exit. -go=og (open graphics) : when running with -noplot,\n" 
+          "         open graphics windows after commands have been read.   \n" 
+          "---------------------------------------------------------------------------------------------------------\n");  
+    }
+    
     int len=0;
     if( argc > 1 )
     { 
@@ -287,18 +329,12 @@ int main(int argc,char **argv)
             {
                 matlabFileName = arg(len,arg.length()-1);
                 printF("Setting matlabFileName=[%s.m]\n",(const char*)matlabFileName);
-            }      
-      // else if( (len=arg.matches("-orderOfAccuracy="))  )
-      // {
-      //   sScanF(arg(len,arg.length()-1),"%i",&orderOfAccuracy);
-      //   printF("Setting orderOfAccuracy=%d\n",orderOfAccuracy);
-      // }
-      // else if( (len=arg.matches("-order="))  )
-      // {
-      //   sScanF(arg(len,arg.length()-1),"%i",&orderOfAccuracy);
-      //   printF("Setting orderOfAccuracy=%d\n",orderOfAccuracy);
-      // } 
-
+            } 
+            else if( (len=arg.matches("-table="))  )
+            {
+                tableFileName = arg(len,arg.length()-1);
+                printF("Setting tableFileName=[%s.tex] (name of LateX table output file)\n",(const char*)tableFileName);
+            }            
             else if( (len=arg.matches("-includePressure="))  )
             {
                 sScanF(arg(len,arg.length()-1),"%i",&includePressure);
@@ -314,6 +350,11 @@ int main(int argc,char **argv)
                 sScanF(arg(len,arg.length()-1),"%i",&useAccurateInnerProduct);
                 printF("Setting useAccurateInnerProduct=%d\n",useAccurateInnerProduct);
             } 
+            else if( (len=arg.matches("-orthogonalize="))  )
+            {
+                sScanF(arg(len,arg.length()-1),"%i",&orthogonalize);
+                printF("Setting orthogonalize=%d\n",orthogonalize);
+            }
 
             else if( (len=arg.matches("-eigOption="))  )
             {
@@ -332,6 +373,12 @@ int main(int argc,char **argv)
                 sScanF(arg(len,arg.length()-1),"%e",&targetEigenvalue);
                 printF("Setting targetEigenvalue=%e\n",targetEigenvalue);
             }               
+
+            else if( (len=arg.matches("-maxIterations="))  )
+            {
+                sScanF(arg(len,arg.length()-1),"%i",&maxIterations);
+                printF("Setting maxIterations=%d\n",maxIterations);
+            }  
 
             else if( (len=arg.matches("-eigc="))  )
             {
@@ -760,10 +807,8 @@ int main(int argc,char **argv)
     RealCompositeGridFunction evTrue; // holds true eigenvectors
     RealCompositeGridFunction w(cg,all,all,all,1); // hold temporary variables
 
-    Integrate integrate;  // for computing inner products for errors in eigenvectors
+  // Integrate integrate;  // for computing inner products for errors in eigenvectors
 
-  // // Create the object that knows how to evaluate the boundary of the eye-lid
-  // EyeCurves eyeCurves;
     
     Real time=0.; // plot curve at this time
     
@@ -806,9 +851,11 @@ int main(int argc,char **argv)
     RealArray eig; 
 
     RealArray eigErr, evectErr;
-    IntegerArray multiplicity, multIndex;
+    IntegerArray multiplicityTrue, multIndexTrue;
     bool eigenVectorsAreKnown=false;
     bool eigenValuesAreKnown=false;
+
+    IntegerArray eigMultiplicity, eigStartIndex;  
   
     aString answer,buff;  
     for( ;; )
@@ -829,10 +876,41 @@ int main(int argc,char **argv)
       //  eig : holds computed eigenvalues
       //  u : holds computed eigenvectors
             ogev.computeEigenvalues( problem,numberOfComponents, orderOfAccuracy, numEigenValues,numEigenVectors, eig, 
-                                                              cg, u, cgop, tol, eigOption, setTargetEigenvalue, targetEigenvalue,
+                                                              cg, u, cgop, tol, eigOption, maxIterations, setTargetEigenvalue, targetEigenvalue,
                                                               bc, numGhost, saveMatlab, useWideStencils, maximumProjectedDimension );
 
-            FILE *outFile = fopen("genEigsTable.tex","w" );     // Save some tex output here 
+          
+            if( orthogonalize && numEigenVectors>0 )  
+            {
+        //  Count multiplicities and orthogonalize eigenvectors for multiple eigenvalues
+
+                ogev.orthogonalizeEigenvectors( problem, numberOfComponents, orderOfAccuracy, numEigenValues, numEigenVectors, eig,  u, eigMultiplicity, eigStartIndex );
+
+            }
+            else if( numEigenVectors>0 )
+            {
+                eigMultiplicity.redim(numEigenVectors);
+                eigMultiplicity=1; 
+            }
+
+
+      // ----- compute residuals ----
+            printF("\n >>>> genEigs:: compute residuals ||  A - lambda u ||/lambda ....\n");
+            realCompositeGridFunction res(cg,all,all,all,numEigenVectors);
+            RealArray resMax(numEigenVectors);
+            for( int ie=0; ie<numEigenVectors; ie++ )
+            {
+                Real lambda = eig(0,ie);
+                resMax(ie) = ogev.getEigenPairResidual( lambda, u, res, cgop, ie );
+        // printF(" ie=%4d  max norm resdiual ||  A - lambda u ||/lambda =%9.2e\n",resMax(ie));
+            }
+            printF("... done compute residuals\n");
+
+
+            tableFileName = tableFileName + ".tex";
+
+      // FILE *outFile = fopen("genEigsTable.tex","w" );     // Save some tex output here 
+            FILE *outFile = fopen((const char*)tableFileName,"w" );     // Save some tex output here 
 
             printF("\n======================== GenEigs problem=%s =======================\n",(const char*)problem);
             printF(" grid=%s\n"
@@ -878,7 +956,7 @@ int main(int argc,char **argv)
 
       // --- In some cases we know the true eigenvalues ----
             int numEigs = numEigenVectors; 
-            int numEigsTrue = numEigs + 20; // compute a few more in case we have multiplicity > 1
+            int numEigsTrue = numEigs + 20; // compute a few more in case we have multiplicityTrue > 1
             if( setTargetEigenvalue )
             {
                 numEigsTrue = numEigsTrue + 1000;   // add extra to account for setting a target value
@@ -890,8 +968,6 @@ int main(int argc,char **argv)
             evectErr.redim(numEigs); evectErr=0.;
 
             eigsTrue=1.;
-
-  
 
             int bcOpt=0; // Dirichlet BC's 
             if( eigCase == "square" || eigCase == "box" )
@@ -908,54 +984,69 @@ int main(int argc,char **argv)
 
                 Real ra=.5, rb=1., za=0., zb=1.;
                 if( eigCase == "disk" ) 
+                {
                     ra=0.;
+                    if( numberOfDimensions==3 )
+                        rb=.5; 
+                }
                 if( eigenVectorsAreKnown )
                     ogev.getEigenvaluesCylinder( numEigsTrue, eigsTrue, cg, ra,rb, za, zb, &evTrue );
                 else
                     ogev.getEigenvaluesCylinder( numEigsTrue, eigsTrue, cg, ra,rb, za, zb );
             }
+            else if( eigCase == "sphere"  )
+            {
+                eigenValuesAreKnown=true;
+                eigenVectorsAreKnown=true;
+
+                Real ra=0., rb=1.;
+                if( eigenVectorsAreKnown )
+                    ogev.getEigenvaluesSphere( numEigsTrue, eigsTrue, cg, ra,rb,  &evTrue );
+                else
+                    ogev.getEigenvaluesSphere( numEigsTrue, eigsTrue, cg, ra,rb );
+            }      
             else
             {
-                printF("\n **** INFO: genEigs: unknown eigCase=[%s]\n",(const char*)eigCase);
+                printF("\n **** INFO: genEigs: unknown eigCase=[%s]\n\n",(const char*)eigCase);
             }
 
       // ---- COMPUTE MULTIPLICITIES ----
       // Save multiplicities to the show file
       //   -> true eigs are sorted at this point 
 
-      // multIndex(ie) = first true eig with given multiplicity
-            multiplicity.redim(numEigsTrue);
-            multIndex.redim(numEigsTrue);
-            multiplicity=1;
+      // multIndexTrue(ie) = first true eig with given multiplicityTrue
+            multiplicityTrue.redim(numEigsTrue);
+            multIndexTrue.redim(numEigsTrue);
+            multiplicityTrue=1;
             if( eigenVectorsAreKnown )
             {
-                int i=0; 
-                while( i<numEigsTrue )
-                {
-                      int mult=1; 
-                      for( int ie=i; ie<numEigsTrue-1; ie++ )
-                      {
-                          if( fabs(eigsTrue(ie+1)-eigsTrue(ie)) < tol*(1.+fabs(eigsTrue(ie))) ) 
+                    int i=0; 
+                    while( i<numEigsTrue )
+                    {
+                          int mult=1; 
+                          for( int ie=i; ie<numEigsTrue-1; ie++ )
                           {
-                              mult++;
+                              if( fabs(eigsTrue(ie+1)-eigsTrue(ie)) < tol*(1.+fabs(eigsTrue(ie))) ) 
+                              {
+                                  mult++;
+                              }
+                              else
+                                break;
                           }
-                          else
-                            break;
-                      }
-                      for( int j=0; j<mult; j++ )
-                      {
-                          multiplicity(i+j)=mult;
-                          multIndex(i+j)=i;
-                      }
-
-                      i += mult;
-                }
+                          for( int j=0; j<mult; j++ )
+                          {
+                              multiplicityTrue(i+j)=mult;
+                              multIndexTrue(i+j)=i;
+               // printF("eig=%3d,  multiplicityTrue=%d\n",i+j,multiplicityTrue(i+j));
+                          }
+                          i += mult;
+                    }
             }
 
-      // ** FIX ME -- ADD OPTION TO USE SIMPLE INNER PRODUCT ---
-      // int & useAccurateInnerProduct        = dbase.get<int>("useAccurateInnerProduct"); 
+            Integrate myIntegrate;
+            Integrate & integrate = orthogonalize ? ogev.dbase.get<Integrate>("integrate") : myIntegrate;
 
-            if( eigenVectorsAreKnown && useAccurateInnerProduct )
+            if( eigenVectorsAreKnown && useAccurateInnerProduct && !orthogonalize )
             {
                 integrate.updateToMatchGrid(cg);
                 w=1;
@@ -966,12 +1057,25 @@ int main(int argc,char **argv)
 
             fPrintF(outFile,"\\begin{table}[H]\\tableFont % you should set \\tableFont to \\footnotesize or other size\n");
             fPrintF(outFile,"\\begin{center}\n");
-            fPrintF(outFile,"\\begin{tabular}{|c|c|c|c|}  \\hline\n");
-            fPrintF(outFile,"\\multicolumn{4}{|c|}{%s, order=%d} \\\\ \\hline\n",(const char*)gridNameNoPrefix,orderOfAccuracy);
-            fPrintF(outFile,"   j    &         $\\lambda_j$        & $\\lambda_j$-err & $\\phi_j$-err \\\\ \\hline\n");
+            if( eigenValuesAreKnown )
+            {
+                fPrintF(outFile,"\\begin{tabular}{|c|c|c|c|c|c|c|}  \\hline\n");
+                fPrintF(outFile,"\\multicolumn{7}{|c|}{%s, order=%d} \\\\ \\hline\n",(const char*)gridNameNoPrefix,orderOfAccuracy);
+                fPrintF(outFile,"   j    &         $\\lambda_j$        & $\\lambda_j$-err  & $\\phi_j$-err  & multe & multc & $\\| A\\phi - \\lambda\\phi\\|/\\lambda$     \\\\ \\hline\n");
+            }
+            else
+            {
+                fPrintF(outFile,"\\begin{tabular}{|c|c|c|c|}  \\hline\n");
+                fPrintF(outFile,"\\multicolumn{4}{|c|}{%s, order=%d} \\\\ \\hline\n",(const char*)gridNameNoPrefix,orderOfAccuracy);
+                fPrintF(outFile,"   j    &         $\\lambda_j$      & multc & $\\| A\\phi - \\lambda\\phi\\|/\\lambda$     \\\\ \\hline\n");
+            }
 
       // --------------- START LOOP -----------
+      // Real maxRelErr=0., maxEvectErr=0.;
 
+            printF("  resid = || A phi - lambda phi ||_max / |lambda| \n");
+            printF("  VECT max-err = max-norm( closest vector in 2 norm to eigenpsace )/( max-norm of phi)  \n");
+            printF("  VECT l2-err  =      L2h( closest vector in 2 norm to eigenpsace )/( L2h norm of phi)  \n");
             for( int i=0; i<numEigenVectors; i++ )
             {
         // printF("Eigenvalue %d : k=%18.14e + %18.14e I",i,eig(0,i),eig(1,i));
@@ -991,8 +1095,8 @@ int main(int argc,char **argv)
                             eigIndex=ii; diffMin=diff;
                       }
                     }
-                    const int mult = multiplicity(eigIndex);
-                    const int ie = multIndex(eigIndex);    // index for exact solution, and FIRST member of a multiple EIG
+                    const int mult = multiplicityTrue(eigIndex);
+                    const int ie = multIndexTrue(eigIndex);    // index for exact solution, and FIRST member of a multiple EIG
 
                     const Real eigTrue = eigsTrue(ie);
                     const Real absErr = fabs(eig(0,i)-eigTrue); 
@@ -1002,125 +1106,50 @@ int main(int argc,char **argv)
 
           // printF(", true=%14.8f, err=%8.2e, rel-err=%8.2e",eigTrue,absErr,relErr);
                     printF(", eig=%4d, true=%14.8f, rel-err=%8.2e",eigIndex,eigTrue,relErr);
-                    fPrintF(outFile,"&  %8.2e  ",relErr);
+                    fPrintF(outFile,"&    %8.2e      ",relErr);
 
                     if( eigenVectorsAreKnown )
                     {
-            // -- check errors in eigenvectors  ---
 
-                        int md=mult; 
-                        RealArray a(md,md), ai(md,md), b(md), alpha(md);
-
-            // *new* way 
-            // find 
-            //   u[i] = SUM alpha_j evTrue[j]
-            //   A0 alpha = b0  
-            // Solve
-            //   A0^T A0 alpha = A^T b0
-            //    A alpha = b 
-
-                        for( int i1=0; i1<md; i1++ )
-                        {
-              // int ii = i1==0 ? i : j;
-                            int ii = ie + i1;
-                                if( useAccurateInnerProduct )
-                                {
-                                    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
-                                    {
-                                        getIndex(cg[grid].gridIndexRange(),I1,I2,I3);
-                                        OV_GET_SERIAL_ARRAY(Real,evTrue[grid],uuLocal);
-                                        OV_GET_SERIAL_ARRAY(Real,u[grid],vvLocal);
-                                        OV_GET_SERIAL_ARRAY(Real,w[grid],wLocal);
-                                        wLocal(I1,I2,I3) = uuLocal(I1,I2,I3,ii)*vvLocal(I1,I2,I3,i);
-                                    }
-                                    b(i1) = integrate.volumeIntegral(w);
-                                }
-                                else
-                                {
-                                    Index Iv[3], &I1=Iv[0], &I2=Iv[1], &I3=Iv[2];
-                                    int iab[2]; 
-                                    int ii1,ii2,ii3;  
-                                    b(i1)=0.; 
-                                    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
-                                    {
-                                        MappedGrid & mg = cg[grid];
-                                        const IntegerArray & gid = mg.gridIndexRange();
-                                        OV_GET_SERIAL_ARRAY(Real,evTrue[grid],uuLocal);
-                                        OV_GET_SERIAL_ARRAY(Real,u[grid],vvLocal);
-                                        OV_GET_SERIAL_ARRAY(Real,w[grid],wLocal);
-                                        OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
-                                            Iv[2]=Range(0,0);
-                                            for( int axis=0; axis<mg.numberOfDimensions(); axis++ )
-                                            {
-                                                for( int side=0; side<=1; side++ )
-                                                {
-                                                    int is = 1-2*side;
-                                                    iab[side]=gid(side,axis);
-                                                    const int bc = mg.boundaryCondition(side,axis);
-                                                    if( bc==dirichlet )
-                                                    {
-                                                          iab[side] += is;  // Dirichlet BC -- ignore the boundary
-                                                    }
-                                                    else if( bc==neumann )
-                                                    {
-                            // include boundary
-                                                    }
-                                                    else if( bc>0 )
-                                                    {
-                                                        printF("getActivePointIndex:ERROR: unknown bc=%d for grid=%d\n",bc,grid);
-                                                        OV_ABORT("error");
-                                                    }
-                                                    else if( bc<0 )
-                                                    {
-                            // periodic -- include left end
-                                                        if( side==1 )
-                                                            iab[side] += is; 
-                                                    }
-                                                    else
-                                                    {
-                            // interpolation boundary : include end 
-                                                    }
-                                                }
-                                                Iv[axis] = Range(iab[0],iab[1]);
-                                            }
-                                        FOR_3D(ii1,ii2,ii3,I1,I2,I3)
-                                        {
-                      // wLocal(ii1,ii2,ii3) = uuLocal(ii1,ii2,ii3,ii)*vvLocal(ii1,ii2,ii3,i); // ** TEMP***
-                                            if( maskLocal(ii1,ii2,ii3)>0 )
-                                                b(i1) += uuLocal(ii1,ii2,ii3,ii)*vvLocal(ii1,ii2,ii3,i);
-                                        }
-                                    }
-                                }  
-              // innerProductor( ii, i, evTrue,u, w, b(i1) );  // ue[ii] . u[i] 
-                            
-                            for( int i2=0; i2<md; i2++ )
+              // -- check errors in eigenvectors  ---
+                            int md=mult; 
+                            RealArray a(md,md), ai(md,md), b(md), alpha(md);
+              // *new* way 
+              // find 
+              //   u[i] approx  SUM_j alpha_j evTrue[j]
+              // ( evTrue[ii], u[i] ) = SUM_j alpha_j ( evTrue[ii], evTrue[j] )
+              //   A0 alpha = b0  
+              // Solve
+              //   A0^T A0 alpha = A^T b0
+              //    A alpha = b 
+                            for( int i1=0; i1<md; i1++ )
                             {
-                // int jj = i2==0 ? i : j;
-                                int jj = ie + i2;
+                // int ii = i1==0 ? i : j;
+                                int ii = ie + i1;
                                     if( useAccurateInnerProduct )
                                     {
                                         for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
                                         {
                                             getIndex(cg[grid].gridIndexRange(),I1,I2,I3);
                                             OV_GET_SERIAL_ARRAY(Real,evTrue[grid],uuLocal);
-                                            OV_GET_SERIAL_ARRAY(Real,evTrue[grid],vvLocal);
+                                            OV_GET_SERIAL_ARRAY(Real,u[grid],vvLocal);
                                             OV_GET_SERIAL_ARRAY(Real,w[grid],wLocal);
-                                            wLocal(I1,I2,I3) = uuLocal(I1,I2,I3,ii)*vvLocal(I1,I2,I3,jj);
+                                            wLocal(I1,I2,I3) = uuLocal(I1,I2,I3,ii)*vvLocal(I1,I2,I3,i);
                                         }
-                                        a(i1,i2) = integrate.volumeIntegral(w);
+                                        b(i1) = integrate.volumeIntegral(w);
                                     }
                                     else
                                     {
                                         Index Iv[3], &I1=Iv[0], &I2=Iv[1], &I3=Iv[2];
                                         int iab[2]; 
                                         int ii1,ii2,ii3;  
-                                        a(i1,i2)=0.; 
+                                        b(i1)=0.; 
                                         for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
                                         {
                                             MappedGrid & mg = cg[grid];
                                             const IntegerArray & gid = mg.gridIndexRange();
                                             OV_GET_SERIAL_ARRAY(Real,evTrue[grid],uuLocal);
-                                            OV_GET_SERIAL_ARRAY(Real,evTrue[grid],vvLocal);
+                                            OV_GET_SERIAL_ARRAY(Real,u[grid],vvLocal);
                                             OV_GET_SERIAL_ARRAY(Real,w[grid],wLocal);
                                             OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
                                                 Iv[2]=Range(0,0);
@@ -1159,51 +1188,140 @@ int main(int argc,char **argv)
                                                 }
                                             FOR_3D(ii1,ii2,ii3,I1,I2,I3)
                                             {
-                        // wLocal(ii1,ii2,ii3) = uuLocal(ii1,ii2,ii3,ii)*vvLocal(ii1,ii2,ii3,jj); // ** TEMP***
+                        // wLocal(ii1,ii2,ii3) = uuLocal(ii1,ii2,ii3,ii)*vvLocal(ii1,ii2,ii3,i); // ** TEMP***
                                                 if( maskLocal(ii1,ii2,ii3)>0 )
-                                                    a(i1,i2) += uuLocal(ii1,ii2,ii3,ii)*vvLocal(ii1,ii2,ii3,jj);
+                                                    b(i1) += uuLocal(ii1,ii2,ii3,ii)*vvLocal(ii1,ii2,ii3,i);
                                             }
                                         }
                                     }  
-                // innerProductor( ii,jj, evTrue,evTrue, w,a(i1,i2));    // ue[ii] . ue[jj]
+                // innerProductor( ii, i, evTrue,u, w, b(i1) );  // ue[ii] . u[i] 
+                                for( int i2=0; i2<md; i2++ )
+                                {
+                  // int jj = i2==0 ? i : j;
+                                    int jj = ie + i2;
+                                        if( useAccurateInnerProduct )
+                                        {
+                                            for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                                            {
+                                                getIndex(cg[grid].gridIndexRange(),I1,I2,I3);
+                                                OV_GET_SERIAL_ARRAY(Real,evTrue[grid],uuLocal);
+                                                OV_GET_SERIAL_ARRAY(Real,evTrue[grid],vvLocal);
+                                                OV_GET_SERIAL_ARRAY(Real,w[grid],wLocal);
+                                                wLocal(I1,I2,I3) = uuLocal(I1,I2,I3,ii)*vvLocal(I1,I2,I3,jj);
+                                            }
+                                            a(i1,i2) = integrate.volumeIntegral(w);
+                                        }
+                                        else
+                                        {
+                                            Index Iv[3], &I1=Iv[0], &I2=Iv[1], &I3=Iv[2];
+                                            int iab[2]; 
+                                            int ii1,ii2,ii3;  
+                                            a(i1,i2)=0.; 
+                                            for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                                            {
+                                                MappedGrid & mg = cg[grid];
+                                                const IntegerArray & gid = mg.gridIndexRange();
+                                                OV_GET_SERIAL_ARRAY(Real,evTrue[grid],uuLocal);
+                                                OV_GET_SERIAL_ARRAY(Real,evTrue[grid],vvLocal);
+                                                OV_GET_SERIAL_ARRAY(Real,w[grid],wLocal);
+                                                OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
+                                                    Iv[2]=Range(0,0);
+                                                    for( int axis=0; axis<mg.numberOfDimensions(); axis++ )
+                                                    {
+                                                        for( int side=0; side<=1; side++ )
+                                                        {
+                                                            int is = 1-2*side;
+                                                            iab[side]=gid(side,axis);
+                                                            const int bc = mg.boundaryCondition(side,axis);
+                                                            if( bc==dirichlet )
+                                                            {
+                                                                  iab[side] += is;  // Dirichlet BC -- ignore the boundary
+                                                            }
+                                                            else if( bc==neumann )
+                                                            {
+                                // include boundary
+                                                            }
+                                                            else if( bc>0 )
+                                                            {
+                                                                printF("getActivePointIndex:ERROR: unknown bc=%d for grid=%d\n",bc,grid);
+                                                                OV_ABORT("error");
+                                                            }
+                                                            else if( bc<0 )
+                                                            {
+                                // periodic -- include left end
+                                                                if( side==1 )
+                                                                    iab[side] += is; 
+                                                            }
+                                                            else
+                                                            {
+                                // interpolation boundary : include end 
+                                                            }
+                                                        }
+                                                        Iv[axis] = Range(iab[0],iab[1]);
+                                                    }
+                                                FOR_3D(ii1,ii2,ii3,I1,I2,I3)
+                                                {
+                          // wLocal(ii1,ii2,ii3) = uuLocal(ii1,ii2,ii3,ii)*vvLocal(ii1,ii2,ii3,jj); // ** TEMP***
+                                                    if( maskLocal(ii1,ii2,ii3)>0 )
+                                                        a(i1,i2) += uuLocal(ii1,ii2,ii3,ii)*vvLocal(ii1,ii2,ii3,jj);
+                                                }
+                                            }
+                                        }  
+                  // innerProductor( ii,jj, evTrue,evTrue, w,a(i1,i2));    // ue[ii] . ue[jj]
+                                }
+                            }  
+              // Compute the 1-norm of "a" as needed below for the condition number 
+                            Real *rwork = new Real [4*md];
+                            int *iwork = new int [md];
+                            Real anorm = LANGE( "1", md, md, a(0,0), md, rwork[0] ); // "1" = 1-norm 
+              // PA = LU factor
+                            IntegerArray ipvt(md);
+                            int info;
+                            GETRF( md,md,a(0,0), md, ipvt(0), info );                
+                            if( info!=0 )
+                            {
+                                printF("ERROR return from GETRF, info=%d\n",info);
+                                OV_ABORT("error");
                             }
-                            
-                        }  
+              // ----- check the condition number ---
+                            Real rcond;
+                            GECON( "1", md, a(0,0), md, anorm, rcond, rwork[0], iwork[0], info ); // "1" = 1-norm 
+                            if( info!=0 )
+                                OV_ABORT("GECON: info !=0 ");
+                            if( rcond < 1e-6 )
+                                printF("\n **WARNING** : 1-norm inverse condition number of A = %9.2e, anorm=%9.2e\n\n",rcond,anorm);
+              // Solve given LU
+                            int nrhs=1;
+                            GETRS( "N", md, nrhs, a(0,0), md, ipvt(0), b(0), md, info );
+                            alpha=b;
+              // ::display(alpha,"alpha");
+                            if( info!=0 )
+                            {
+                                printF("ERROR return from GETRS, info=%d\n",info);
+                                OV_ABORT("error");
+                            }  
+                            delete [] rwork;
+                            delete [] iwork;   
+                            for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                            {
+                // general case 
+                                w[grid] = u[grid](all,all,all,i); 
+                                for( int ii=0; ii<mult; ii++ )
+                                    w[grid] -= alpha(ii)*evTrue[grid](all,all,all,ie+ii);
+                            }     
+                            const Real phiMax = maxNorm( u, i );
+                            const Real phiL2 =   l2Norm( u, i );
+                            const Real errMax = maxNorm( w )/phiMax;
+                            const Real errL2  =  l2Norm( w )/phiL2;
 
-            // PA = LU factor
-                        IntegerArray ipvt(md);
-                        int info;
-                        GETRF( md,md,a(0,0), md, ipvt(0), info );                
-                        if( info!=0 )
-                        {
-                            printF("ERROR return from GETRF, info=%d\n",info);
-                            OV_ABORT("error");
-                        }
-            // Solve given LU
-                        int nrhs=1;
-                        GETRS( "N", md, nrhs, a(0,0), md, ipvt(0), b(0), md, info );
-                        alpha=b;
-            // ::display(alpha,"alpha");
-                        if( info!=0 )
-                        {
-                            printF("ERROR return from GETRS, info=%d\n",info);
-                            OV_ABORT("error");
-                        }     
-
-                        for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
-                        {
-              // general case 
-                            w[grid] = u[grid](all,all,all,i); 
-                            for( int ii=0; ii<mult; ii++ )
-                                w[grid] -= alpha(ii)*evTrue[grid](all,all,all,ie+ii);
-
-                        }     
-
-                        Real errMax = maxNorm( w );
-                        Real errL2  =  l2Norm( w );
             // printF("i=%3d: max-err=%8.2e, l2-err=%8.2e\n",i,errMax,errL2);
-                        printF(", mult=%d, VECT: max-err=%8.2e, l2-err=%8.2e",multiplicity(ie),errMax,errL2);
-                        fPrintF(outFile,"&  %8.2e  ",errMax);
+                        printF(", multe=%d mult=%d VECT: max-err=%8.2e, l2-err=%8.2e, resid=%8.2e",multiplicityTrue(ie),eigMultiplicity(i),errMax,errL2,resMax(i));
+                        
+                        if( errMax > .05 ) printF(" @EV@");
+                        if( resMax(i) > 1.0e-10 ) printF(" *RES*");
+                        if( orthogonalize &&  multiplicityTrue(ie) != eigMultiplicity(i) ){ printF(" *mult differ*"); }
+
+                        fPrintF(outFile,"&   %8.2e    &   %d    &  %d   &    %8.2e ",errMax,multiplicityTrue(ie),eigMultiplicity(i),resMax(i));
 
                         evectErr(i)=errMax;
 
@@ -1215,23 +1333,45 @@ int main(int argc,char **argv)
                     {
                         fPrintF(outFile,"&    "); // leave blank
                     }
-                    fPrintF(outFile,"\\\\\n");
                     printF("\n");
 
                 }
-                else
+                else // eigenvalues not known
                 {
-                    printF("\n");
+                    printF(", mult=%d, resid=%8.2e\n",eigMultiplicity(i),resMax(i));
+                    fPrintF(outFile," &   %d     &    %8.2e   ",eigMultiplicity(i),resMax(i));
                 }
+                fPrintF(outFile,"\\\\\n");
+
             }
+
+            Real maxRelErr=0.,maxEvectErr=0.; 
+            if( eigenValuesAreKnown )
+            {
+                  maxRelErr=max(eigErr);
+                  maxEvectErr=max(evectErr);
+                  printF(" max-rel-err=%8.2e, max-evect-err=%8.2e",maxRelErr,maxEvectErr);
+            }
+            Real maxResMax = max(resMax);      
 
             fPrintF(outFile,"\\hline\n");
             fPrintF(outFile,"\\end{tabular}\n");
-            fPrintF(outFile,"\\caption{Computed eigenvalues, relative-error in the eigenvalues, and relative error in the eigenvectors.}\\label{table:genEigs%s}\n",(const char*)gridNameNoPrefix);
+            fPrintF(outFile,"\\caption{Computed eigenvalues, relative-error in the eigenvalues, and relative error in the eigenvectors. orthogonalize=%d",orthogonalize);
+            if( eigenValuesAreKnown )
+                fPrintF(outFile,", max-rel-err=%8.2e, max-evect-err=%8.2e, max-residual=%8.2e\n",maxRelErr,maxEvectErr,maxResMax);
+            else
+                fPrintF(outFile,", max-residual=%8.2e\n",maxResMax);
+
+            fPrintF(outFile,"}\\label{table:genEigs%s}\n",(const char*)gridNameNoPrefix);
             fPrintF(outFile,"\\end{center}\n");
             fPrintF(outFile,"\\end{table}\n");    
             fclose(outFile);
-            printf("Wrote file genEigsTable.tex\n");
+
+
+            printF("\n ==== SUMMARY:");
+            printF(" max-residual = %8.2e\n",maxResMax);
+
+            printF("\n Wrote file [%s]\n",(const char*)tableFileName);
         }   
         else if( answer=="save show file" ) 
         {
@@ -1264,11 +1404,25 @@ int main(int argc,char **argv)
             db.put(eig,"eig");   // computed eigenvalues 
 
       // ** we should always compute multiplicities here -- see cgWave 
+            if( orthogonalize )
+            {
+        // --- eigenvectors were orthogonalized ----
+                db.put(eigMultiplicity,"eigMultiplicity");
+                db.put(eigStartIndex,"eigStartIndex");
+
+        // save integration weights so we do not need to recompute
+                Integrate & integrate = ogev.dbase.get<Integrate>("integrate");
+                integrate.put(db,"integrate" );
+            }
+
             if( eigenValuesAreKnown )
             {
-                db.put(multiplicity,"multiplicity");
-                db.put(multIndex,"multIndex");
+        // -- OLD WAY --
+                db.put(multiplicityTrue,"multiplicityTrue");
+                db.put(multIndexTrue,"multIndexTrue");
             }
+
+
                                                         // start a new frame
             aString buff;
       // show.saveComment(0,sPrintF(buff,"Eigenvalues computed by genEigs with SLEPc, %s: order=%d",(const char*)problem,orderOfAccuracy));  

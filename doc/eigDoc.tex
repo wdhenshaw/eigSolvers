@@ -1,0 +1,629 @@
+\documentclass[preprint,11pt]{elsarticle}
+% \documentclass[3p,twocolumn]{elsarticle}
+\usepackage[bookmarks=true,colorlinks=true,linkcolor=blue]{hyperref}
+
+\usepackage{amsmath,amssymb,mathabx}
+\usepackage{graphicx,esint,ulem}
+
+\biboptions{sort&compress}% compress bibtex entries
+\usepackage[usenames,dvipsnames,svgnames,table]{xcolor}
+
+\usepackage{color}
+\definecolor{jwbGreen}{rgb}{0, .6, 0}
+\definecolor{jbaPurple}{HTML}{6600FF}
+\definecolor{purple}{rgb}{.7, 0., .8}
+\newcommand{\red}{\color{red}}
+\newcommand{\green}{\color{green}}
+\newcommand{\blue}{\color{blue}}
+\newcommand{\purple}{\color{purple}}
+\newcommand{\orange}{\color{orange}}
+
+\usepackage{calc}
+\usepackage[margin=1.in]{geometry}
+
+% for fancy coloured boxes: 
+\usepackage{empheq}
+\usepackage[most]{tcolorbox}
+
+\newtcbox{\mymath}[1][]{%
+    nobeforeafter, math upper, tcbox raise base,
+    enhanced, colframe=blue!60!black,
+    colback=blue!20, boxrule=1pt,
+    #1}
+
+
+\usepackage{algorithm,algpseudocode}
+\usepackage{algorithmicx}
+\algrenewcommand\alglinenumber[1]{\footnotesize #1:} % Algorithm line number font size
+\newcommand{\algFontSize}{\footnotesize}
+
+\usepackage{tcolorbox}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{fullpage}
+\usepackage{graphicx}
+\usepackage{setspace}
+\usepackage{float}
+
+\usepackage{tabu}% to increase table row separation
+
+%\usepackage{showkeys}
+\usepackage{multirow}
+
+\usepackage{fancyvrb}% fancy verbatim
+
+% \usepackage{mdframed}% for shaded framed boxes
+
+
+% ************ ALLOW displayed equations to cross pages *********************
+\allowdisplaybreaks
+
+% ---------------------------- DATE HEADER ------------------------------------
+% \usepackage{fancyhdr}
+% \usepackage{time}
+% take the % awaNOy on next line to produce the final camera-ready version
+% Be sure to remove \thispagestyle{fancy} as well after the \make.
+% \pagestyle{empty}
+%
+%\pagestyle{fancy}
+% \newcommand\myTime{\now}
+%\fancyhead{}
+%\fancyhead[CO, CE]{\texttt{-Draft-}}
+%\fancyhead[RO, RE]{\texttt{\today, \myTime}}
+%\setlength{\headheight}{2\baselineskip}
+%\renewcommand{\headrulewidth}{0pt}
+% ---------------------------- DATE HEADER ------------------------------------
+
+
+
+\usepackage{tikz}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{assumption}{Assumption}
+\newtheorem{definition}{Definition}
+\newenvironment{proof}[1][Proof]{\begin{trivlist}
+\item[\hskip \labelsep {\bfseries #1.}]}{\end{trivlist}}
+
+\newtheorem{thm}{Theorem}[section]
+\newtheorem{prop}{Proposition}[section]
+\newtheorem{lem}{Lemma}[section]
+%\newtheorem{cor}{Corollary}[section]
+\newtheorem{example}{Example}[section]
+\newtheorem{conj}{Conjecture}[section]
+\newtheorem{remark}{Remark}[section]
+% some definitions of bold math italics to make typing easier.
+% They are used in the corollary.
+
+ 
+\input tex/defs.tex
+\input tex/trimFig.tex
+\usepackage{xargs}% for optional args to \newcommandx
+\input tex/plotFigureMacros.tex
+
+% \newcommand{\new}[1]{{\color{olive}#1}}
+\newcommand{\new}[1]{{\color{red}#1}}
+\newcommand{\wdh}[1]{{\color{DarkBlue}wdh: #1}}
+\newcommand{\old}[1]{{\color{red}old: #1}}
+\newcommand{\newer}[1]{{\color{orange} #1}}
+\newcommand{\avk}[1]{{\color{orange}AVK: #1}}
+
+\newcommand{\Ttilde}{\tilde{T}}
+
+
+\newcommand{\pnl}{\p_{n_L}}
+\newcommand{\pnr}{\p_{n_R}}
+\newcommand{\mm}{m}% interface index character
+
+\renewcommand\floatpagefraction{.99}
+\renewcommand\topfraction{.99}
+\renewcommand\bottomfraction{.99}
+\renewcommand\textfraction{.01}   
+\setcounter{totalnumber}{50}
+\setcounter{topnumber}{50}
+\setcounter{bottomnumber}{50}
+
+% ============================================================================================
+\begin{document}
+
+\begin{frontmatter}
+ \title{Class Ogev: Computation of Eigenpairs of PDE Problems on Overset Grids using SLEPSc\\
+        Documentation and User Guide}
+
+
+% \author[rpi]{Jeffrey W.~Banks}
+% \ead{banksj3@rpi.edu}
+
+\author[rpi]{William D.~Henshaw}
+\ead{henshw@rpi.edu}
+
+% \author[rpi]{Donald~W.~Schwendeman\fnref{NSFgrants}}
+% \ead{schwed@rpi.edu}
+
+
+\address[rpi]{Department of Mathematical Sciences, Rensselaer Polytechnic Institute, Troy, NY 12180, USA}
+
+% \cortext[cor]{Corresponding author}
+
+% \fntext[DARPA]{This work was partially funded by the DARPA Defense Sciences Office, Award HR00111720032.}
+% \fntext[NSFgrants]{Research supported by the National Science Foundation under grants DMS-1519934 and DMS-1818926.}
+
+
+% \fntext[RTG]{This work was partially funded by the NSF Research Training Group Grant DMS-1344962.}
+% \fntext[DOE]{This work was partially performed under DOE contracts from the ASCR Applied Math Program.}
+%\fntext[DOD]{This work was partially performed under DOD contract W911NF-14-C-0161.}
+
+% \fntext[NSFgrantNew]{Research supported by the National Science Foundation under grant DMS-1519934.}
+
+% \fntext[PECASEThanks]{Research supported by a U.S. Presidential Early Career Award for Scientists and Engineers.}
+
+\begin{abstract}
+This document describes some routines that can be used to compute eigenvalues and eigenvectors (eigenpairs) of PDE boundary
+value problems using the SLEPSc package.
+Eigenpairs can be computed on two and three dimensional overset grids to second-order and fourth-order accuracy.
+The driver routine is \texttt{genEigs} which makes of functions in the class \texttt{Ogev}.
+
+
+\end{abstract}
+
+\end{frontmatter}
+
+
+% ------------- Table of contents
+\tableofcontents
+
+% -------------------------------------------------------------------------------------
+\clearpage
+\section{Introduction} 
+
+This document describes some routines that can be used to compute eigenvalues and eigenvectors (eigenapirs) of PDE boundary
+value problems using the SLEPSc package.
+One example is the problem of computing eigenpairs to the negative Laplacian on some domain $\Omega$,
+\bat
+     -\Delta u &= \lambda u,  \quad & \xv\in\Omega, \\
+         \Bc u &= 0           \quad & \xv\in\p\Omega, 
+\eat  
+where $\Bc$ denote the boundary condition operator.    
+
+
+The routine {\tt genEigs.bC} and class {\tt Ogev} can be used to compute discrete
+approximations to eigenfunctions on overset grids using the {\tt SLEPc} solver.
+
+\mni
+\textbf{ Notes:}
+\begin{enumerate}
+  \item SLEPc does not generally return orthogonal eigenvectors
+      for the eigenspace of a multiple eigenvalue. 
+  \item The eigenvectors for a multiple eigenvalue can be orthogonalized using the routine genEigs (e.g. using a QR algorithm).
+   However, it appears that sometimes SLEPc 
+   returns essentially the same eigenvector more than once for a multiple eigenvalue. In this
+   case the  orthogonalization fails -- need to fix this. May be able to provide SLEPc with
+   some starting guesses. 
+\end{enumerate}
+
+
+% -------------------------------------------------------------------------------------
+\clearpage
+\section{Computing eigenpairs with genEigs}  \label{sec:genEigs}
+
+The routine \texttt{eigSolvers/bin/genEigs} can be used to compute eigenpairs of the negative Laplacian 
+on 2D and 3D overset grids. 
+
+\mni
+Usage: 
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs [-noplot] eigs.cmd -problem=<s> -eigCase=<s> -g=<s> -numEigenValues=<i> -tol=<f> 
+        -bc[123456]=[d|n] -show=<s> -matlab=<s> -table=<s> -orthogonalize=[0|1] 
+        -discreteEigenValues=[0|1] -go=<s>
+
+ -noplot : run without graphics
+ -problem=[laplace|ile] : laplace = (negative) laplacian
+                         :ile = incompressible elasticity
+ -eigCase=[square|disk|sphere] : compare answers to the known eigenpairs for a square (or box),
+       disk (or annulus or cylinder) or sphere.
+ -g=gridName : name of overset grid generated by ogen, example -g=square32.order2.hdf
+ -numEigenValues=i : number of eigenvalues to compute (and eigenvectors)
+ -tol=f : tolerance for the eigenvalues, e.g. -tol=1e-12.
+ -bc[1234567]=[d|n] : set boundary condition to Dirichlet or Neumann on a boundary with bc flag 1,2,3,4,6.
+             e.g. -bc1=d sets boundaries with bc flag=1 to Dirichlet.
+ -orthogonalize=[0|1] : 1=orthogonalize and eigenvectors corresponding to multiple eigenvalues.
+ -discreteEigenValues=[0|1] : 1=compare to true discrete eigenvalues (square or box only)
+ -matlab=matlabFileName : name of Matlab output file holding eigenvalues and errors,
+                          e.g. -matlab=diskG4Order2
+ -table=nameOfTableFile : name of file holding a LaTeX table of results, 
+                          e.g. -table=square32Order4Table.
+ -show=showFileName : save results to a show file with this name. e.g. -show=myShowFile.show 
+                      (use plotStuff to display results from the show file). 
+ -go=[go|og] : -go=go : run and exit. -go=og (open graphics) : when running with -noplot, 
+       open graphics windows after commands have been read.                       
+\end{Verbatim}
+Here we are using the \texttt{eig.cmd} command file in \texttt{eigSolvers/cmd/eig.cmd}.
+Command line arguments after the command file name are optional and can be in any order.
+
+\mni
+Command line arguments are also passed to SLEPc. For example, SLEPSc needs to invert a matrix and 
+to solve the linear system. By default a direct sparse solver used.
+For big problems an iterative method may be necessary since the direct solver requires too much memory.
+To solve the linear system with GMRES and an ILU(2) preconditioner to relative tolerance of $1e-2$ add the
+command line options
+\begin{Verbatim}[fontsize=\footnotesize]
+  genEigs ... -st_ksp_type gmres -st_pc_type ilu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12
+\end{Verbatim}
+% 
+% Some options are:
+% \begin{description}
+%   \item[-g=gridName] : name of overset grid generated by ogen, example \texttt{-g=square32.order2.hdf}
+%   \item[-numEigenValues=i] : number of eigenvalues to compute (and eigenvectors)
+%   \item[-tol=f] : tolerance for the eigenvalues, e.g. \texttt{-tol=1e-12}.
+%   \item[-orthogonalize=i] : 1=orthogonalize and eigenvectors corresponding to multiple eigenvalues.
+%   \item[-table=nameOfTableFile] : name of file holding a LaTeX table of results, e.g. \texttt{-table=square32Order4Table}.
+%   \item[-show=showFileName] : save results to a show file with this name (use plotStuff to display results from the show file).
+% \end{description}
+
+
+
+% -------------------------------------------------------------------------------------
+\clearpage
+\section{Class Ogev: Overset Grid EigenValue and EigenVector solver}  \label{sec:Ogev}
+
+The overset grid eigenvalue class Ogev contains the functions used to compute eigenpairs using SLEPSc.
+
+\mni
+{\red todo: Make some doxygen or other documentation for the Ogev functions.}
+
+\mni
+Here is the header file as of Sept. 7, 2024, which lists some of the functions.
+\begin{Verbatim}[fontsize=\tiny]
+class Ogev 
+{
+
+public:
+  Ogev();
+  ~Ogev();
+
+  aString bcName( int bc );
+
+  int checkResidualsInPsi( int eigc, RealArray & eig, realMappedGridFunction & u, CompositeGrid & cg,  
+                           CompositeGridOperators & cgop, IntegerArray & bc, 
+                           int numberOfComponents, int orderOfAccuracy, int useWideStencils, Real mu, int includePressure );  
+
+  int computeEigenvalues( const aString & problem, const int numberOfComponents,
+                          int orderOfAccuracy, int & numEigenValues, int & numEigenVectors, 
+                          RealArray & eig, CompositeGrid & cg, realCompositeGridFunction & ucg, 
+                          CompositeGridOperators & cgop, 
+                          Real tol, int eigOption, int maxIterations,
+                          const int setTargetEigenvalue, const Real targetEigenvalue,
+                          IntegerArray & bc, int numGhost, int saveMatlab, int useWideStencils,
+                          int maximumProjectedDimension=-1  );
+
+  int 
+  fillInterpolationCoefficients( Mat & A, realCompositeGridFunction & uu );
+
+  int 
+  fillMatrixIncompressibleElasticity( const int numberOfComponents, int orderOfAccuracy, MappedGrid & mg, Mat & A, Mat & B, 
+                                      int numGhost, bool useNew, Real tol, int eigOption, IntegerArray & bc, 
+                                      int saveMatlab, int useWideStencils );
+
+  int 
+  fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, CompositeGridOperators & cgop, 
+                       Mat & A, Mat & B, int numGhost, bool useNew, 
+                       Real tol, int eigOption, IntegerArray & bc, int saveMatlab, Real lambdaShift );
+
+  Real getEigenPairResidual( Real lambda, realCompositeGridFunction & v,
+                             realCompositeGridFunction & res,  
+                             CompositeGridOperators & operators, 
+                             int component =0  );
+  int 
+  getEigenvaluesBox( int numEigs, RealArray & eigs, CompositeGrid & cg,
+                     Real lx =1.0 , Real ly =1.0, Real lz =1.0,
+                     RealCompositeGridFunction *eigenvector = NULL,
+                     const bool discreteEigenvalues =false  );
+
+  int 
+  getEigenvaluesCylinder( int numEigs, RealArray & eigs, CompositeGrid & cg, 
+                          Real ra =0.5, Real rb =1.0, Real za = 0.0, Real zb = 1.0,
+                          RealCompositeGridFunction *eigenvector = NULL  );
+  int 
+  getEigenvaluesSphere( int numEigs, RealArray & eigs, CompositeGrid & cg, 
+                        Real ra =0.0, Real rb =1.0, 
+                        RealCompositeGridFunction *eigenvector = NULL  );
+
+
+  int 
+  getPressureFromDisplacement( realCompositeGridFunction & uv, realCompositeGridFunction & p, 
+                               IntegerArray & bc, int orderOfAccuracy, Real mu  );                          
+
+  // count multiplicities, orthogonalize and normalize eigenvectors
+  int orthogonalizeEigenvectors( const aString & problem, const int numberOfComponents,
+                                 int orderOfAccuracy, int & numEigenValues, int & numEigenVectors, 
+                                 RealArray & eig, realCompositeGridFunction & ucg, 
+                                 IntegerArray & eigMultiplicity, IntegerArray & eigStartIndex  );
+protected:
+
+  Real getDiscreteSymbol( const Real modeNumber, const Real dx ) const;
+
+  int
+  buildGlobalIndexing(CompositeGrid & cg );
+  
+  int 
+  getGlobalIndex( int n, int *iv, int grid, int p );
+
+  int 
+  getGlobalIndex( int n, int i1, int i2, int i3, int grid, int p );
+
+  int debug;
+
+  int numberOfComponents;
+  int numberOfProcessors;
+  int numberOfGridPoints;
+  int numberOfGridPointsThisProcessor;
+
+  // --- arrays for global indexing -----
+  int *pnab, *pnoffset;
+
+   // Here is the place to store parameters:
+  DataBase dbase;
+
+};
+\end{Verbatim}
+
+% -------------------------------------------------------------------------------------
+% -------------------------------------------------------------------------------------
+\clearpage
+\section{Numerical Examples}  \label{sec:numericalExamples}
+
+The accuracy of the eigen-pairs computed using the EigenWave algorithm is measured in three ways, the relative
+error in the eigenvalue, the relative error in the eigenvector, and the relative residual defined, respectively, by 
+\ba
+  &  \lambda_j{\rm -err} =  \f{|\lambda_{h,j} - \lambda_{h,j}^{\rm true}|}{\lambda_{h,j}^{\rm true}} , 
+  \quad
+   \phi_j{\rm -err} =  \f{\| V_{\iv,j} - V_{\iv,j}^{\rm true} \|_\infty }{\| V_{\iv,j}^{\rm true} \|_\infty}, 
+   \quad
+   \texttt{res} =  \f{ \, \| L_{h,p} V_{\iv,j} + \lambda_{h,j} V_{\iv,j} \|_\infty }{ \lambda_{h,j} },
+\ea
+
+Some tables also hold columns headed with \texttt{multe} and \texttt{multc} -- these are the multiplicities
+of the eigenvalues, e=exact, c=computed eigenvalues. The routine to orthogonalize eigenvectors corresponding
+to multiple eigenvalues attempts to find the multiplicity.
+
+\renewcommand{\tableFont}{\tiny}
+% -------------------------------------------------------------------------------------
+\subsection{Square} \label{sec:square}
+
+Table~\ref{table:genEigssquare64.order2.hdf} shows results for order=2 comparing to the known discrete eigenvalues.
+Here is the command used to generate the results.
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square64.order2.hdf -eigOption=1 
+-eps_s=largest_magnitude -numEigenValues=16 -tol=1.0e-14 -bc1=d -show=square64O2Ev16.show 
+-table=square64O2Ev16DiscreteEigsTable -orthogonalize=1 -discreteEigenvalues=1 -go=go
+\end{Verbatim}
+\input tables/square64O2Ev16DiscreteEigsTable.tex
+
+
+% Table~\ref{table:genEigssquare64.order2.hdf} shows results for a square, fourth-order accurate.
+% Command:
+% \begin{Verbatim}[fontsize=\footnotesize]
+% genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square64.order2.hdf -eigOption=1 
+% -eps_s=largest_magnitude -numEigenValues=16 -tol=1.0e-14 -bc1=d -show=square64O2Ev16.show 
+% -table=square64O2Ev16Table -orthogonalize=1 -go=go
+% \end{Verbatim}
+% \input tables/square64O2Ev16Table.tex
+
+Table~\ref{table:genEigssquare64.order4.hdf} shows results for a square, fourth-order accurate, comparing to the true continuous eigenvalues.
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square64.order4.hdf -eigOption=1 
+-eps_s=largest_magnitude -numEigenValues=16 -tol=1.0e-14 -bc1=d -show=square64O4Ev16.show 
+-table=square64O4Ev16Table -orthogonalize=1 -go=go
+\end{Verbatim}
+
+\input tables/square64O4Ev16Table.tex
+
+% -------------------------------------------------------------------------------------
+\clearpage
+\subsection{Disk} \label{sec:disk}
+
+Here are results for a disk.
+\begin{itemize}
+  \item The eigenvectors seem to be converging at a faster rate than expected, see Figure~\ref{fig:accuracyOfEigenpairs}.
+\end{itemize}
+
+\input tex/diskEigenAccuracyFig.tex
+
+\mni
+Table~\ref{table:genEigssice4.order4.ng3.hdf} shows fourth order accurate results using:
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=disk -g=sice4.order4.ng3 -numEigenValues=32 
+     -tol=1.0e-14 -bc1=d -show=sice8O2EigsEv32.show -table=diskG8O4Ev32Table -orthogonalize=1 -go=go
+\end{Verbatim}
+
+\input tables/diskG4O4Ev32Table.tex
+% \input tables/diskG8O4Ev32Table.tex
+% \input tables/diskG16O4Ev32Table.tex
+
+
+\input tex/diskEigenvectorsFig.tex
+
+
+% -------------------------------------------------------------------------------------
+\subsection{Ellipse} \label{sec:ellipse}
+
+Here we compute eigenpairs of an ellipse.
+
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=ellipseGride4.order2.hdf -numEigenValues=16
+    -tol=1.0e-12 -bc1=d -show=junk.show -table=ellipseG4O2Table -orthogonalize=1 -go=go
+\end{Verbatim}
+
+\input tables/ellipseG4O2Table.tex
+
+\mni{\red Order=4: check me: residuals?}
+\input tables/ellipseG4O4Table.tex
+
+
+\input tex/ellipseEigenvectorsFig.tex
+
+
+% -------------------------------------------------------------------------------------------
+\clearpage
+\subsection{Shapes in two dimensions} \label{sec:shapes}
+
+Eigenpairs for some shapes.
+
+\mni
+Command:
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=shapese4.order2.hdf -numEigenValues=16 
+  -tol=1.0e-12 -show=junk.show -table=shapesG4O2Table -orthogonalize=1 -discreteEigenvalues=1 -go=go
+\end{Verbatim}
+
+
+\input tables/shapesG4O2Table.tex
+\input tables/shapesG4O4Table.tex
+
+\input tex/shapesEigenvectorsFig.tex
+
+% -------------------------------------------------------------------------------------------
+\clearpage
+\subsection{Two-dimensional cylinder in a channel}   \label{sec:cylinderInAchannel}
+
+Cylinder in a channel, periodic in y.
+
+\input tables/cicG8O2Table.tex
+
+
+Figure~\ref{fig:cicEigenfunctions} shows some eigenfunctions.
+
+
+\input tex/cicEigenvectorsFig
+
+
+% -------------------------------------------------------------------------------------------
+\clearpage
+\subsection{RPI letters}  \label{sec:rpi}
+
+\mni
+Command:
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=rpiGride4.order2.hdf -numEigenValues=16 
+  -tol=1.0e-12 -show=junk.show -table=shapesG4O2Table -orthogonalize=1 -discreteEigenvalues=1 -go=go
+\end{Verbatim}
+
+\input tables/shapesG4O2Table.tex
+
+
+\input tex/rpiEigenvectorsFig
+
+
+% -------------------------------------------------------------------------------------
+\clearpage
+\subsection{Box} \label{sec:box}
+
+Here we compute eigenpairs of the unit box. 
+
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=box2.order2.hdf -numEigenValues=16 
+   -tol=1.0e-12 -bc1=d -show=junk.show -table=boxG2O2Table -orthogonalize=1  -discreteEigenvalues=1 -go=go
+\end{Verbatim}
+
+\input tables/boxG2O2Table.tex
+
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=box2.order4.hdf -numEigenValues=16 
+   -tol=1.0e-12 -bc1=d -show=junk.show -table=boxG2O4Table -orthogonalize=1 -go=go
+\end{Verbatim}
+
+
+\input tables/boxG2O4Table.tex
+
+% -------------------------------------------------------------------------------------
+\clearpage
+\subsection{Cylindrical pipe} \label{sec:cylinder}
+
+
+\input tex/pipeEigenAccuracyFig.tex
+
+
+Here are results for a solid cylinder in 3D.
+\begin{itemize}
+  \item At order 2, the eigenvectors seem to be converging at a faster rate than expected (?).
+  \item At order 4, the eigenvectors seem to be converging at a faster rate than expected (?).
+\end{itemize}
+
+\mni
+Command: 
+\begin{Verbatim}[fontsize=\footnotesize]
+genEigs -noplot eigs.cmd -problem=laplace -g=pipeze4.order2.hdf -eigCase=disk -numEigenValues=32 -tol=1.0e-12 -discreteEigenvalues=1 -show=junk.show -st_ksp_type gmres -st_pc_type ilu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -table=pipeG4O2Ev32Table -orthogonalize=1 -go=go
+\end{Verbatim}
+
+\mni
+{\red check this case -- orthogonalize may be wrong.}
+\input tables/pipeG2O2Ev32Table.tex
+
+\input tables/pipeG4O2Ev32Table.tex
+
+
+\input tables/pipeG8O2Ev32Table.tex
+
+% \input tables/pipeG2O4Ev32Table.tex
+
+\clearpage
+\input tables/pipeG4O4Ev32Table.tex
+\input tables/pipeG8O4Ev32Table.tex
+
+
+% -------------------------------------------------------------------------------------
+\clearpage
+\newcommand{\Gcs}{\Gc_{\rm sphere}}
+\newcommand{\mTheta}{m_\theta}
+\newcommand{\mr}{m_r}
+\newcommand{\mPhi}{m_\phi}
+\subsection{Sphere} \label{sec:sphere}
+
+\input tex/sphereEigenAccuracyFig.tex
+
+In this section eigenpairs of a solid sphere are computed.
+The eigenfunctions of a sphere of radius $a$ take the form
+\bse
+\ba
+    \phi_{\mPhi,\mr,\mTheta}(r,\phi,\theta) = r^{-1/2} J_{\mPhi+1/2}( \lambda_{\mPhi,\mr} r ) \, P_{\mPhi}^{\mTheta}(\cos(\phi)) \, 
+      \begin{cases} \cos(\mTheta\theta), & \mTheta=0,1,\ldots,\mPhi, \\
+                    \sin(\mTheta\theta), & \mTheta=1,2,\ldots,\mPhi,
+      \end{cases} ,
+\ea
+where $P_{\mPhi}^{\mTheta}$ are the associated Legendre polynomials. The eigenvalues are
+\ba
+    \lambda_{\mPhi,\mr} = \zeta_{\mPhi,\mr}/a, \qquad \mPhi=0,1,2,\ldots, \quad \mr=1,2,3,\ldots, 
+\ea
+where $\zeta_{\mPhi,\mr}$ are the zeros of $J_{\mPhi+1/2}(\zeta)$, for $\mr=1,2,3,\ldots$. 
+\ese
+Note that eigenvalue $\lambda_{\mPhi,\mr}$ has multiplicity $2\mPhi+1$ and thus there are eigenvalues with high multiplicity which 
+could cause difficulties for numerical algorithms.
+
+
+The composite grids for the solid sphere, denoted by $\Gcs^{(j)}$, consist of four component grids,
+each with grid spacing approximately equal to $\ds^{(j)}=1/(10 j)$.  
+The sphere, of radius $a=1$, 
+ is covered with three boundary-fitted patches near the surface as shown on the left in Figure~\ref{fig:sphereFig}.
+There is one patch specified using spherical polar coordinates that covers much of the sphere except
+near the poles. To remove the polar singularities there are two patches
+that cover the north and south poles, defined by orthographic mappings.
+A background Cartesian grid covers the interior of the sphere.  
+
+
+\begin{Verbatim}[fontsize=\footnotesize]
+\end{Verbatim}
+
+
+\input tables/sphereG4O2Ev32Table.tex
+
+% \bibliographystyle{elsart-num}
+% \bibliography{journal-ISI,henshaw,henshawPapers}
+
+\end{document}
+
+% ***************************************************************************************************************
+% ***************************************************************************************************************
+% ***************************************************************************************************************
+% ***************************************************************************************************************
+% ***************************************************************************************************************
+

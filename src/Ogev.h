@@ -38,7 +38,7 @@ public:
                           int orderOfAccuracy, int & numEigenValues, int & numEigenVectors, 
                           RealArray & eig, CompositeGrid & cg, realCompositeGridFunction & ucg, 
                           CompositeGridOperators & cgop, 
-                          Real tol, int eigOption,
+                          Real tol, int eigOption, int maxIterations,
                           const int setTargetEigenvalue, const Real targetEigenvalue,
                           IntegerArray & bc, int numGhost, int saveMatlab, int useWideStencils,
                           int maximumProjectedDimension=-1  );
@@ -56,6 +56,10 @@ public:
                        Mat & A, Mat & B, int numGhost, bool useNew, 
                        Real tol, int eigOption, IntegerArray & bc, int saveMatlab, Real lambdaShift );
 
+  Real getEigenPairResidual( Real lambda, realCompositeGridFunction & v,
+                             realCompositeGridFunction & res,  
+                             CompositeGridOperators & operators, 
+                             int component =0  );
   int 
   getEigenvaluesBox( int numEigs, RealArray & eigs, CompositeGrid & cg,
                      Real lx =1.0 , Real ly =1.0, Real lz =1.0,
@@ -66,11 +70,24 @@ public:
   getEigenvaluesCylinder( int numEigs, RealArray & eigs, CompositeGrid & cg, 
                           Real ra =0.5, Real rb =1.0, Real za = 0.0, Real zb = 1.0,
                           RealCompositeGridFunction *eigenvector = NULL  );
+  int 
+  getEigenvaluesSphere( int numEigs, RealArray & eigs, CompositeGrid & cg, 
+                        Real ra =0.0, Real rb =1.0, 
+                        RealCompositeGridFunction *eigenvector = NULL  );
+
 
   int 
   getPressureFromDisplacement( realCompositeGridFunction & uv, realCompositeGridFunction & p, 
                                IntegerArray & bc, int orderOfAccuracy, Real mu  );                          
 
+  // // normalize eigenvectors, fixup eigenvectors for multiple eigenvalues.
+  // int normalizeEigenvector( int eigNumber, RealArray & eig, IntegerArray & eigMultiplicity, realCompositeGridFunction & uev  );
+
+  // count multiplicities, orthogonalize and normalize eigenvectors
+  int orthogonalizeEigenvectors( const aString & problem, const int numberOfComponents,
+                                 int orderOfAccuracy, int & numEigenValues, int & numEigenVectors, 
+                                 RealArray & eig, realCompositeGridFunction & ucg, 
+                                 IntegerArray & eigMultiplicity, IntegerArray & eigStartIndex  );
 protected:
 
   Real getDiscreteSymbol( const Real modeNumber, const Real dx ) const;
@@ -94,6 +111,7 @@ protected:
   // --- arrays for global indexing -----
   int *pnab, *pnoffset;
 
+public: // do this for now
    // Here is the place to store parameters:
   DataBase dbase;
 

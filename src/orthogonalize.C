@@ -1,0 +1,518 @@
+// This file automatically generated from orthogonalize.bC with bpp.
+#include "mpi.h"
+#include "Overture.h"
+#include "ParallelUtility.h"
+#include "display.h"
+#include "CompositeGridOperators.h"
+#include "gridFunctionNorms.h"
+#include "GridStatistics.h"
+
+#include "Integrate.h"
+
+#include "Ogev.h"
+
+// ======================================================================
+// Macro: Normalize an eigenvector 
+// ======================================================================
+
+// ======================================================================
+// Macro: Compute the inner product of ui and uj
+// ======================================================================
+
+
+
+
+// // ==============================================================================================
+// /// \brief Normalize eigenvector number "eigNumber". Orthogonalize any eigenvectors corresponding to
+// ///      multiple eigenvalues.
+// /// \return value: multiplicity of the eigenvector: 1=simple, 2=double, ...
+// // ==============================================================================================
+// int Ogev::
+// normalizeEigenvector( int eigNumber, RealArray & eig, IntegerArray & eigMultiplicity, realCompositeGridFunction & uev  )
+// {
+
+//   const int & debug                      = dbase.get<int>("debug");
+
+//   const int numberOfEigenvectors         = dbase.get<int>("numberOfEigenvectors");
+//   IntegerArray & eigenVectorIsNormalized = dbase.get<IntegerArray>("eigenVectorIsNormalized");
+//   // IntegerArray & eigMultiplicity         = dbase.get<IntegerArray>("eigMultiplicity");
+//   const Real eigTol                      = dbase.get<Real>("eigenValueTolForMultiplicity");
+
+
+//   if(  eigenVectorIsNormalized(eigNumber)  )
+//   {
+//     printF(">> Ogev::normalizeEigenvector: INFO: eigenvector=%d already normalized\n",eigNumber);
+//     return eigMultiplicity(eigNumber);
+//   }
+//   int multiplicity=1; 
+
+//   if( debug>2 )
+//   {
+//     printF("\n ==== NORMALIZE EIGENVECTOR eigNumber=%d =====\n",eigNumber);
+//   }
+
+//   // if( !dbase.has_key("uev") )
+//   // {
+//   //   initializeDeflation();
+//   // }
+
+//   // realCompositeGridFunction & uev = dbase.get<realCompositeGridFunction>("uev");
+//   // RealArray & eig = dbase.get<RealArray>("eig");
+//   // int numberOfEigenvectors = uev.getComponentBound(0) - uev.getComponentBase(0) + 1; 
+
+//   CompositeGrid & cg = *uev.getCompositeGrid();
+//   CompositeGrid & cgev = cg;
+
+
+//   Integrate & integrate = dbase.get<Integrate>("integrate");
+
+//   // -- holds intermediate results: 
+//   // realCompositeGridFunction & u = dbase.get<realCompositeGridFunction>("uDeflate");
+
+//   Real dotProduct;
+//   Index I1,I2,I3;
+
+
+
+//   RealArray evNorm2(numberOfEigenvectors); // make a class member
+//   evNorm2=1.;
+
+//   // -- normalize and orthogonalize eigenvectors ----
+//   realCompositeGridFunction u(cg); // for work-space
+
+//   int i = eigNumber;
+
+//   normalizeEigenvectorMacro(i); 
+
+//   evNorm2(i) = eNorm;
+
+//   printF("Eigenvector i=%3d: L2-norm = %9.2e\n",i,evNorm2(i));
+
+//   eigenVectorIsNormalized(i)=1;
+
+//   if( eigMultiplicity(i) > 1 )
+//   {
+//     // ---  multiple eigenvalue ----
+//     multiplicity = eigMultiplicity(i);
+
+//     printF(" >>> Ogev::normalizeEigenvector: Multiple eigenvalue found: i=%d, eig=%12.5e, eigMultiplicity(i)=%d will orthogonalize eigenvectors...\n",i,eig(0,i),eigMultiplicity(i));
+
+//     int j=i;
+    
+//     i=j+1; // check for duplicate eig here
+//     Real delta = fabs(eig(0,i)-eig(0,j))/fabs(eig(0,i));
+//     // Real eigTol = 1.e-4; // ** FIX ME 
+//     if( delta> eigTol && i>0 )
+//     {
+//       i=j-1;
+//       delta = fabs(eig(0,i)-eig(0,j))/fabs(eig(0,i));
+//     }
+
+//     assert( eigMultiplicity(i) > 1 );
+//     if( eigenVectorIsNormalized(i) != 0 )
+//     {
+//       printF(">>> Ogev::normalizeEigenvector: ERROR: eigenVectorIsNormalized(i)=%d, expecting zero. i=%d, j=%d, eigMultiplicity(i)=%d\n",eigenVectorIsNormalized(i),i,j,eigMultiplicity(i));
+//       OV_ABORT("error");
+//     }
+
+//     // Real delta = fabs(eig(0,i)-eig(0,j))/fabs(eig(0,i));
+//     // Real eigTol = 1.e-3; // ** FIX ME 
+//     // assert( delta < eigTol );
+
+//     // --- Orthogonalize the eigenvectors ----
+
+//     innerProductor( i,j,dotProduct );  
+
+//     if( i<100 )
+//     {
+//       printF(" Inner product: (u%d,u%d) = %9.3e\n",i,j,dotProduct);
+//       // printF(" Inner product: (u%d,u%d)/(|| u || || v ||) = %9.3e\n",i,j,dotProduct/(evNorm2(i)*evNorm2(j)));
+//     } 
+
+//     // -- Gram-Schmidt --
+//     //   ui = ui - (ui,uj)*uj 
+//     for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+//     {
+//       MappedGrid & mg = cgev[grid];
+//       getIndex(mg.dimension(),I1,I2,I3);
+//       OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+//       bool ok=ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3);
+//       if( ok )
+//         uevLocal(I1,I2,I3,i) -= dotProduct*uevLocal(I1,I2,I3,j);
+//     }
+
+//     // re-normalize
+        
+
+//     normalizeEigenvectorMacro(i); 
+//     eigenVectorIsNormalized(i)=1;    
+
+//     printF(">>> Ogev::normalizeEigenvector: Eigenvector %d is now orthonormal to eigenvector %d.\n",i,j);
+
+//   }
+
+
+
+//   return multiplicity;
+// }
+
+
+
+
+// ================================================================================================
+/// \brief Orthogonalize, normalize eigenvectors, count multiplicities.
+///
+/// \details: Given eigenvalues and eigenvectors computed from the function computeEigenvalues,
+///  this routine will count multiplicities of eigenvalues and orthogonalize and normalize
+///  the eigenvectors
+// ================================================================================================
+int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOfComponents,
+                                                                          int orderOfAccuracy, int & numEigenValues, int & numEigenVectors, 
+                                                                          RealArray & eig, realCompositeGridFunction & uev, IntegerArray & eigMultiplicity, IntegerArray & eigStartIndex )
+{
+    if( numEigenVectors<=0 )
+        return 0;
+
+
+    Real & eigTol              = dbase.get<Real>("eigenValueTolForMultiplicity");
+    int & numberOfEigenvectors = dbase.get<int>("numberOfEigenvectors");
+
+    numberOfEigenvectors = numEigenVectors;
+
+    eigMultiplicity.redim(numEigenVectors);
+
+    CompositeGrid & cg = *uev.getCompositeGrid();
+
+    printF("\n Ogev::orthogonalizeEigenvectors: numEigenValues=%d, numEigenVectors=%d, orthogonalize eigenvectors, count multiplicities... \n",numEigenValues,numEigenVectors);
+
+   // get grid spacing on grid 0 -- normally the background grid
+    Real dsMin[3], dsAve[3], dsMax[3];
+    GridStatistics::getGridSpacing( cg[0], dsMin, dsAve, dsMax );
+
+    const Real ds = cg.numberOfDimensions()==2 ? max(dsMax[0],dsMax[1]) : max(dsMax[0],dsMax[1],dsMax[2]);
+    printF(" ... grid 0 spacing =[%9.2e, %9.2e, %9.2e]\n",dsMax[0],dsMax[1],dsMax[2]); 
+
+  // --- estimate eigTol
+    Real eigTolOld = eigTol;
+    Real eigTolNew = pow(ds,orderOfAccuracy);
+    eigTol = max( eigTolOld, eigTolNew );
+    
+    printf("Setting eigTol = %9.2e = max( ds^%d=%9.2e, %9.2e),  ds=%9.2e\n",eigTol,orderOfAccuracy,eigTolNew,eigTolOld,ds);
+
+
+    if( !dbase.has_key("integrate") )
+    {
+        dbase.put<Integrate>("integrate");
+    }
+    Integrate & integrate = dbase.get<Integrate>("integrate");
+
+    printF("==== Ogev::ORTHONGONALIZE EIGENVECTORS : compute integration weights...\n");
+    integrate.updateToMatchGrid(cg);
+
+    if( true )
+    {
+        Real volume;
+        volume = integrate.volume();
+        printf("... computed volume of the domain = %9.2e\n",volume);
+    }
+
+  // eigenvectorIsNormalized(i) = 1 : if this eigenvector have been normalized
+    if( !dbase.has_key("eigenVectorIsNormalized") )
+        dbase.put<IntegerArray>("eigenVectorIsNormalized");
+
+    IntegerArray & eigenVectorIsNormalized = dbase.get<IntegerArray>("eigenVectorIsNormalized");
+    eigenVectorIsNormalized.redim(numEigenVectors);
+    eigenVectorIsNormalized=0; 
+
+    RealArray lambdaNorm(numEigenVectors); // holds modulus of each eigenvalue
+
+  // -------- Determine multiplicities -------
+  // This started from the version in CgWave initializeDeflation
+
+    for( int i=0; i<numEigenVectors; i++ )
+    {  
+
+        lambdaNorm(i)= sqrt( SQR(eig(0,i)) + SQR(eig(1,i)) );
+        if( i>0 && lambdaNorm(i) < lambdaNorm(i-1) ) 
+        {
+            printF("ERROR: lambdaNorm(%d)=14.4e  < lambdaNorm(%d)=%14.4e -- expected eigenvalues to be non-decreasing in magnitude.\n",i,lambdaNorm(i), i-1,lambdaNorm(i-1));
+            OV_ABORT("ERROR");
+
+        }
+    // bool doubleEig=false;
+    // const Real eigTol = 1.e-4; // ** FIX ME 
+        int ie=i; // first eig of multiple set 
+        int je=i; // last eig of multiple set
+        const int maxMultiplicity=100; 
+        int multiplicity=1; 
+        Real maxEigDiff=0.;
+        for( int m=0; m<maxMultiplicity; m++ )
+        {
+            bool matchFound=false;
+
+      // if( ie>0 )
+      //   printF("ie=%d, eig(0,ie-1)=%.4g\n",ie, eig(0,ie-1));
+
+            Real eigDiff = fabs(eig(0,ie-1)-eig(0,i))/(1.+fabs(eig(0,i)));
+            if( ie>0 && eigDiff< eigTol  )       
+      // if( ie>0 && fabs(eig(0,ie-1)-eig(0,i))< eigTol*(1.+fabs(eig(0,i))) ) 
+            {
+                maxEigDiff = max(maxEigDiff,eigDiff);
+                multiplicity++;
+        // printF("MATCH FOUND: multiplicity=%d\n",multiplicity);
+                ie--; 
+                matchFound=true;
+            }
+      // if( je<numEigenVectors-1)
+      //   printF("je=%d, eig(0,je+1)=%.4g\n",je, eig(0,je+1));
+
+            eigDiff = fabs(eig(0,je+1)-eig(0,i))/(1.+fabs(eig(0,i)));
+            if( (je<numEigenVectors-1) && eigDiff < eigTol )
+      // if( (je<numEigenVectors-1) && fabs(eig(0,je+1)-eig(0,i)) < eigTol*(1.+fabs(eig(0,i))) )
+            {
+                maxEigDiff = max(maxEigDiff,eigDiff);
+                multiplicity++;
+        // printF("MATCH FOUND: multiplicity=%d\n",multiplicity);
+                je++; 
+                matchFound=true;
+        // doubleEig=true;
+        // j=i+1; 
+            }
+            if( !matchFound ) break;
+        }
+        eigMultiplicity(i) = multiplicity;
+        if( debug>2 )
+            printF(" i=%3d : eig=%14.6e, multiplicity=%d (maxEigDiff=%9.2e, eigTol=%9.2e)\n",i,eig(0,i),eigMultiplicity(i),maxEigDiff,eigTol);
+
+
+        if( false )
+        {
+            Real evNorm = maxNorm( uev,i);
+            printF("maxNorm( uev[%d] ) = %9.2e\n",i,evNorm);
+        }
+
+    }
+
+  // if( true )
+  //   return 0;  // ############################
+
+
+  // ---- Normalize and orthogonalize the eigenvectors ----
+
+  // first normalize:
+    RealArray evNorm2(numberOfEigenvectors); // make a class member ? 
+    evNorm2=1.;
+    Index I1,I2,I3;
+
+    realCompositeGridFunction u(cg); // for work-space
+    u=0.;
+
+    for( int i=0; i<numEigenVectors; i++ )
+    {
+            for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+            {
+                MappedGrid & mg = cg[grid];
+                getIndex(mg.dimension(),I1,I2,I3);
+                OV_GET_SERIAL_ARRAY(Real,uev[grid],uevLocal);
+                OV_GET_SERIAL_ARRAY(Real,u[grid],uLocal);
+                bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3);
+                if( ok )
+                    uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,i)*uevLocal(I1,I2,I3,i);
+            }
+            Real eNorm = sqrt( integrate.volumeIntegral(u) );
+            for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+            {
+                MappedGrid & mg = cg[grid];
+                getIndex(mg.dimension(),I1,I2,I3);
+                OV_GET_SERIAL_ARRAY(Real,uev[grid],uevLocal);
+                bool ok=ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3);
+                if( ok )
+                    uevLocal(I1,I2,I3,i) *= (1./eNorm);
+            }
+        evNorm2(i) = eNorm;   
+        printF("i=%4d : orig. eigenvector L2 norm = %9.2e\n",i,evNorm2(i));
+
+    }
+
+
+  // if( true )
+  //  return 0;  // ###########################################
+
+
+
+  // ----- orthogonalize the eigenvectors for multiple eigenvalues -----
+    Real dotProduct;
+    Real epsOrthog=1.e-8; // tolerance for dot-product being small (adjusted below)
+    Real maxDotProductForOrthognality = 1e-2;  // max value of a dot product for orthogonality test
+
+    Real maxEigTol=1.e-2; // maximum allowable relative tolerance for multiple eigenvalues
+    Real minRelativeEigDist = 1e-3; // min relative distance between eigenvalues to assume eigenvalues are the same 
+
+  // eigStartIndex(i) = index of first eig for a multiple eig
+    eigStartIndex.redim(numEigenVectors);
+    eigStartIndex=-1; 
+    eigStartIndex(0)=0; 
+    int numErrors=0; 
+    if( true )
+    {
+        for( int i=0; i<numEigenVectors-1; i++ )
+        {
+      // normalizeEigenvector( i, eig, eigMultiplicity, uev  );
+      // check if ev[i] is orthogonal to ev[j]
+
+            int j = i+1;
+                for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                {
+                    MappedGrid & mg = cg[grid];
+                    getIndex(mg.gridIndexRange(),I1,I2,I3);
+                    OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+                    OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
+                    bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3);
+                    if( ok )
+                        uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,i)*uevLocal(I1,I2,I3,j);
+                }
+                dotProduct = integrate.volumeIntegral(u);
+
+            Real eigDist = sqrt( SQR(eig(0,i)-eig(0,j)) +SQR(eig(1,i)-eig(1,j))  );
+            Real eigNorm = max( sqrt( SQR(eig(0,i)) +SQR(eig(1,i))  ), 1e-12 ); // FIX ME : 1e-12
+            Real relEigDist = eigDist/eigNorm; 
+
+            if(  fabs(dotProduct)>epsOrthog && fabs(dotProduct) < maxDotProductForOrthognality && relEigDist> minRelativeEigDist )
+            {
+        // Not a super small dot product but eigenvalues seem to be distinct
+                epsOrthog = max(epsOrthog, 1.5*fabs(dotProduct)); 
+                printF("i=%4d, j=%4d  (phi[i],phi[j]) = %9.2e  eigDist/eigNorm=%9.2e  ... assuming this is orthogonal enough. Increasing tol for orthogonality to epsOrthog=%9.2e\n",
+                        i,j,dotProduct,eigDist/eigNorm,epsOrthog);
+            }
+
+            if( fabs(dotProduct) < epsOrthog )
+            {
+                printF("i=%4d, j=%4d  (phi[i],phi[j]) = %9.2e  (orthogonal)\n",i,j,dotProduct);
+                eigStartIndex(j)=j; 
+            }
+            else
+            {
+        // -- this must be a multiple eig
+                eigStartIndex(j)=eigStartIndex(i);   // points to the index of the first instance of this multiple eig
+
+
+
+                printF("i=%4d, j=%4d  (phi[i],phi[j]) = %9.2e,  lam[i]=%14.6e lam[j]=%14.6e mult(i)=%d mult(j)=%d eigStartIndex(i)=%d eigStartIndex(j)=%d eigDist/eigNorm=%9.2e\n",i,j,dotProduct,
+                                          eig(0,i),eig(0,j), eigMultiplicity(i),eigMultiplicity(j),eigStartIndex(i),eigStartIndex(j),eigDist/eigNorm );
+
+                if( relEigDist > eigTol )
+                {
+                    printF("WARNING: inner product is NOT small but eigenvalues are not so close ?!  |lam[i]-lam[j]|/|lam[i]| = %9.2e,  eigTol=%9.2e\n",eigDist/eigNorm, eigTol);
+                    if( relEigDist < maxEigTol ) 
+                    {
+                        eigTol = max(eigTol, 1.5*relEigDist );
+                        printF(" ... increasing eigTol to %9.2e (relative error in multiple eigenvalues.\n",eigTol);
+                    }
+                    else
+                    {
+                        numErrors++;
+                    }
+                }
+
+        // -- Gram-Schmidt --
+        //   uj = uj - SUM_k (uj,uk)*uk
+                for( int k=i; k>=eigStartIndex(i); k-- ) // make phi[j] orthogonal to phi[k]
+                {
+                    if( k != i )
+                    {
+                            for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                            {
+                                MappedGrid & mg = cg[grid];
+                                getIndex(mg.gridIndexRange(),I1,I2,I3);
+                                OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+                                OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
+                                bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3);
+                                if( ok )
+                                    uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,k)*uevLocal(I1,I2,I3,j);
+                            }
+                            dotProduct = integrate.volumeIntegral(u);
+                    }
+
+                    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                    {
+                        MappedGrid & mg = cg[grid];
+                        getIndex(mg.dimension(),I1,I2,I3);
+                        OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+                        bool ok=ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3);
+                        if( ok )
+                            uevLocal(I1,I2,I3,j) -= dotProduct*uevLocal(I1,I2,I3,k);
+                    }
+                }
+
+
+                    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                    {
+                        MappedGrid & mg = cg[grid];
+                        getIndex(mg.dimension(),I1,I2,I3);
+                        OV_GET_SERIAL_ARRAY(Real,uev[grid],uevLocal);
+                        OV_GET_SERIAL_ARRAY(Real,u[grid],uLocal);
+                        bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3);
+                        if( ok )
+                            uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,j)*uevLocal(I1,I2,I3,j);
+                    }
+                    Real eNorm = sqrt( integrate.volumeIntegral(u) );
+                    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                    {
+                        MappedGrid & mg = cg[grid];
+                        getIndex(mg.dimension(),I1,I2,I3);
+                        OV_GET_SERIAL_ARRAY(Real,uev[grid],uevLocal);
+                        bool ok=ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3);
+                        if( ok )
+                            uevLocal(I1,I2,I3,j) *= (1./eNorm);
+                    }
+                evNorm2(j) = eNorm; 
+                if( eNorm < .05 ) printF("##### WARNING: Norm is very small after Gram Schmidt eNorm=%9.2e ##########\n",eNorm);
+
+        // ---- check ---
+                for( int k=i; k>=eigStartIndex(i); k-- )
+                {    
+                        for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                        {
+                            MappedGrid & mg = cg[grid];
+                            getIndex(mg.gridIndexRange(),I1,I2,I3);
+                            OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+                            OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
+                            bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3);
+                            if( ok )
+                                uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,k)*uevLocal(I1,I2,I3,j);
+                        }
+                        dotProduct = integrate.volumeIntegral(u);
+                    printF("   .... made phi[%d] orthogonal to phi[%d]  : new inner-product = %9.2e\n",j,k,dotProduct );
+                }
+
+        //  j-i+1 : multiplicity is at least this big -- check if this is consistent with the original value
+                int newMultiplicity = j-i+1; 
+                if( newMultiplicity > eigMultiplicity(i) )
+                {
+                    printF("\n ++++ INFO: multiplicity has increased from %d to %d\n\n",eigMultiplicity(i),newMultiplicity);
+                    for( int k=j; k>=eigStartIndex(i); k-- )
+                    {    
+                          eigMultiplicity(k)=newMultiplicity;
+                    }        
+                }
+
+
+            }
+
+
+        }
+    }
+    printF("\n *********** ORTHOGONALIZE: SUMMARY: ************ \n"
+                    "       Used epsOrthog=%9.2e (tolerance on inner product to detect orthogonality), \n"
+                    "       Used eigTol   =%9.2e (relative-tol for judging eigenvalues to be the same multiple eig)\n ***",epsOrthog,eigTol);
+    if( numErrors>0 )
+    { 
+        printF("There were %d errors in orthogonalizing the eigenvectors\n",numErrors);
+    // OV_ABORT("stop here for now");
+    }
+
+
+  //  ::display(eigMultiplicity,"eigMultiplicity ... done orthogonalize");
+
+    return 0;
+}

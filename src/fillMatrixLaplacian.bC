@@ -979,7 +979,8 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
               { // extrapolate      
                 for( int k=0; k<=extrapOrder; k++ )
                 {
-                  getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3,n, ig);
+                  // getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3,n, ig); 
+                  getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3+is3*k,n, ig);  // *wdh* bug fixed Sept 1, 2024 
                   ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
                 }
               }
