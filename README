@@ -3,21 +3,13 @@
 
 Getting started:
 
-To clone a new version of eigSolvers from sourceforge (replace wdhenshaw by your sourceforge account name)
+(1) To clone a new version of eigSolvers from gitub use
 
-  git clone https://git.code.sf.net/p/eigsolvers/code eigSolvers      (*CHECK ME*)
-
-OR if you have an account on sourceForge you can use
-
-  git clone ssh://USERNAME@git.code.sf.net/p/eigsolvers/code eigSolvers
-
-where USERNAME is your sourceForge account name. for example:
-  git clone ssh://wdhenshaw@git.code.sf.net/p/eigsolvers/code eigSolvers
-
-  >> enter sourceforge password 
+  git clone https://github.com/wdhenshaw/eigSolvers.git eigSolvers
 
 
-Set the following in your .cshrc (change the locations of the libraries as appropriate)
+(2) 
+  Set the following in your .cshrc (change the locations of the libraries as appropriate)
 
 setenv Overture /home/henshw/Overture.g
 setenv APlusPlus /home/henshw/software/AppPpp-0.8.3/A++/install
@@ -32,19 +24,59 @@ alias plotStuff /home/henshw/Overture.g/bin/plotStuff
 alias ogen /home/henshw/Overture.g/bin/ogen
 
 
+(3)
 Type 'make' to compile and build bin/genEigs (you will need Overture to be installed and PETSc)
 
+(4) 
 Example: 
+
   Compute 64 eigenvalues and eigenvectors of the Laplacian on a square (grid square32.odrer2.hdf created with ogen)
 
- bin/genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order2.hdf -eigOption=1 -discreteEigenvalues=1 -eps_s=largest_magnitude -tol=1.0e-12 -bc1=d -show=square32O2Ev64.show -numEigenValues=64 -go=go
+Goto the cmd directory to find the eig.cmd command file: 
+ ../bin/genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square32O2Ev64.show -numEigenValues=64 -go=go
 
- Then use
+You should see output that includes 
+  ...
+  STUFF
+  ...
+
+ ======================== GenEigs problem=laplace =======================
+ grid=/home/henshw/grids/square32.order2.hdf
+ orderOfAccuracy=2, numberOfComponents=1 numGhost=1 shift=0 
+ useAccurateInnerProduct=0, discreteEigenvalues=1
+ includePressure=0, useWideStencils=0, eigCase=square
+ bc = [d,d,d,d] for grid=0 (square)
+ eigenSolver=[KrylovSchur]
+===================================================================
+
+ >>> Ogev::getEigenvaluesBox: return eigenvalues and eigenvectors...
+  resid = || A phi - lambda phi ||_max / |lambda| 
+  VECT max-err = max-norm( closest vector in 2 norm to eigenpsace )/( max-norm of phi)  
+  VECT l2-err  =      L2h( closest vector in 2 norm to eigenpsace )/( L2h norm of phi)  
+Eigenvalue   0 : k=   19.72335955 + (-0.0e+00) i lam=sqrt(k)=    4.44109891, eig=   0, true=   19.72335955, rel-err=1.62e-15, multe=1 mult=1 VECT: max-err=2.33e-15, l2-err=1.02e-15, res=2.57e-13 resbc=0.00e+00
+Eigenvalue   1 : k=   49.21342551 + (-0.0e+00) i lam=sqrt(k)=    7.01522812, eig=   1, true=   49.21342551, rel-err=2.17e-15, multe=2 mult=2 VECT: max-err=5.47e-15, l2-err=3.04e-15, res=2.50e-13 resbc=0.00e+00
+Eigenvalue   2 : k=   49.21342551 + (-0.0e+00) i lam=sqrt(k)=    7.01522812, eig=   1, true=   49.21342551, rel-err=1.01e-15, multe=2 mult=2 VECT: max-err=5.54e-15, l2-err=3.72e-15, res=1.44e-13 resbc=0.00e+00
+Eigenvalue   3 : k=   78.70349147 + (-0.0e+00) i lam=sqrt(k)=    8.87149883, eig=   3, true=   78.70349147, rel-err=2.17e-15, multe=1 mult=1 VECT: max-err=5.11e-15, l2-err=3.48e-15, res=1.36e-13 resbc=0.00e+00
+Eigenvalue   4 : k=   98.04787220 + (-0.0e+00) i lam=sqrt(k)=    9.90191255, eig=   4, true=   98.04787220, rel-err=3.48e-15, multe=2 mult=2 VECT: max-err=3.13e-15, l2-err=2.52e-15, res=9.28e-14 resbc=0.00e+00
+Eigenvalue   5 : k=   98.04787220 + (-0.0e+00) i lam=sqrt(k)=    9.90191255, eig=   4, true=   98.04787220, rel-err=1.16e-15, multe=2 mult=2 VECT: max-err=4.32e-15, l2-err=3.15e-15, res=8.93e-14 resbc=0.00e+00
+Eigenvalue   6 : k=  127.53793815 + (-0.0e+00) i lam=sqrt(k)=   11.29326960, eig=   6, true=  127.53793815, rel-err=1.00e-15, multe=2 mult=2 VECT: max-err=4.85e-15, l2-err=3.69e-15, res=7.78e-14 resbc=0.00e+00
+Eigenvalue   7 : k=  127.53793815 + (-0.0e+00) i lam=sqrt(k)=   11.29326960, eig=   6, true=  127.53793815, rel-err=1.11e-16, multe=2 mult=2 VECT: max-err=7.22e-15, l2-err=5.57e-15, res=1.04e-13 resbc=0.00e+00
+Eigenvalue   8 : k=  165.75639719 + (-0.0e+00) i lam=sqrt(k)=   12.87464163, eig=   8, true=  165.75639719, rel-err=1.20e-15, multe=2 mult=2 VECT: max-err=6.29e-15, l2-err=5.25e-15, res=6.38e-14 resbc=0.00e+00
+Eigenvalue   9 : k=  165.75639719 + (-0.0e+00) i lam=sqrt(k)=   12.87464163, eig=   8, true=  165.75639719, rel-err=1.54e-15, multe=2 mult=2 VECT: max-err=2.00e-14, l2-err=2.02e-14, res=9.88e-14 resbc=0.00e+00
+
+...
+ETC
+...
+
+Eigenvalue  75 : k=  998.37835520 + (-0.0e+00) i lam=sqrt(k)=   31.59712574, eig=  75, true=  998.37835520, rel-err=3.42e-16, multe=2 mult=2 VECT: max-err=2.60e-13, l2-err=2.26e-13, res=1.37e-13 resbc=0.00e+00
+Eigenvalue  76 : k=  998.37835520 + (-0.0e+00) i lam=sqrt(k)=   31.59712574, eig=  75, true=  998.37835520, rel-err=5.97e-14, multe=2 mult=2 VECT: max-err=1.46e-11, l2-err=1.24e-11, res=1.54e-11 resbc=0.00e+00
+ max-rel-err=5.97e-14, max-evect-err=1.46e-11
+ ==== SUMMARY: max-residual = 1.54e-11
+
+
+(5) To plot the eigenvectors use (Overture/bin/plotStuff) 
     plotStuff square32O2Ev64.show to view eigenvectors 
 
- See cmd/memo for more sample commands 
+(6) 
+   See cmd/memo for more sample commands 
 
-
- NOTE:
-   To push changes used:
-   git push origin HEAD:master
