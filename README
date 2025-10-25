@@ -28,14 +28,20 @@ alias ogen /home/henshw/Overture.g/bin/ogen
 Type 'make' to compile and build bin/genEigs (you will need Overture to be installed and PETSc)
 
 (4) 
-Example: 
+Example: Compute 64 eigenvalues and eigenvectors of the Laplacian on a square 
 
-  Compute 64 eigenvalues and eigenvectors of the Laplacian on a square (grid square32.odrer2.hdf created with ogen)
+ (4a)
+     Create grid 
+        square32.order2.hdf 
+     using ogen and Overture/sampleGrids/squareArg.cmd : 
+     ogen -noplot squareArg -order=2 -nx=32
 
-Goto the cmd directory to find the eig.cmd command file: 
+(4b)
+  Goto the eigSolvers/cmd directory to find the eig.cmd command file and run:
+
  ../bin/genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square32O2Ev64.show -numEigenValues=64 -go=go
 
-You should see output that includes 
+You should see output that includes near the end:
   ...
   STUFF
   ...
@@ -74,7 +80,7 @@ Eigenvalue  76 : k=  998.37835520 + (-0.0e+00) i lam=sqrt(k)=   31.59712574, eig
  ==== SUMMARY: max-residual = 1.54e-11
 
 
-(5) To plot the eigenvectors use (Overture/bin/plotStuff) 
+(4c) To plot the eigenvectors use (Overture/bin/plotStuff) 
     plotStuff square32O2Ev64.show to view eigenvectors 
 
 (6) 
