@@ -5,8 +5,20 @@
 //===========================================================================
 
 #include "Ogev.h"
+
+#include "ParallelUtility.h"
 #include "display.h"
+#include "ShowFileReader.h"
+
+#include "Integrate.h"
+#include "InterpolatePointsOnAGrid.h"
+
+#include "CompositeGridOperators.h"
+
 #include <numeric>      // std::iota
+
+// put last to avoid conflicts with "real"
+#include <slepceps.h>
 
 #define rjbesl EXTERN_C_NAME(rjbesl)
 extern "C"
@@ -137,6 +149,16 @@ Ogev::Ogev()
   dbase.put<Real>("eigenValueTolForMultiplicity")=1e-5; // tolerance for checking whether eigenvalues are the same 
   dbase.put<int>("numberOfEigenvectors")=0;
 
+  dbase.put<int>("interpWidth")=-1;
+
+  dbase.put<int>("useAccurateInnerProduct")=1; // for Rayleigh Quotient
+
+  dbase.put<int>("complexProblem")=0; // 1=complex problem with radiation BCs
+
+  dbase.put<Real>("shift")=0.0;  // shift to avoid a singular A
+
+  dbase.put<aString>("eigenSolver") = "KrylovSchur"; // default eigensolver
+
 }
 
 //===========================================================================
@@ -148,6 +170,62 @@ Ogev::~Ogev()
 {
   delete [] pnab;
   delete [] pnoffset;
+}
+
+
+
+// ==============================================================================
+/// \brief Return true if this is a complex valued problem (e.g. radiation BCs)
+// ==============================================================================
+bool Ogev::isComplexProblem() const
+{
+  return dbase.get<int>("complexProblem")==1;
+}
+
+// ==============================================================================
+/// \brief true = force Ogev to solve the complex problem.
+///        false = solve the complex problem only when necessary
+// ==============================================================================
+int Ogev::setIsComplexProblem( bool isComplex /* =true */ )
+{
+  dbase.get<int>("complexProblem")=isComplex;
+}
+
+// ==============================================================================
+/// \brief Indicate whether to use an accurate inner product for the Rayeligh Quotient.
+// ==============================================================================
+int Ogev::
+setUseAccurateInnerProduct( int useAccurateInnerProduct )
+{
+  dbase.get<int>("useAccurateInnerProduct")=useAccurateInnerProduct;
+  return 0;
+}
+
+// ==============================================================================
+/// \brief Set shift for the eigenvalue problem to avoid a singular A
+// ==============================================================================
+int Ogev::setShift( Real shift )
+{
+  dbase.get<Real>("shift")=shift;
+  return 0;
+}
+
+// ==============================================================================
+/// \brief Return the shift used to avoid a singular A
+// ==============================================================================
+Real Ogev::getShift( ) const
+{
+  return dbase.get<Real>("shift");
+}
+
+// ==============================================================================
+/// \brief Set the interpolation width for coarse-to-fine grid transfers. 
+///        -1 = use-default = orderOfAccuracy+1
+// ==============================================================================
+int Ogev::setInterpolationWidth( int interpolationWidth )
+{
+  dbase.get<int>("interpWidth")=interpolationWidth;
+  return 0;
 }
 
 // ==============================================================================
@@ -166,6 +244,131 @@ aString Ogev::bcName( int bc )
   else
     return "u"; // unknown
 
+}
+
+
+// ----------------------------------------------------------------------------------------------
+/// \brief Return the adjusted boundary index
+///   (1) return extended boundaries for dirichlet BCs
+///    (2) for neumann/characteristic BCs, skip ends that meet adjacent Dirichlet BCs
+///
+/// \param Ib1,Ib2,Ib3 (output)
+// ----------------------------------------------------------------------------------------------
+int Ogev::getAdjustedBoundaryIndex( MappedGrid & mg, int side, int axis, Index & Ib1, Index & Ib2, Index & Ib3 )
+{
+  const int numberOfDimensions = mg.numberOfDimensions();
+
+  IntegerArray abi(2,3); // adjusted boundary index
+
+  if( mg.boundaryCondition(side,axis)==dirichlet )
+    abi = mg.dimension();     // return extended boundary for a Dirichlet BC
+  else
+    abi = mg.gridIndexRange();
+
+  abi(0,axis) = mg.gridIndexRange(side,axis);
+  abi(1,axis) = mg.gridIndexRange(side,axis);
+
+  // if( mg.boundaryCondition(side,axis)==dirichlet )
+  // {
+  //   // return extended boundary for a Dirichlet BC
+  //   abi(0,axis) = mg.dimension(side,axis);
+  //   abi(1,axis) = mg.dimension(side,axis);
+  // }
+
+  if( mg.boundaryCondition(side,axis)==neumann || 
+      mg.boundaryCondition(side,axis)==characteristic )
+  {
+    // On a neumann or characteristic boundary, do not include end points on adjacent dirichlet BCs
+    for( int dir=0; dir<numberOfDimensions; dir++ )
+    {
+      if( dir!=axis )
+      {
+        for( int side2=0; side2<=1; side2++ )
+        {
+          if( mg.boundaryCondition(side2,dir)==dirichlet )
+          {
+            const int is2=1-2*side2;
+            abi(side2,dir) += is2;
+          }
+        }
+      }
+    }
+  }
+
+  Ib1 = Range(abi(0,0),abi(1,0));
+  Ib2 = Range(abi(0,1),abi(1,1));
+  Ib3 = Range(abi(0,2),abi(1,2));
+
+  return 0;
+}
+
+// ========================================================
+/// \brief Return the true eigenvalues (and possibly eigenvectors) for some known cases
+/// \param eigCase (input): "square", "box", "annulus", "disk", "sphere"
+/// \param discreteEigenvalue (input) : 1=return true discrete eigs (for square or box only)
+/// \param eigsTrue(i) (output) : true eigenvalues
+/// \param evTrue (output) : if evTrue!=NULL then return the true eigenvectors (for some cases)
+/// \param eigenValuesAreKnown, eigenVectorsAreKnown (output) : true if computed 
+//  
+// ========================================================
+int Ogev::
+getTrueEigenValues( const aString & eigCase, CompositeGrid & cg, int numEigsTrue, RealArray & eigsTrue, 
+                    bool & eigenValuesAreKnown, bool & eigenVectorsAreKnown,
+                    RealCompositeGridFunction *evTrue /* =NULL */, int discreteEigenvalues /*=0 */
+                    )
+{
+  const int numberOfDimensions = cg.numberOfDimensions();
+
+  eigenVectorsAreKnown=false;
+  eigenValuesAreKnown =false;
+
+  eigsTrue.redim(numEigsTrue); 
+  eigsTrue=1.;
+
+  // int bcOpt=0; // Dirichlet BC's 
+  if( eigCase == "square" || eigCase == "box" )
+  {
+    Real lx=1., ly=1., lz=1.0;      // Bounds on the square domain
+
+    eigenVectorsAreKnown=true;
+    eigenValuesAreKnown=true;
+    getEigenvaluesBox( numEigsTrue, eigsTrue, cg, lx,ly,lz, evTrue, discreteEigenvalues );
+  }
+  else if( eigCase == "annulus" || eigCase == "disk" )
+  {
+    eigenValuesAreKnown=true;
+    if( eigCase == "disk" )
+      eigenVectorsAreKnown=true;
+
+    Real ra=.5, rb=1., za=0., zb=1.;
+    if( eigCase == "disk" ) 
+    {
+      ra=0.;
+      if( numberOfDimensions==3 )
+        rb=.5; 
+    }
+    if( eigenVectorsAreKnown )
+      getEigenvaluesCylinder( numEigsTrue, eigsTrue, cg, ra,rb, za, zb, evTrue );
+    else
+      getEigenvaluesCylinder( numEigsTrue, eigsTrue, cg, ra,rb, za, zb );
+  }
+  else if( eigCase == "sphere"  )
+  {
+    eigenValuesAreKnown=true;
+    eigenVectorsAreKnown=true;
+
+    Real ra=0., rb=1.;
+    if( eigenVectorsAreKnown )
+      getEigenvaluesSphere( numEigsTrue, eigsTrue, cg, ra,rb, evTrue );
+    else
+      getEigenvaluesSphere( numEigsTrue, eigsTrue, cg, ra,rb );
+  }      
+  else
+  {
+    printF("\n **** INFO: Ogev::getTrueEigenValues: unknown eigCase=[%s]\n\n",(const char*)eigCase);
+  }
+
+  return 0;
 }
 
 
@@ -430,7 +633,7 @@ getEigenvaluesBox( int numEigs, RealArray & eigs, CompositeGrid & cg ,
 
     // --- first fill in eigenvalues ---
     IntegerArray phaseNumberNew(3,maxEigs);
-    for( int i=0; i<numEigs; i++ )
+    for( int i=0; i<min(eigCount,numEigs); i++ )
     {
       const int i0 = myIndex[i]; // sorted indicies
       eigs(i) = ev[i0];
@@ -457,7 +660,7 @@ getEigenvaluesBox( int numEigs, RealArray & eigs, CompositeGrid & cg ,
       OV_GET_SERIAL_ARRAY(Real,mg.vertex(),xLocal);
       getIndex(mg.dimension(),I1,I2,I3);
 
-      for( int i=0; i<numEigs; i++ )
+      for( int i=0; i<min(eigCount,numEigs); i++ )
       {
         const int i0 = myIndex[i]; // sorted indicies
 
@@ -699,26 +902,35 @@ getEigenvaluesCylinder( int numEigs, RealArray & eigs, CompositeGrid & cg,
 
         for( int i=0; i<numEigs; i++ )
         {
-          const int i0 = myIndex[i]; // sorted indicies
-          const int n       = modeNumber(0,i0);
-          const int m       = modeNumber(1,i0);
-          const int l       = modeNumber(2,i0);
-          const int eigMult = modeNumber(3,i0); // multiplicity number: 1 or 2
-          const Real lamz = l*Pi/Lz; 
-          const Real lambda = sqrt(eigs(i) - lamz*lamz ); 
-
-          FOR_3D(i1,i2,i3,I1,I2,I3)
+          if( i<eigCount )
           {
-            const Real xd = xLocal(i1,i2,i3,0), yd = xLocal(i1,i2,i3,1);
-            const Real theta = atan2(yd,xd);
-            const Real r = sqrt( xd*xd + yd*yd );
-            const Real zFact = numberOfDimensions==2 ? 1.0 : sin(lamz*(xLocal(i1,i2,i3,2)-za));             
-            if( eigMult==1 )
-              eva[grid](i1,i2,i3,i) = jn(n,lambda*r)*cos(n*theta)*zFact; 
-            else        
-              eva[grid](i1,i2,i3,i) = jn(n,lambda*r)*sin(n*theta)*zFact; 
+            const int i0 = myIndex[i]; // sorted indicies
+            const int n       = modeNumber(0,i0);
+            const int m       = modeNumber(1,i0);
+            const int l       = modeNumber(2,i0);
+            const int eigMult = modeNumber(3,i0); // multiplicity number: 1 or 2
+            const Real lamz = l*Pi/Lz; 
+            const Real lambda = sqrt(eigs(i) - lamz*lamz ); 
 
-          }        
+            FOR_3D(i1,i2,i3,I1,I2,I3)
+            {
+              const Real xd = xLocal(i1,i2,i3,0), yd = xLocal(i1,i2,i3,1);
+              const Real theta = atan2(yd,xd);
+              const Real r = sqrt( xd*xd + yd*yd );
+              const Real zFact = numberOfDimensions==2 ? 1.0 : sin(lamz*(xLocal(i1,i2,i3,2)-za));             
+              if( eigMult==1 )
+                eva[grid](i1,i2,i3,i) = jn(n,lambda*r)*cos(n*theta)*zFact; 
+              else        
+                eva[grid](i1,i2,i3,i) = jn(n,lambda*r)*sin(n*theta)*zFact; 
+
+            } 
+          }
+          else
+          {
+            eva[grid]=0.; // just fill with zero if we do not have enough true eigenvectors 
+
+          }
+
         }
       }
 
@@ -953,9 +1165,226 @@ getEigenvaluesSphere( int numEigs, RealArray & eigs, CompositeGrid & cg,
   return 0;
 }
 
+// ======================================================================================
+/// \brief Determine if two composite grids match. This function is used to determine if
+///   a show file (used for initial conditions or eigenvectors) has the same composite grid.
+/// \return value: true if the grids (appear) to match, false otherwise.
+///
+/// \note: This came from the version in CgWave *FIX ME* avoid duplication.
+// ======================================================================================
+bool Ogev::compositeGridsMatch( CompositeGrid & cg, CompositeGrid & cgsf )
+{
+
+  bool gridsMatch=true;
+  if( cg.numberOfComponentGrids() != cgsf.numberOfComponentGrids() )
+  {
+    gridsMatch=false;
+    printF("INFO: The number of component grids (=%d) in the show file does not match the number in the current grid (=%d)\n",
+      cgsf.numberOfComponentGrids(),cg.numberOfComponentGrids());
+    
+    // OV_ABORT("ERROR");
+  }
+  else
+  {
+    // --- check if grids have the same number of points: 
+    cg.update(MappedGrid::THEmask ); 
+    cgsf.update(MappedGrid::THEmask ); 
+    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+    {
+      OV_GET_SERIAL_ARRAY(int,cg[grid].mask(),maskLocal);
+      OV_GET_SERIAL_ARRAY(int,cgsf[grid].mask(),sfMaskLocal);  // use mask   
+      if( maskLocal.elementCount() != sfMaskLocal.elementCount() )    
+      {
+        printF("grid=%d: elementCount=%d : showfile elementCount=%d DO NOT MATCH\n",grid,maskLocal.elementCount(),sfMaskLocal.elementCount() );
+        gridsMatch=false;
+        break;
+      }
+      else
+      {
+        printF("grid=%d: elementCount=%d : showfile elementCount=%d MATCH\n",grid,maskLocal.elementCount(),sfMaskLocal.elementCount() );
+      }
+    }
+
+  }
+
+  return gridsMatch;
+
+}
+
+// ==============================================================================================
+/// \brief Read eigenvectors from a file.
+/// \param eigenVectorFile (input) : name of the file
+/// \param cg (input) : target composite grid. If the eigenVectorFile has eigenvectors on a different
+///     grid then interpolate to the target grid.
+/// \paran numEigenvalues, .... (output) : 
+// ==============================================================================================
+int Ogev::readEigenvectors( const aString & eigenVectorFile, CompositeGrid & cg, const int orderOfAccuracy, 
+                            int & numEigenValues, int & numEigenVectors, 
+                            RealArray & eig,  realCompositeGridFunction & uev, 
+                            IntegerArray & eigMultiplicity, IntegerArray & eigStartIndex,
+                            bool & eigenVectorsAreOrthogonal  )
+{
+
+  printF("----- Ogev::readEigenvectors Read show file=[%s] with eigenvectors -----\n",(const char*)eigenVectorFile);
+  ShowFileReader showFileReader;
+  showFileReader.open(eigenVectorFile);
+
+  int numFrames = showFileReader.getNumberOfFrames();
+  const int numberOfSolutions = showFileReader.getNumberOfSolutions();
+  printF("readEigenvectors: There are %d solutions and %d frames\n",numberOfSolutions,numFrames);
+      
+
+  // int solutionNumber=1;
+  // showFileReader.getASolution(solutionNumber,cgev,uev);        // read in a grid and solution
+
+  int solutionNumber=1; // Frame 1 has some extra data 
+  HDF_DataBase & db = *(showFileReader.getFrame(solutionNumber));
+  db.get(eig,"eig"); 
+
+  ::display(eig,"eig from file");
+
+  eigenVectorsAreOrthogonal=false;
+
+  int rt = db.get(eigMultiplicity,"eigMultiplicity");
+  if( rt==0 )
+  {
+    eigenVectorsAreOrthogonal=true;
+    printF("readEigenvectors: Eigenvectors in the show file have been orthogonalized and have L2-norm 1.\n");
+    db.get(eigStartIndex,"eigStartIndex"); // currently not used : index of first of a multiple eigenvalue
+
+  }
+  else
+  {
+    printF("readEigenvectors: Eigenvectors in the show file have NOT been orthogonalized : this must be an old file. Regenerate with genEigs and orthogonalize to avoid doing this here.\n");
+  }
+
+  if( eigenVectorsAreOrthogonal && !dbase.has_key("integrate") )
+  {
+    Integrate & integrate = dbase.put<Integrate>("integrate");
+    // Integrate integrate(cg); // ************** TEST *****************
+
+    printF("\n ###### readEigenvectors: reading Integrate object from the show file with precomputed integration weights...\n");
+
+    integrate.updateToMatchGrid(cg);  // Do this here -- see Overture/otherStuff/testIntegrate.C
+    rt = integrate.get(db,"integrate");
+
+    if( rt==1 )
+     printF("\n ###### readEigenvectors: Integrate object WAS found in the show file.\n\n");
+    else
+     printF("\n ###### readEigenvectors: Integrate object was NOT found in the show file.\n\n");
+
+    if( rt==1 )
+    {
+      Real volume;
+      volume = integrate.volume();
+      printf("readEigenvectors:TESTING: computed volume of the domain = %9.2e\n\n",volume);
+    }
+
+ 
+  }
+
+  bool gridsMatch=true; // set to false if the grid in the eigenvector file does not match cg 
+
+  // ----- Eigenvectors are stored as time-steps (in different frames) -------
+
+  realCompositeGridFunction q;
+  CompositeGrid cgev; // Composite grid from the show file
+
+  InterpolatePointsOnAGrid interp; // for interpolating from a grid with a different resolution
+  interp.setAssignAllPoints(true);  // assign all points -- extrap if necessary
+  const int interpWidth = dbase.get<int>("interpWidth"); 
+  int width = interpWidth>0 ? interpWidth : orderOfAccuracy+1;
+  interp.setInterpolationWidth( width ); // set interp width 
+
+  for( int ie=0; ie<numberOfSolutions; ie++ )
+  {
+    // --- read in each EV and save in uev ---
+    solutionNumber= ie+1; 
+    showFileReader.getASolution(solutionNumber,cgev,q);
+    if( ie==0 )
+    {
+      Range all;
+      // uev.updateToMatchGrid(cgev,all,all,all,numberOfSolutions);
+      uev.updateToMatchGrid(cg,all,all,all,numberOfSolutions);
+
+      gridsMatch = compositeGridsMatch( cg, cgev );
+      if( gridsMatch )
+        printF("Ogev::readEigenvectors: read eigenvectors from a file: Grid in eigenvector file grid seems to match with current grid\n");
+      else
+        printF("Ogev::readEigenvectors: read eigenvectors from a file: Grid in eigenvector file grid DOES NOT match with current grid... will interpolate...\n");        
+    } 
+
+    Index I1,I2,I3;
+    if( gridsMatch )
+    {
+      // --- just copy grid function from EV file ---
+      for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
+      {
+        MappedGrid & mg = cgev[grid];
+        getIndex(mg.dimension(),I1,I2,I3);
+        OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
+        OV_GET_SERIAL_ARRAY(real,q[grid],qLocal);        
+        bool ok=ParallelUtility::getLocalArrayBounds(q[grid],qLocal,I1,I2,I3);
+        if( ok )
+          uevLocal(I1,I2,I3,ie) = qLocal(I1,I2,I3);
+      } 
+    }
+    else
+    {
+      // --- Interpolate solution from the EV file : this could be a coarser grid version used for deflation with augmented GMRES
+      printF("Ogev::readEigenvectors: interpolate the eigenvector ie=%d to the current grid ...\n",ie);
+      CompositeGrid & cgev = *q.getCompositeGrid();
+      cgev.update(MappedGrid::THEmask );
+
+      // interp.setAssignAllPoints(true);  // assign all points -- extrap if necessary
+      // const int interpWidth = dbase.get<int>("interpWidth"); 
+      // int width = interpWidth>0 ? interpWidth : orderOfAccuracy+1;
+      // interp.setInterpolationWidth( width ); // set interp width 
+      Range C(0,0);
+      interp.interpolateAllPoints( q,uev, C, Range(ie,ie) );  // interpolate v from q
+    }     
+  }
 
 
+  numEigenVectors = uev.getComponentBound(0) - uev.getComponentBase(0) + 1;
+  printF("Ogev::readEigenvectors: There are %d eigenvectors\n",numEigenVectors);
 
+  numEigenValues=numEigenVectors;
+
+
+  // if( numToDeflate > numberOfEigenvectors )
+  // {
+  //   printF("CgWave::initializeDeflation::ERROR: Requesting %d eigenvectors to deflate but only %d eigenvectors are in the show file.\n",numToDeflate,numberOfEigenvectors);
+  //   OV_ABORT("ERROR");
+  // }
+
+  // // eigenvectorsAreTrueEigenvectors : used by AugmentedGmres 
+  // int & eigenvectorsAreTrueEigenvectors = dbase.get<int>("eigenvectorsAreTrueEigenvectors");
+  // if( gridsMatch )
+  //   eigenvectorsAreTrueEigenvectors=true;
+  // else
+  //   eigenvectorsAreTrueEigenvectors=false;
+
+  
+  // cgev.update(MappedGrid::THEmask ); // *wdh* March 28, 2023
+
+
+  return 0;
+}
+
+// ==============================================================================================
+/// \brief Save eigenvectors to a file. 
+/// \param evFile (input) : name of the file
+/// \param numEigenvalues, .... (input) : 
+// ==============================================================================================
+int Ogev::saveEigenvectors( const aString & evFile, const int & numEigenValues, const int & numEigenVectors, 
+                            const RealArray & eig, const realCompositeGridFunction & uev, 
+                            const IntegerArray & eigMultiplicity, const IntegerArray & eigStartIndex )
+{
+  printF("Ogev::readEigenvectors: FINISH ME");
+  OV_ABORT("error");
+  return 0;
+}
 
 
 

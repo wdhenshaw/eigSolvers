@@ -22,142 +22,6 @@
 
 
 
-// // ==============================================================================================
-// /// \brief Normalize eigenvector number "eigNumber". Orthogonalize any eigenvectors corresponding to
-// ///      multiple eigenvalues.
-// /// \return value: multiplicity of the eigenvector: 1=simple, 2=double, ...
-// // ==============================================================================================
-// int Ogev::
-// normalizeEigenvector( int eigNumber, RealArray & eig, IntegerArray & eigMultiplicity, realCompositeGridFunction & uev  )
-// {
-
-//   const int & debug                      = dbase.get<int>("debug");
-
-//   const int numberOfEigenvectors         = dbase.get<int>("numberOfEigenvectors");
-//   IntegerArray & eigenVectorIsNormalized = dbase.get<IntegerArray>("eigenVectorIsNormalized");
-//   // IntegerArray & eigMultiplicity         = dbase.get<IntegerArray>("eigMultiplicity");
-//   const Real eigTol                      = dbase.get<Real>("eigenValueTolForMultiplicity");
-
-
-//   if(  eigenVectorIsNormalized(eigNumber)  )
-//   {
-//     printF(">> Ogev::normalizeEigenvector: INFO: eigenvector=%d already normalized\n",eigNumber);
-//     return eigMultiplicity(eigNumber);
-//   }
-//   int multiplicity=1; 
-
-//   if( debug>2 )
-//   {
-//     printF("\n ==== NORMALIZE EIGENVECTOR eigNumber=%d =====\n",eigNumber);
-//   }
-
-//   // if( !dbase.has_key("uev") )
-//   // {
-//   //   initializeDeflation();
-//   // }
-
-//   // realCompositeGridFunction & uev = dbase.get<realCompositeGridFunction>("uev");
-//   // RealArray & eig = dbase.get<RealArray>("eig");
-//   // int numberOfEigenvectors = uev.getComponentBound(0) - uev.getComponentBase(0) + 1; 
-
-//   CompositeGrid & cg = *uev.getCompositeGrid();
-//   CompositeGrid & cgev = cg;
-
-
-//   Integrate & integrate = dbase.get<Integrate>("integrate");
-
-//   // -- holds intermediate results: 
-//   // realCompositeGridFunction & u = dbase.get<realCompositeGridFunction>("uDeflate");
-
-//   Real dotProduct;
-//   Index I1,I2,I3;
-
-
-
-//   RealArray evNorm2(numberOfEigenvectors); // make a class member
-//   evNorm2=1.;
-
-//   // -- normalize and orthogonalize eigenvectors ----
-//   realCompositeGridFunction u(cg); // for work-space
-
-//   int i = eigNumber;
-
-//   normalizeEigenvectorMacro(i); 
-
-//   evNorm2(i) = eNorm;
-
-//   printF("Eigenvector i=%3d: L2-norm = %9.2e\n",i,evNorm2(i));
-
-//   eigenVectorIsNormalized(i)=1;
-
-//   if( eigMultiplicity(i) > 1 )
-//   {
-//     // ---  multiple eigenvalue ----
-//     multiplicity = eigMultiplicity(i);
-
-//     printF(" >>> Ogev::normalizeEigenvector: Multiple eigenvalue found: i=%d, eig=%12.5e, eigMultiplicity(i)=%d will orthogonalize eigenvectors...\n",i,eig(0,i),eigMultiplicity(i));
-
-//     int j=i;
-    
-//     i=j+1; // check for duplicate eig here
-//     Real delta = fabs(eig(0,i)-eig(0,j))/fabs(eig(0,i));
-//     // Real eigTol = 1.e-4; // ** FIX ME 
-//     if( delta> eigTol && i>0 )
-//     {
-//       i=j-1;
-//       delta = fabs(eig(0,i)-eig(0,j))/fabs(eig(0,i));
-//     }
-
-//     assert( eigMultiplicity(i) > 1 );
-//     if( eigenVectorIsNormalized(i) != 0 )
-//     {
-//       printF(">>> Ogev::normalizeEigenvector: ERROR: eigenVectorIsNormalized(i)=%d, expecting zero. i=%d, j=%d, eigMultiplicity(i)=%d\n",eigenVectorIsNormalized(i),i,j,eigMultiplicity(i));
-//       OV_ABORT("error");
-//     }
-
-//     // Real delta = fabs(eig(0,i)-eig(0,j))/fabs(eig(0,i));
-//     // Real eigTol = 1.e-3; // ** FIX ME 
-//     // assert( delta < eigTol );
-
-//     // --- Orthogonalize the eigenvectors ----
-
-//     innerProductor( i,j,dotProduct );  
-
-//     if( i<100 )
-//     {
-//       printF(" Inner product: (u%d,u%d) = %9.3e\n",i,j,dotProduct);
-//       // printF(" Inner product: (u%d,u%d)/(|| u || || v ||) = %9.3e\n",i,j,dotProduct/(evNorm2(i)*evNorm2(j)));
-//     } 
-
-//     // -- Gram-Schmidt --
-//     //   ui = ui - (ui,uj)*uj 
-//     for( int grid=0; grid<cgev.numberOfComponentGrids(); grid++ )
-//     {
-//       MappedGrid & mg = cgev[grid];
-//       getIndex(mg.dimension(),I1,I2,I3);
-//       OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
-//       bool ok=ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3);
-//       if( ok )
-//         uevLocal(I1,I2,I3,i) -= dotProduct*uevLocal(I1,I2,I3,j);
-//     }
-
-//     // re-normalize
-        
-
-//     normalizeEigenvectorMacro(i); 
-//     eigenVectorIsNormalized(i)=1;    
-
-//     printF(">>> Ogev::normalizeEigenvector: Eigenvector %d is now orthonormal to eigenvector %d.\n",i,j);
-
-//   }
-
-
-
-//   return multiplicity;
-// }
-
-
-
 
 // ================================================================================================
 /// \brief Orthogonalize, normalize eigenvectors, count multiplicities.
@@ -206,7 +70,7 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
     }
     Integrate & integrate = dbase.get<Integrate>("integrate");
 
-    printF("==== Ogev::ORTHONGONALIZE EIGENVECTORS : compute integration weights...\n");
+    printF("==== Ogev::ORTHOGONALIZE EIGENVECTORS : compute integration weights...\n");
     integrate.updateToMatchGrid(cg);
 
     if( true )
@@ -228,14 +92,15 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
 
   // -------- Determine multiplicities -------
   // This started from the version in CgWave initializeDeflation
-
+    const Real lamTol=REAL_EPSILON*100; 
     for( int i=0; i<numEigenVectors; i++ )
     {  
 
         lambdaNorm(i)= sqrt( SQR(eig(0,i)) + SQR(eig(1,i)) );
-        if( i>0 && lambdaNorm(i) < lambdaNorm(i-1) ) 
+    // if( i>0 && lambdaNorm(i) < lambdaNorm(i-1) ) 
+        if( i>0 && (lambdaNorm(i) - lambdaNorm(i-1)) < -fabs(lambdaNorm(i))*lamTol ) 
         {
-            printF("ERROR: lambdaNorm(%d)=14.4e  < lambdaNorm(%d)=%14.4e -- expected eigenvalues to be non-decreasing in magnitude.\n",i,lambdaNorm(i), i-1,lambdaNorm(i-1));
+            printF("ERROR: lambdaNorm(%d)=%14.4e  < lambdaNorm(%d)=%14.4e -- expected eigenvalues to be non-decreasing in magnitude.\n",i,lambdaNorm(i), i-1,lambdaNorm(i-1));
             OV_ABORT("ERROR");
 
         }
@@ -245,7 +110,7 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
         int je=i; // last eig of multiple set
         const int maxMultiplicity=100; 
         int multiplicity=1; 
-        Real maxEigDiff=0.;
+        Real eigDiff=0., maxEigDiff=0.;
         for( int m=0; m<maxMultiplicity; m++ )
         {
             bool matchFound=false;
@@ -253,30 +118,34 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
       // if( ie>0 )
       //   printF("ie=%d, eig(0,ie-1)=%.4g\n",ie, eig(0,ie-1));
 
-            Real eigDiff = fabs(eig(0,ie-1)-eig(0,i))/(1.+fabs(eig(0,i)));
-            if( ie>0 && eigDiff< eigTol  )       
-      // if( ie>0 && fabs(eig(0,ie-1)-eig(0,i))< eigTol*(1.+fabs(eig(0,i))) ) 
+            if( ie>0 )
             {
-                maxEigDiff = max(maxEigDiff,eigDiff);
-                multiplicity++;
-        // printF("MATCH FOUND: multiplicity=%d\n",multiplicity);
-                ie--; 
-                matchFound=true;
+                eigDiff = fabs(eig(0,ie-1)-eig(0,i))/(1.+fabs(eig(0,i)));
+                if( eigDiff< eigTol  )       
+                {
+                    maxEigDiff = max(maxEigDiff,eigDiff);
+                    multiplicity++;
+          // printF("MATCH FOUND: multiplicity=%d\n",multiplicity);
+                    ie--; 
+                    matchFound=true;
+                }
             }
       // if( je<numEigenVectors-1)
       //   printF("je=%d, eig(0,je+1)=%.4g\n",je, eig(0,je+1));
 
-            eigDiff = fabs(eig(0,je+1)-eig(0,i))/(1.+fabs(eig(0,i)));
-            if( (je<numEigenVectors-1) && eigDiff < eigTol )
-      // if( (je<numEigenVectors-1) && fabs(eig(0,je+1)-eig(0,i)) < eigTol*(1.+fabs(eig(0,i))) )
+            if( je<numEigenVectors-1 )
             {
-                maxEigDiff = max(maxEigDiff,eigDiff);
-                multiplicity++;
-        // printF("MATCH FOUND: multiplicity=%d\n",multiplicity);
-                je++; 
-                matchFound=true;
-        // doubleEig=true;
-        // j=i+1; 
+                eigDiff = fabs(eig(0,je+1)-eig(0,i))/(1.+fabs(eig(0,i)));
+                if( eigDiff < eigTol )
+                {
+                    maxEigDiff = max(maxEigDiff,eigDiff);
+                    multiplicity++;
+          // printF("MATCH FOUND: multiplicity=%d\n",multiplicity);
+                    je++; 
+                    matchFound=true;
+          // doubleEig=true;
+          // j=i+1; 
+                }
             }
             if( !matchFound ) break;
         }
@@ -513,6 +382,88 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
 
 
   //  ::display(eigMultiplicity,"eigMultiplicity ... done orthogonalize");
+
+    return 0;
+}
+
+
+// ================================================================================================
+/// \brief Normalize eigenvectors
+///
+// ================================================================================================
+int Ogev::normalizeEigenvectors( const aString & problem, const int numberOfComponents,
+                                                                  int orderOfAccuracy, int & numEigenValues, int & numEigenVectors, 
+                                                                  RealArray & eig, realCompositeGridFunction & uev )
+{
+    if( numEigenVectors<=0 )
+        return 0;
+
+    int & complexProblem = dbase.get<int>("complexProblem");
+
+    int & numberOfEigenvectors = dbase.get<int>("numberOfEigenvectors");
+
+    numberOfEigenvectors = numEigenVectors;
+
+    CompositeGrid & cg = *uev.getCompositeGrid();
+
+    printF("\n Ogev::normalizeEigenvectors: numEigenValues=%d, numEigenVectors=%d.. \n",numEigenValues,numEigenVectors);
+
+  //  // get grid spacing on grid 0 -- normally the background grid
+  // Real dsMin[3], dsAve[3], dsMax[3];
+  // GridStatistics::getGridSpacing( cg[0], dsMin, dsAve, dsMax );
+
+  // const Real ds = cg.numberOfDimensions()==2 ? max(dsMax[0],dsMax[1]) : max(dsMax[0],dsMax[1],dsMax[2]);
+  // printF(" ... grid 0 spacing =[%9.2e, %9.2e, %9.2e]\n",dsMax[0],dsMax[1],dsMax[2]); 
+
+  // // eigenvectorIsNormalized(i) = 1 : if this eigenvector have been normalized
+  // if( !dbase.has_key("eigenVectorIsNormalized") )
+  //   dbase.put<IntegerArray>("eigenVectorIsNormalized");
+
+  // IntegerArray & eigenVectorIsNormalized = dbase.get<IntegerArray>("eigenVectorIsNormalized");
+  // eigenVectorIsNormalized.redim(numEigenVectors);
+  // eigenVectorIsNormalized=0; 
+
+  // ---- Normalize  the eigenvectors ----
+
+    Index I1,I2,I3;
+
+    if( complexProblem )
+    {
+    // --- complex problem: we store the real and imag parts of the eigenvector ---
+
+        const int numberOfFields = 2*numberOfEigenvectors;
+        for( int i=0; i<numberOfFields; i+=2 )
+        {
+            const Real urMax = maxNorm( uev,i   );
+            const Real uiMax = maxNorm( uev,i+1 );
+            const Real uMax  = max( urMax,uiMax );
+            for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+            {
+                MappedGrid & mg = cg[grid];
+                getIndex(mg.dimension(),I1,I2,I3);
+                OV_GET_SERIAL_ARRAY(Real,uev[grid],uevLocal);
+                uevLocal(I1,I2,I3,i  ) *= 1./uMax;
+                uevLocal(I1,I2,I3,i+1) *= 1./uMax;
+            }      
+        }
+    }
+    else
+    {
+        for( int i=0; i<numEigenVectors; i++ )
+        {
+            const Real uMax = maxNorm( uev,i );
+            for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+            {
+                MappedGrid & mg = cg[grid];
+                getIndex(mg.dimension(),I1,I2,I3);
+                OV_GET_SERIAL_ARRAY(Real,uev[grid],uevLocal);
+                uevLocal(I1,I2,I3,i) *= 1./uMax;
+            }
+
+        }
+    }
+
+
 
     return 0;
 }

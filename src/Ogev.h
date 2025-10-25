@@ -13,9 +13,11 @@
 #include "mpi.h"
 #include "Overture.h"
 
-#include <slepceps.h>
+// #include <slepceps.h>
 
-
+// forward declarations
+typedef struct _p_Mat *Mat;
+class CompositeGridOperators;
 
 #define KK_DEBUG
 #include "DBase.hh"
@@ -25,6 +27,18 @@ class Ogev
 {
 
 public:
+
+  enum BoundaryConditionsEnum
+  {
+     periodic      =-1, 
+     interpolation = 0, 
+     dirichlet     = 1, 
+     neumann       = 2,
+     characteristic= 3, // radiation BC
+     displacement  = 1, // for elasticity
+     traction      = 2, // for elasticity
+  };
+
   Ogev();
   ~Ogev();
 
@@ -33,6 +47,8 @@ public:
   int checkResidualsInPsi( int eigc, RealArray & eig, realMappedGridFunction & u, CompositeGrid & cg,  
                            CompositeGridOperators & cgop, IntegerArray & bc, 
                            int numberOfComponents, int orderOfAccuracy, int useWideStencils, Real mu, int includePressure );  
+
+  bool compositeGridsMatch( CompositeGrid & cg, CompositeGrid & cgsf );
 
   int computeEigenvalues( const aString & problem, const int numberOfComponents,
                           int orderOfAccuracy, int & numEigenValues, int & numEigenVectors, 
@@ -56,9 +72,16 @@ public:
                        Mat & A, Mat & B, int numGhost, bool useNew, 
                        Real tol, int eigOption, IntegerArray & bc, int saveMatlab, Real lambdaShift );
 
-  Real getEigenPairResidual( Real lambda, realCompositeGridFunction & v,
+  // Complex case: quadratic eigenvalue problem:
+  int 
+  fillMatrixLaplacianComplex( int orderOfAccuracy, realCompositeGridFunction & ucg, CompositeGridOperators & cgop, 
+                              Mat & A, Mat & B, int numGhost, bool useNew, 
+                              Real tol, int eigOption, IntegerArray & bc, int saveMatlab, Real lambdaShift );  
+
+  Real getEigenPairResidual( Real lambdar, Real lambdai, realCompositeGridFunction & v,
                              realCompositeGridFunction & res,  
                              CompositeGridOperators & operators, 
+                             RealArray & resbc,
                              int component =0  );
   int 
   getEigenvaluesBox( int numEigs, RealArray & eigs, CompositeGrid & cg,
@@ -75,10 +98,39 @@ public:
                         Real ra =0.0, Real rb =1.0, 
                         RealCompositeGridFunction *eigenvector = NULL  );
 
+  int 
+  getTrueEigenValues( const aString & eigCase, CompositeGrid & cg, int numEigsTrue, RealArray & eigsTrue,
+                      bool & eigenValuesAreKnown, bool & eigenVectorsAreKnown, 
+                      RealCompositeGridFunction *evTrue=NULL, int discreteEigenvalues=0 );
 
   int 
   getPressureFromDisplacement( realCompositeGridFunction & uv, realCompositeGridFunction & p, 
                                IntegerArray & bc, int orderOfAccuracy, Real mu  );                          
+
+  Real getRayleighQuotient( realCompositeGridFunction & v, int component, CompositeGrid & cg, CompositeGridOperators & cgop );
+
+  // Return true if this is a complex valued problem (e.g. radiation BCs)
+  bool isComplexProblem() const;
+
+  // normalize eigenvectors
+  int normalizeEigenvectors( const aString & problem, const int numberOfComponents,
+                                 int orderOfAccuracy, int & numEigenValues, int & numEigenVectors, 
+                                 RealArray & eig, realCompositeGridFunction & ucg );
+
+  // Force the solution to be from the complex problem
+  int setIsComplexProblem( bool isComplex=true );
+
+  // read eigenvectors from a file
+  int readEigenvectors(  const aString & evFile, CompositeGrid & cg, const int orderOfAccuracy, 
+                         int & numEigenValues, int & numEigenVectors, 
+                         RealArray & eig, realCompositeGridFunction & uev, 
+                         IntegerArray & eigMultiplicity, IntegerArray & eigStartIndex, 
+                         bool & eigenVectorsAreOrthogonal );
+
+  // save eigenvectors to a file 
+  int saveEigenvectors(  const aString & evFile, const int & numEigenValues, const int & numEigenVectors, 
+                         const RealArray & eig, const realCompositeGridFunction & uev, 
+                         const IntegerArray & eigMultiplicity, const IntegerArray & eigStartIndex );
 
   // // normalize eigenvectors, fixup eigenvectors for multiple eigenvalues.
   // int normalizeEigenvector( int eigNumber, RealArray & eig, IntegerArray & eigMultiplicity, realCompositeGridFunction & uev  );
@@ -88,7 +140,27 @@ public:
                                  int orderOfAccuracy, int & numEigenValues, int & numEigenVectors, 
                                  RealArray & eig, realCompositeGridFunction & ucg, 
                                  IntegerArray & eigMultiplicity, IntegerArray & eigStartIndex  );
+
+  // convert coarse grid eigenpairs to fine grid eigenpairs
+  int coarseToFine( const aString & eigCase, const int numberOfComponents,
+                                 int orderOfAccuracy, int & numEigenValues, int & numEigenVectors, 
+                                 RealArray & eig, realCompositeGridFunction & ucg, 
+                                 IntegerArray & eigMultiplicity, IntegerArray & eigStartIndex, CompositeGrid & cg, CompositeGridOperators & cgop  );
+
+  // Set interpolation stencil width for coarse-to-fine transfers
+  int setInterpolationWidth( int interpolationWidth );
+
+  // Use accurate inner product for the Rayleigh quotient
+  int setUseAccurateInnerProduct( int useAccurateInnerProduct );
+
+  // Set shift for eigenvalue problem to avoid a singular A
+  int setShift( Real shift );
+
+  Real getShift( ) const;
+
 protected:
+
+  int getAdjustedBoundaryIndex( MappedGrid & mg, int side, int axis, Index & Ib1, Index & Ib2, Index & Ib3 );
 
   Real getDiscreteSymbol( const Real modeNumber, const Real dx ) const;
 

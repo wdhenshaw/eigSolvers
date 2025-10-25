@@ -180,6 +180,7 @@ PETScEquationSolver.o : $(Oges)/PETScEquationSolver.C; $(CXX) $(CCFLAGS) -DOVERT
 
 OBJC = obj/genEigs.o obj/Ogev.o obj/computeEigenvalues.o obj/fillMatrixLaplacian.o \
 			 obj/fillMatrixIncompressibleElasticity.o obj/fillInterpolationCoefficients.o obj/orthogonalize.o obj/residual.o \
+			 obj/coarseToFine.o obj/fillMatrixLaplacianComplex.o  \
 			 $(OGES_PETSC)
 
 # Fortran 90 (FN) object files: 
@@ -268,6 +269,7 @@ src/genEigs.C: src/genEigs.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/inclu
 
 src/computeEigenvalues.C: src/computeEigenvalues.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include computeEigenvalues.bC  
 src/fillMatrixLaplacian.C: src/fillMatrixLaplacian.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include fillMatrixLaplacian.bC  
+src/fillMatrixLaplacianComplex.C: src/fillMatrixLaplacianComplex.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include fillMatrixLaplacianComplex.bC  
 src/fillMatrixIncompressibleElasticity.C: src/fillMatrixIncompressibleElasticity.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include fillMatrixIncompressibleElasticity.bC  
 
 src/fillInterpolationCoefficients.C: src/fillInterpolationCoefficients.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include fillInterpolationCoefficients.bC  
@@ -278,7 +280,8 @@ src/eveSolver.C: src/eveSolver.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/i
 
 src/Ogev.C: src/Ogev.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include Ogev.bC  
 
-src/orthogonalize.C: src/orthogonalize.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include orthogonalize.bC  
+src/orthogonalize.C: src/orthogonalize.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include orthogonalize.bC 
+src/coarseToFine.C: src/coarseToFine.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include coarseToFine.bC 
 src/residual.C: src/residual.bC; @cd src; $(BPP) -clean -quiet -I$(Overture)/include residual.bC  
 
 
@@ -313,18 +316,21 @@ obj/Ogev.o : src/Ogev.C src/Ogev.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
 obj/computeEigenvalues.o : src/computeEigenvalues.C src/Ogev.h; $(CXX) $(CCFLAGS) -o $*.o -c $<
 
 obj/fillMatrixLaplacian.o : src/fillMatrixLaplacian.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
+obj/fillMatrixLaplacianComplex.o : src/fillMatrixLaplacianComplex.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
 obj/fillMatrixIncompressibleElasticity.o : src/fillMatrixIncompressibleElasticity.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
 obj/fillInterpolationCoefficients.o : src/fillInterpolationCoefficients.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
 
 obj/genEigsILE.o : src/genEigsILE.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
 
 obj/orthogonalize.o : src/orthogonalize.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
+obj/coarseToFine.o : src/coarseToFine.C; $(CXX) $(CCFLAGS) -o $*.o -c $<	
 obj/residual.o : src/residual.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
 
 obj/eveSolver.o : src/eveSolver.C; $(CXX) $(CCFLAGS) -o $*.o -c $<
 
 
-obj/sumEigenvectors.o : src/sumEigenvectors.f90; $(FC) $(FFLAGSO) -ffree-line-length-none -o $*.o -c $<	
+# done below: 
+# obj/sumEigenvectors.o : src/sumEigenvectors.f90; $(FC) $(FFLAGSO) -ffree-line-length-none -o $*.o -c $<	
 
 obj/rjbesl.o : src/rjbesl.f; $(FC) $(FFLAGSO) -o $@ -c $<  
 obj/rybesl.o : src/rybesl.f; $(FC) $(FFLAGSO) -o $@ -c $<  

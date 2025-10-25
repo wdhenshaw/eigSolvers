@@ -21,6 +21,7 @@ function plotEigErrors(varargin)
   figDir = '../doc/fig';
 
   numEigsToPlot=6; 
+  useSquareRootOfEigs=0; 
 
   yMin=100; yMax=1; 
   savePlots=0;
@@ -28,13 +29,14 @@ function plotEigErrors(varargin)
   % --- read command line args ---
   for i = 1 : nargin
     line = varargin{i};
-    caseOption       = getString( line,'-caseOption',caseOption );
-    caseOption       = getString( line,'-case',caseOption );
+    caseOption          = getString( line,'-caseOption',caseOption );
+    caseOption          = getString( line,'-case',caseOption );
 
-    savePlots        = getInt( line,'-savePlots',savePlots );
-    numEigsToPlot    = getInt( line,'-numEigsToPlot',numEigsToPlot );
-    yMax             = getReal( line,'-yMax',yMax );
-    yMin             = getReal( line,'-yMin',yMin );
+    useSquareRootOfEigs = getInt( line,'-useSquareRootOfEigs',useSquareRootOfEigs );
+    savePlots           = getInt( line,'-savePlots',savePlots );
+    numEigsToPlot       = getInt( line,'-numEigsToPlot',numEigsToPlot );
+    yMax                = getReal( line,'-yMax',yMax );
+    yMin                = getReal( line,'-yMin',yMin );
   end 
 
 
@@ -211,7 +213,7 @@ function plotEigErrors(varargin)
   %% ------------- generate plots -------------------
 
   icase=1; 
-  fprintf('------- caseOption=%s, nCases=%d ----------\n',caseOption,nCases);
+  fprintf('------- caseOption=%s, nCases=%d, useSquareRootOfEigs=%d----------\n',caseOption,nCases,useSquareRootOfEigs);
 
   % numEigsToPlot =10;
   eigRelErr = zeros( nCases,numEigsToPlot );
@@ -220,8 +222,29 @@ function plotEigErrors(varargin)
   for n=1:nCases
     myCase = sprintf('../results/%s',Cases{n});
     run(myCase);
+
+
+    if( useSquareRootOfEigs )
+      if( n==1 )
+        if( exist('eigSquareRootErr','var') )
+         squareRootErrorsFound=1;
+         fprintf('eigSquareRootErr found.\n');
+        else
+         fprintf('eigSquareRootErr variable NOT found -- setting to 0.5 * eigErr which is a good estimate.\n');
+         squareRootErrorsFound=0;
+        end
+      end
  
-    eigRelErr(n,1:numEigsToPlot) = eigErr(1:numEigsToPlot);
+
+      if( squareRootErrorsFound )
+        eigRelErr(n,1:numEigsToPlot) = eigSquareRootErr(1:numEigsToPlot);
+      else
+        eigRelErr(n,1:numEigsToPlot) = 0.5 * eigErr(1:numEigsToPlot);
+      end
+    else
+      eigRelErr(n,1:numEigsToPlot) = eigErr(1:numEigsToPlot);
+    end
+
     evectRelErr(n,1:numEigsToPlot) = evectErr(1:numEigsToPlot);
     hv(n) = 1/N0(n); 
  
@@ -249,6 +272,7 @@ function plotEigErrors(varargin)
   medRed   =[1 .3 .3 ];
   lightRed =[1 .8 .8 ];
 
+  numMarkers=10; 
   markers{1} ='x';
   markers{2} ='o';
   markers{3} ='+';
@@ -273,8 +297,10 @@ function plotEigErrors(varargin)
     leg = {};
     num=1; 
     for ie=1:1:numEigsToPlot
-      loglog( hv,err(:,ie),'-', 'Marker', markers{ie} ); hold on;
-      leg{num} = sprintf('\\lambda %5.2f',lambdav(ie)); num=num+1;
+      iep = mod( ie-1,numMarkers )+1; 
+      loglog( hv,err(:,ie),'-', 'Marker', markers{iep} ); hold on;
+      if( useSquareRootOfEigs ) lam = sqrt(lambdav(ie)); else lam=lambdav(ie); end 
+      leg{num} = sprintf('\\lambda %5.2f',lam); num=num+1;
     end
 
     aveErr1 = exp(sum( log(err(1,1:numEigsToPlot)) )/numEigsToPlot ); % average error at start

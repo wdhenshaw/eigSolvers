@@ -17,10 +17,13 @@
 
 #include "Ogev.h"
 
+// put last to avoid conflicts with "real"
+#include <slepceps.h>
+
 // #include "CgSolverUtil.h"
 
 // Boundary conditions:
-const int periodic=-1, interpolation=0, displacement=1, traction=2;
+// const int periodic=-1, interpolation=0, displacement=1, traction=2;
 
 #define FOR_3D(i1,i2,i3,I1,I2,I3) \
 int I1Base =I1.getBase(),   I2Base =I2.getBase(),  I3Base =I3.getBase();  \

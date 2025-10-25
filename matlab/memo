@@ -2,6 +2,18 @@ cd /Users/henshaw/Dropbox/research/eigSolvers/matlab
 
 
 *******************************************
+******** Sun Sept 29, 2024
+
+
+RE-DO eigenvalue ERROR plots using SQUARE ROOT OF EIGS
+
+plotEigErrors -case=sphereOrder2 -numEigsToPlot=10 -useSquareRootOfEigs=1 -savePlots=1
+plotEigErrors -case=sphereOrder4 -numEigsToPlot=10 -useSquareRootOfEigs=1 -savePlots=1
+plotEigErrors -case=diskOrder2 -numEigsToPlot=10 -useSquareRootOfEigs=1 -savePlots=1
+plotEigErrors -case=diskOrder4 -numEigsToPlot=10 -useSquareRootOfEigs=1 -savePlots=1
+
+
+*******************************************
 ******** Sun Sept 8, 2024
 
 plotEigErrors -case=sphereOrder4 -numEigsToPlot=10 -savePlots=0

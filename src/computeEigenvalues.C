@@ -10,11 +10,13 @@
 #include "CompositeGridOperators.h"
 #include "SparseRep.h" 
 
-// Put this last
 #include "Ogev.h"
+// put last to avoid conflicts with "real"
+#include <slepceps.h>
 
 #define FOR3N(i1,i2,i3,n,n1a,n1b,n2a,n2b,n3a,n3b)       for( i3=n3a; i3<=n3b; i3++ )                        for( i2=n2a; i2<=n2b; i2++ )                      for( i1=n1a; i1<=n1b; i1++ )                    for( n=0; n<numberOfComponents; n++ )
 
+#define ForBoundary(side,axis)   for( int axis=0; axis<numberOfDimensions; axis++ ) for( int side=0; side<=1; side++ )  
 
 // ============================================================================
 // Compute the global matrix index ig from the grid-function index (i1,i2,i3,n)
@@ -29,7 +31,6 @@
 //    i2 = n2a + (ig- nd1a*nd2a*(n) )/nd1a;
 //    i1 = ig + n1a - nd1a*( (i2)-n2a + nd2a*(n) );
 // #endMacro
-
 
 
 
@@ -54,10 +55,45 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
 {
     Real cpu0=getCPU();
 
-    const Real lambdaShift = setTargetEigenvalue ? targetEigenvalue : 0.;
+    Real & shift = dbase.get<Real>("shift");
 
-    printF(" ===== computeEigenvalues: problem=%s, orderOfAccuracy=%d, numberOfComponents=%d lambdaShift=%g eigOption=%d (0: Ax=lam*B*x, 1:Bx=(1/lam)A*x)=====\n",
-              (const char*)problem,orderOfAccuracy, numberOfComponents,lambdaShift,eigOption);
+    const Real lambdaShift = setTargetEigenvalue ? targetEigenvalue : 0.;
+    const int numberOfDimensions = cg.numberOfDimensions();
+
+  // --- Determine if we have radiation boundary conditions ---
+    int & complexProblem = dbase.get<int>("complexProblem");
+
+    bool isSingular=true; // true if the matrix A is singular (e.g. all Neumann/Radiation BCs)
+    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+    {
+        MappedGrid & mg = cg[grid];
+        ForBoundary(side,axis)
+        {
+            if( mg.boundaryCondition(side,axis)==characteristic )
+            {
+                complexProblem=true;
+                break;
+            }
+            else if(  mg.boundaryCondition(side,axis)==dirichlet )
+            {
+                isSingular=false;
+            }
+        }
+    }
+
+    if( isSingular )
+    {
+        if( shift==0.0 )
+        {
+            shift =1.; 
+            printF("++++ computeEigenvalues: INFO the boundary conditions lead to a singular matrix A,\n"
+                          "++++ a shift will be added to avoid this, A -> A + shift*B. Setting shift=%g\n",shift);
+        }
+    }
+
+    printF(" === computeEigenvalues: problem=%s, orderOfAccuracy=%d, numberOfComponents=%d isSingular=%d shift=%g complexProblem=%d, eigOption=%d (0: Ax=lam*B*x, 1:Bx=(1/lam)A*x)=====\n",
+              (const char*)problem,orderOfAccuracy, numberOfComponents,(int)isSingular,shift,(int)complexProblem, eigOption);
+
 
     const int myid=max(0,Communication_Manager::My_Process_Number);
 
@@ -186,7 +222,15 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
   // ---- Fill Matrix A and B for the minus Laplacian ----
     if( problem=="laplace" )
     {
-        fillMatrixLaplacian( orderOfAccuracy, ucg, cgop, A, B, numGhost, useNew, tol, eigOption,bc, saveMatlab, lambdaShift );
+        if( complexProblem )
+        {
+      // radiation BCs --> leads to a quadratic eigenvalue problem
+            fillMatrixLaplacianComplex( orderOfAccuracy, ucg, cgop, A, B, numGhost, useNew, tol, eigOption,bc, saveMatlab, lambdaShift );
+        }
+        else
+        {
+            fillMatrixLaplacian( orderOfAccuracy, ucg, cgop, A, B, numGhost, useNew, tol, eigOption,bc, saveMatlab, lambdaShift );
+        }
     }
     else if( problem=="ile" )
     {
@@ -198,63 +242,20 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
         OV_ABORT("ERROR: unknown problem");
     }
 
+    
+    if( shift!=0.0 )
+    {
+    // Add a shift to avoid a singular "A" that could occur with all Neumann/Radiation BCs
 
+    // A x = lam * B * x 
+    // Shift:
+    //  (A + shift B) x = (lam + shift) B x 
 
-
-  // // ----- MATRIX A -----
-
-  // ierr = MatCreate(PETSC_COMM_WORLD,&A);CHKERRQ(ierr);
-  // ierr = MatSetSizes(A,PETSC_DECIDE,PETSC_DECIDE,N,N);CHKERRQ(ierr);
-  // ierr = MatSetFromOptions(A);CHKERRQ(ierr);
-  // ierr = MatSetUp(A);CHKERRQ(ierr);
-
-  // ierr = MatGetOwnershipRange(A,&Istart,&Iend);CHKERRQ(ierr);
-
-  // Real dx2i = 1./(dx[0]*dx[0]);
-  // Real dy2i = 1./(dx[1]*dx[1]);
-  // Real diag = 2.*dx2i + 2.*dy2i; 
-  // for (II=Istart;II<Iend;II++) {
-  //   i = II/n; j = II-i*n;
-  //   if (i>0) {   ierr = MatSetValue(A,II,II-n,-dy2i,INSERT_VALUES);CHKERRQ(ierr); }
-  //   if (i<m-1) { ierr = MatSetValue(A,II,II+n,-dy2i,INSERT_VALUES);CHKERRQ(ierr); }
-
-  //   if (j>0) {   ierr = MatSetValue(A,II,II-1,-dx2i,INSERT_VALUES);CHKERRQ(ierr); }
-  //   if (j<n-1) { ierr = MatSetValue(A,II,II+1,-dx2i,INSERT_VALUES);CHKERRQ(ierr); }
-
-  //   ierr =              MatSetValue(A,II,II  , diag,INSERT_VALUES);CHKERRQ(ierr);
-
-  //   // if (i>0) { ierr = MatSetValue(A,II,II-n,-1.0,INSERT_VALUES);CHKERRQ(ierr); }
-  //   // if (i<m-1) { ierr = MatSetValue(A,II,II+n,-1.0,INSERT_VALUES);CHKERRQ(ierr); }
-  //   // if (j>0) { ierr = MatSetValue(A,II,II-1,-1.0,INSERT_VALUES);CHKERRQ(ierr); }
-  //   // if (j<n-1) { ierr = MatSetValue(A,II,II+1,-1.0,INSERT_VALUES);CHKERRQ(ierr); }
-  //   // ierr = MatSetValue(A,II,II,4.0,INSERT_VALUES);CHKERRQ(ierr);
-
-  // }
-
-  // ierr = MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-  // ierr = MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-
-
-
-  // // ----- MATRIX B = I -----
-
-  // ierr = MatCreate(PETSC_COMM_WORLD,&B);CHKERRQ(ierr);
-  // ierr = MatSetSizes(B,PETSC_DECIDE,PETSC_DECIDE,N,N);CHKERRQ(ierr);
-  // ierr = MatSetFromOptions(B);CHKERRQ(ierr);
-  // ierr = MatSetUp(B);CHKERRQ(ierr);
-
-  // ierr = MatGetOwnershipRange(B,&Istart,&Iend);CHKERRQ(ierr);
-  // for (II=Istart;II<Iend;II++) {
-  //   i = II/n; j = II-i*n;
-  //   // if (i>0) { ierr = MatSetValue(B,II,II-n,-1.0,INSERT_VALUES);CHKERRQ(ierr); }
-  //   // if (i<m-1) { ierr = MatSetValue(B,II,II+n,-1.0,INSERT_VALUES);CHKERRQ(ierr); }
-  //   // if (j>0) { ierr = MatSetValue(B,II,II-1,-1.0,INSERT_VALUES);CHKERRQ(ierr); }
-  //   // if (j<n-1) { ierr = MatSetValue(B,II,II+1,-1.0,INSERT_VALUES);CHKERRQ(ierr); }
-  //   ierr = MatSetValue(B,II,II,1.0,INSERT_VALUES);CHKERRQ(ierr);
-  // }
-
-  // ierr = MatAssemblyBegin(B,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-  // ierr = MatAssemblyEnd(B,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    // str - either SAME_NONZERO_PATTERN, DIFFERENT_NONZERO_PATTERN, UNKNOWN_NONZERO_PATTERN, or SUBSET_NONZERO_PATTERN (nonzeros of X is a subset of Y’s)
+        printF("SHIFT A -> A + shift*B ...\n");    
+        ierr= MatAXPY(A, shift, B, DIFFERENT_NONZERO_PATTERN ); 
+        printF("... done shifting A\n");  
+    }
 
 
 
@@ -303,6 +304,9 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
           Create eigensolver context
     */
     ierr = EPSCreate(PETSC_COMM_WORLD,&eps);CHKERRQ(ierr);
+
+
+
 
     /*
           Set operators. In this case, it is a generalized eigenvalue problem
@@ -357,7 +361,28 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
     }
 
     
-
+  // set eigenSolver type
+    const aString & eigenSolver = dbase.get<aString>("eigenSolver");
+    if( eigenSolver=="KrylovSchur" )
+    {
+        printF("computeEigenvalues: set SLEPSc eigenSolver: ESPSetType=[%s]\n",(const char*)eigenSolver);
+        EPSSetType( eps, EPSKRYLOVSCHUR );
+    }
+    else if( eigenSolver=="ARPACK" )
+    {
+        printF("computeEigenvalues: set SLEPSc eigenSolver: ESPSetType=[%s]\n",(const char*)eigenSolver);
+        EPSSetType( eps, EPSARPACK );
+    }
+    else if( eigenSolver=="LAPACK" )
+    {
+        printF("computeEigenvalues: set SLEPSc eigenSolver: ESPSetType=[%s]\n",(const char*)eigenSolver);
+        EPSSetType( eps, EPSLAPACK );
+    }
+    else
+    {
+        printF("computeEigenValues:ERROR: unknown eigenSolver=[%s]\n",(const char*)eigenSolver );
+        OV_ABORT("ERROR");
+    }
 
   // PetscInt maxIt = 20000; 
     ierr = EPSSetTolerances(eps,tol,maxIterations); CHKERRQ(ierr);
@@ -423,6 +448,7 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
 
 
     Real cpuTotal = getCPU()-cpu0;
+    printF("--------------------------------------------------------------\n");
     printF("--------------- Ogev : computeEigenvalues --------------------\n");
     printF("   numberOfGridPoints=%d, numEigenvalues=%d, numEigenVectors=%d\n",
                     numberOfGridPoints,numEigenValues,numEigenVectors);
@@ -463,6 +489,9 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
           - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
     ierr = EPSPrintSolution(eps,NULL);CHKERRQ(ierr);
+
+    printF("--------------------------------------------------------------\n");
+    
     /*
           Save eigenvectors, if requested
     */
@@ -472,16 +501,24 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
     
   // printF("Number of converged=%d\n",nconv);
 
+    const int numComp = complexProblem ? 2*numberOfComponents : numberOfComponents;
+
     if( nconv>0 && nev>0 ) 
     {
         Range all;
-        ucg.updateToMatchGrid(cg,all,all,all,numberOfComponents*numEigenVectors);
+        ucg.updateToMatchGrid(cg,all,all,all,numComp*numEigenVectors);
         ucg.setName("phi");                 // give names to grid function ...
         for( int i=0, k=0; i<numEigenVectors; i++ )
         {
             if( numberOfComponents==1 )
             {
-                ucg.setName(sPrintF("psi%d",i), i);
+                if( complexProblem )
+                {
+                    ucg.setName(sPrintF("psir%d",i), k); k++;  // real part of psi
+                    ucg.setName(sPrintF("psii%d",i), k); k++;  // imag part of psi
+                }
+                else
+                    ucg.setName(sPrintF("psi%d",i), i);
             }
             else
             {
@@ -505,20 +542,25 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
 
             PetscScalar kr, ki;
       // printF("Get eigenpair i=%d\n",i);
+
+      // --- Get (complex) eigenvalue and complex eigenvector
             ierr = EPSGetEigenpair(eps,i,&kr,&ki,xr,xi); CHKERRQ(ierr);
+
+
             if( ierr!=0 )
                 OV_ABORT("Error from EPSGetEigenpair");
 
+
             if( eigOption==0 )
             {
-                eig(0,i) = kr + lambdaShift;
+                eig(0,i) = kr + lambdaShift - shift;
                 eig(1,i) = ki;
             }
             else
             {
         // --- Here we have computed the inverse of the eigenvalues we want ----
         // 1/z = zBar/ |z|^2 
-                eig(0,i) =  kr/( kr*kr + ki*ki ) + lambdaShift;
+                eig(0,i) =  kr/( kr*kr + ki*ki ) + lambdaShift - shift;
                 eig(1,i) = -ki/( kr*kr + ki*ki );
             }
 
@@ -544,7 +586,7 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
         // the eigenvectors appear as complex conjugates
         //     x = xr + I * xi 
         //     x = xr - I * xi 
-                if( ki!=0 )
+                if( ki!=0 || complexProblem )
                 {
                     if( complexEigFound==2 )
                       complexEigFound=0;  // reset -- this must be a new complex eig 
@@ -559,27 +601,27 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
                     complexEigFound=0; 
                 }
 
-                if( 1==1 )
-                {
-          // *new* way (from PETScSolver.bC)
-                    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
-                    {  
-                        realArray & ug= ucg[grid];
-                        realSerialArray uLocal; getLocalArrayWithGhostBoundaries(ug,uLocal); 
+                for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                {  
+                    realArray & ug= ucg[grid];
+                    realSerialArray uLocal; getLocalArrayWithGhostBoundaries(ug,uLocal); 
 
-                        int n1a = uLocal.getBase(0) +ug.getGhostBoundaryWidth(0), 
-                                n1b = uLocal.getBound(0)-ug.getGhostBoundaryWidth(0);
-                        int n2a = uLocal.getBase(1) +ug.getGhostBoundaryWidth(1), 
-                                n2b = uLocal.getBound(1)-ug.getGhostBoundaryWidth(1);
-                        int n3a = uLocal.getBase(2) +ug.getGhostBoundaryWidth(2), 
-                                n3b = uLocal.getBound(2)-ug.getGhostBoundaryWidth(2);
-                            
-                        if( false )
-                            printf("Ogev: myid=%i local array bounds = [%i,%i][%i,%i][%i,%i]\n",myid,n1a,n1b,n2a,n2b,n3a,n3b);
+                    int n1a = uLocal.getBase(0) +ug.getGhostBoundaryWidth(0), 
+                            n1b = uLocal.getBound(0)-ug.getGhostBoundaryWidth(0);
+                    int n2a = uLocal.getBase(1) +ug.getGhostBoundaryWidth(1), 
+                            n2b = uLocal.getBound(1)-ug.getGhostBoundaryWidth(1);
+                    int n3a = uLocal.getBase(2) +ug.getGhostBoundaryWidth(2), 
+                            n3b = uLocal.getBound(2)-ug.getGhostBoundaryWidth(2);
+                        
+                    if( false )
+                        printf("Ogev: myid=%i local array bounds = [%i,%i][%i,%i][%i,%i]\n",myid,n1a,n1b,n2a,n2b,n3a,n3b);
 
-                        i1=n1a, i2=n2a, i3=n3a;
-                        int n=0;
-                        int ig=getGlobalIndex( n, iv, grid, myid );  // get the global index for the first point
+                    i1=n1a, i2=n2a, i3=n3a;
+                    int n=0;
+                    int ig=getGlobalIndex( n, iv, grid, myid );  // get the global index for the first point
+
+                    if( complexProblem==0 )
+                    {
 
                         const int nb=uLocal.getBase(3);
                         const int nComp = nb + n + numberOfComponents*(i); // fill in this component
@@ -604,33 +646,39 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
                             }
                             ig++;
                         }
-                        
                     }
-                    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
-                    {  
-                        ucg[grid].periodicUpdate();  // added for periodic box April 14, 2023
-                        ucg[grid].updateGhostBoundaries();
-                        if( debug & 8 )
-                            display(ucg[grid],sPrintF("Eigenvectors: ucg[%i]",grid),"%6.3f ");
-                    }          
+                    else
+                    {
+            //  --- complex case: fill in Real and Imag parts ---
+
+                        const int nb=uLocal.getBase(3);
+                        const int nComp = nb + n + numComp*(i); 
+                        FOR3N(i1,i2,i3,n,n1a,n1b,n2a,n2b,n3a,n3b)
+                        {
+                            if( ig>=Istart && ig<=Iend )
+                            {
+                                uLocal(i1,i2,i3,nComp  )=xrv[ig-Istart];  // real part of eigenvector       Re(phi)
+                                uLocal(i1,i2,i3,nComp+1)=xiv[ig-Istart];  // imaginary part of eigenvector  Im(phi) 
+                            }
+                            else
+                            {
+                                int p=myid;
+                                printf("Ogev::ERROR: myid=%i, i1,i2=%i,%i, ig=%i Istart,Iend=[%i,%i]\n", myid,i1,i2,ig,Istart,Iend);
+                            }
+                            ig++;
+                        }
 
 
+                    }
+                    
                 }
-                else
-                {
-          // // **old way ** single grid case
-
-          // for(int II=Istart; II<Iend; II++ ) 
-          // {
-          //   getLocalIndex( II,i1,i2,i3,n ); 
-          //   // printF("II=%d, i1=%d, i2=%d\n",II,i1,i2);
-
-          //   assert( i1>=n1a && i1<=n1b && i2>=n2a && i2<=n2b && n>=0 && n<numberOfComponents );
-          //   const int nComp = n + numberOfComponents*(i); 
-          //   u(i1,i2,i3,nComp) = xrv[II];
-          // }
-
-                }
+                for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                {  
+                    ucg[grid].periodicUpdate();  // added for periodic box April 14, 2023
+                    ucg[grid].updateGhostBoundaries();
+                    if( debug & 8 )
+                        display(ucg[grid],sPrintF("Eigenvectors: ucg[%i]",grid),"%6.3f ");
+                }          
 
             }
         }

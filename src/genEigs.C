@@ -1,7 +1,8 @@
 // This file automatically generated from genEigs.bC with bpp.
 // ==================================================================================================
-// Solve a generalized eigenvalue problem with SLEPc
-//            A x = k B x
+//
+// Compute eigenvalues and eigenvectors on overset grids
+// -----------------------------------------------------
 // 
 // Started from SLEPc examples:
 //      src/eps/examples/tutorials/ex2.c  : Laplace
@@ -12,8 +13,6 @@
 
 static char help[] = "Compute some  eigenvalues\n";
 
-
-// **TESTING : March 19, 2023 
 
 #include "mpi.h"
 #include "Overture.h"
@@ -36,7 +35,8 @@ static char help[] = "Compute some  eigenvalues\n";
 
 // Put this last
 #include "Ogev.h"
-
+// put last to avoid conflicts with "real"
+#include <slepceps.h>
 
 
 // lapack routines
@@ -77,7 +77,7 @@ extern "C"
 // #include "CgSolverUtil.h"
 
 // Boundary conditions:
-const int periodic=-1, interpolation=0, displacement=1, traction=2, dirichlet=1, neumann=2;
+// const int periodic=-1, interpolation=0, displacement=1, traction=2, dirichlet=1, neumann=2;
 
 #define FOR_3D(i1,i2,i3,I1,I2,I3) int I1Base =I1.getBase(),   I2Base =I2.getBase(),  I3Base =I3.getBase();  int I1Bound=I1.getBound(),  I2Bound=I2.getBound(), I3Bound=I3.getBound(); for(int i3=I3Base; i3<=I3Bound; i3++) for(int i2=I2Base; i2<=I2Bound; i2++) for(int i1=I1Base; i1<=I1Bound; i1++)  
 
@@ -121,14 +121,16 @@ const int periodic=-1, interpolation=0, displacement=1, traction=2, dirichlet=1,
 // =================================================================
 aString bcName( int bc )
 {
-    if( bc==-1 )
+    if( bc==Ogev::periodic )
         return "p";
-    else if( bc==0 )
+    else if( bc==Ogev::interpolation )
         return "i"; // interp
-    else if( bc==1 )
+    else if( bc==Ogev::dirichlet )
         return "d"; // displacement or Dirichlet 
-    else if( bc==2 )
+    else if( bc==Ogev::neumann )
         return "n"; // traction or Neumann
+  else if( bc==Ogev::characteristic )
+        return "r"; // radiation BC
     else
         return "u"; // unknown
 
@@ -212,6 +214,7 @@ int main(int argc,char **argv)
 
     aString tableFileName = "genEigsTable"; // name of LaTeX file with table of results 
 
+    aString evFileName = "none";    // file holding existing eigenvectors 
 
     bool loadBalance=true; // false;
     int numberOfParallelGhost=2;
@@ -227,7 +230,12 @@ int main(int argc,char **argv)
 
     int orthogonalize=true;            // if true, count multiplicities, orthogonalize eigenvectors, choose a basis of EVs for multiple eigs *new* Sept 3, 2024
 
-    bool useAccurateInnerProduct=false; // if true, use an accurate inner product
+    int interpWidth=-1;             // interpolation width for coarse-to-fine (-1=use default = orderOfAccuracy+1)
+
+    int useAccurateInnerProduct=false; // if true, use an accurate inner product
+
+    int solveComplex = false;   // if true, alway solve complex version (used with RBCs)
+
   // int orderOfAccuracy = 2 ;
     Real tol=1.e-8; 
 
@@ -240,7 +248,7 @@ int main(int argc,char **argv)
     Real lx=1., ly=1., lz=1.0;      // Bounds on the square domain
 
     IntegerArray bc(2,3);
-    bc = displacement; 
+    bc = Ogev::dirichlet;
 
   // eigOption = 0 : =solve Ax =kBx for smallest k, 
   //           = 1 : solve Bx = k A x for largest k 
@@ -250,8 +258,13 @@ int main(int argc,char **argv)
     Real eigSign = 1.;  // use to change sign of the eigenfunction
     int maxIterations = 200000; // for PETSc solves to invert the shifted matrix 
 
+    Real shift = 0.0; // shift eigenvalues by this amount to avoid a singular matix (e.g. alll Neumann/RBC)
+
+  // This next option doesn't seem to work:
     int setTargetEigenvalue=0;  // 1 = look for eigenvalues near the target: targetEigenvalue
     Real targetEigenvalue=0; 
+
+
     int useWideStencils = 0; // use wide stencils when they fit.
     
     int eigc=0; // which eigen-vector to choose **make this an option***
@@ -260,7 +273,7 @@ int main(int argc,char **argv)
 
     const int numberOfBoundaryConditions=200;
     IntegerArray bcNumber(numberOfBoundaryConditions+1); 
-    bcNumber = dirichlet;   // default boundary condition
+    bcNumber = Ogev::dirichlet;   // default boundary condition
 
     aString matlabFileName = "genEigs"; 
 
@@ -270,7 +283,7 @@ int main(int argc,char **argv)
           "Usage:\n"
           "  genEigs [-noplot] eigs.cmd -problem=<s> -eigCase=<s> -g=<s> -numEigenValues=<i> -tol=<f> \n"
           "          -bc[123456]=[d|n] -show=<s> -matlab=<s> -table=<s> -orthogonalize=[0|1] \n"
-          "          -discreteEigenValues=[0|1] -go=<s>\n"
+          "          -discreteEigenValues=[0|1] -solveComplex=[0|1] -go=<s>\n"
           "  \n"
           "   -noplot : run without graphics\n"
           "   -problem=[laplace|ile] : laplace = (negative) laplacian\n"
@@ -283,13 +296,15 @@ int main(int argc,char **argv)
           "   -bc[1234567]=[d|n] : set boundary condition to Dirichlet or Neumann on a boundary with bc flag 1,2,3,4,6.\n"
           "               e.g. -bc1=d sets boundaries with bc flag=1 to Dirichlet.\n"
           "   -orthogonalize=[0|1] : 1=orthogonalize and eigenvectors corresponding to multiple eigenvalues.\n"
+          "   -solveComplex=[0|1] : 1=always solve complex versio, used with radiation BCs.\n"
           "   -discreteEigenValues=[0|1] : 1=compare to true discrete eigenvalues (square or box only)\n"
-          "   -matlab=matlabFileName : name of Matlab output file holding eigenvalues and errors,\n"
+          "   -matlabFileName=matlabFileName : name of Matlab output file holding eigenvalues and errors,\n"
           "                            e.g. -matlab=diskG4Order2\n"
           "   -table=nameOfTableFile : name of file holding a LaTeX table of results, \n"
           "                            e.g. -table=square32Order4Table.\n"
           "   -show=showFileName : save results to a show file with this name. e.g. -show=myShowFile.show \n"
           "                        (use plotStuff to display results from the show file).\n" 
+          "   -evFile=evFileName  : read eigenvectors from a show file.\n" 
           "   -go=[go|og] : -go=go : run and exit. -go=og (open graphics) : when running with -noplot,\n" 
           "         open graphics windows after commands have been read.   \n" 
           "---------------------------------------------------------------------------------------------------------\n");  
@@ -319,13 +334,18 @@ int main(int argc,char **argv)
             {
                 nameOfShowFile = arg(len,arg.length()-1);
                 printF("Setting nameOfShowFile=[%s]\n",(const char*)nameOfShowFile);
-            }      
+            }  
+            else if( (len=arg.matches("-evFile="))  )
+            {
+                evFileName = arg(len,arg.length()-1);
+                printF("Setting evFileName=[%s]\n",(const char*)evFileName);
+            }           
             else if( arg(0,6)=="-debug=" )
             {
                 sScanF(arg(7,arg.length()-1),"%i",&debug);
                 printF("Setting debug=%i\n",debug);
             }
-            else if( (len=arg.matches("-matlab="))  )
+            else if( (len=arg.matches("-matlabFileName="))  )
             {
                 matlabFileName = arg(len,arg.length()-1);
                 printF("Setting matlabFileName=[%s.m]\n",(const char*)matlabFileName);
@@ -344,7 +364,12 @@ int main(int argc,char **argv)
             {
                 sScanF(arg(len,arg.length()-1),"%i",&discreteEigenvalues);
                 printF("Setting discreteEigenvalues=%d\n",discreteEigenvalues);
-            }  
+            }
+            else if( (len=arg.matches("-discreteEigenValues="))  ) // alternate spelling
+            {
+                sScanF(arg(len,arg.length()-1),"%i",&discreteEigenvalues);
+                printF("Setting discreteEigenvalues=%d\n",discreteEigenvalues);
+            }        
             else if( (len=arg.matches("-useAccurateInnerProduct="))  )
             {
                 sScanF(arg(len,arg.length()-1),"%i",&useAccurateInnerProduct);
@@ -355,12 +380,28 @@ int main(int argc,char **argv)
                 sScanF(arg(len,arg.length()-1),"%i",&orthogonalize);
                 printF("Setting orthogonalize=%d\n",orthogonalize);
             }
+            else if( (len=arg.matches("-solveComplex="))  )
+            {
+                sScanF(arg(len,arg.length()-1),"%i",&solveComplex);
+                printF("Setting solveComplex=%d\n",solveComplex);
+            }      
+            else if( (len=arg.matches("-interpWidth="))  )
+            {
+                sScanF(arg(len,arg.length()-1),"%i",&interpWidth);
+                printF("Setting interpWidth=%d\n",interpWidth);
+            }      
 
             else if( (len=arg.matches("-eigOption="))  )
             {
                 sScanF(arg(len,arg.length()-1),"%i",&eigOption);
                 printF("Setting eigOption=%d\n",eigOption);
             } 
+
+            else if( (len=arg.matches("-shift="))  )
+            {
+                sScanF(arg(len,arg.length()-1),"%e",&shift);
+                printF("Setting shift=%d\n",shift);
+            }
 
             else if( (len=arg.matches("-setTargetEigenvalue="))  )
             {
@@ -401,14 +442,19 @@ int main(int argc,char **argv)
                     aString bcChar = arg(len,arg.length()-1);
                     if( bcChar=="d" )
                     {
-                        bc(0,0)=displacement;
-                        bcNumber(1)=dirichlet; // new way 
+                        bc(0,0)=Ogev::displacement;
+                        bcNumber(1)=Ogev::dirichlet; // new way 
                     }
                     else if( bcChar=="t" || bcChar=="n" )
                     {
-                        bc(0,0)=traction;
-                        bcNumber(1)=neumann; // new way 
+                        bc(0,0)=Ogev::traction;
+                        bcNumber(1)=Ogev::neumann; // new way 
                     }
+                    else if( bcChar=="r" || bcChar=="c" )
+                    {
+                        bc(0,0)=Ogev::characteristic;
+                        bcNumber(1)=Ogev::characteristic;
+                    }  
                     else
                     {
                         printF("setBC: Unknown bc=[%s]\n",(const char*)bcChar);
@@ -421,14 +467,19 @@ int main(int argc,char **argv)
                     aString bcChar = arg(len,arg.length()-1);
                     if( bcChar=="d" )
                     {
-                        bc(1,0)=displacement;
-                        bcNumber(2)=dirichlet; // new way 
+                        bc(1,0)=Ogev::displacement;
+                        bcNumber(2)=Ogev::dirichlet; // new way 
                     }
                     else if( bcChar=="t" || bcChar=="n" )
                     {
-                        bc(1,0)=traction;
-                        bcNumber(2)=neumann; // new way 
+                        bc(1,0)=Ogev::traction;
+                        bcNumber(2)=Ogev::neumann; // new way 
                     }
+                    else if( bcChar=="r" || bcChar=="c" )
+                    {
+                        bc(1,0)=Ogev::characteristic;
+                        bcNumber(2)=Ogev::characteristic;
+                    }  
                     else
                     {
                         printF("setBC: Unknown bc=[%s]\n",(const char*)bcChar);
@@ -441,14 +492,19 @@ int main(int argc,char **argv)
                     aString bcChar = arg(len,arg.length()-1);
                     if( bcChar=="d" )
                     {
-                        bc(0,1)=displacement;
-                        bcNumber(3)=dirichlet; // new way 
+                        bc(0,1)=Ogev::displacement;
+                        bcNumber(3)=Ogev::dirichlet; // new way 
                     }
                     else if( bcChar=="t" || bcChar=="n" )
                     {
-                        bc(0,1)=traction;
-                        bcNumber(3)=neumann; // new way 
+                        bc(0,1)=Ogev::traction;
+                        bcNumber(3)=Ogev::neumann; // new way 
                     }
+                    else if( bcChar=="r" || bcChar=="c" )
+                    {
+                        bc(0,1)=Ogev::characteristic;
+                        bcNumber(3)=Ogev::characteristic;
+                    }  
                     else
                     {
                         printF("setBC: Unknown bc=[%s]\n",(const char*)bcChar);
@@ -461,14 +517,19 @@ int main(int argc,char **argv)
                     aString bcChar = arg(len,arg.length()-1);
                     if( bcChar=="d" )
                     {
-                        bc(1,1)=displacement;
-                        bcNumber(4)=dirichlet; // new way 
+                        bc(1,1)=Ogev::displacement;
+                        bcNumber(4)=Ogev::dirichlet; // new way 
                     }
                     else if( bcChar=="t" || bcChar=="n" )
                     {
-                        bc(1,1)=traction;
-                        bcNumber(4)=neumann; // new way 
+                        bc(1,1)=Ogev::traction;
+                        bcNumber(4)=Ogev::neumann; // new way 
                     }
+                    else if( bcChar=="r" || bcChar=="c" )
+                    {
+                        bc(1,1)=Ogev::characteristic;
+                        bcNumber(4)=Ogev::characteristic;
+                    }  
                     else
                     {
                         printF("setBC: Unknown bc=[%s]\n",(const char*)bcChar);
@@ -482,12 +543,16 @@ int main(int argc,char **argv)
                 aString bcChar = arg(len,arg.length()-1);
                     if( bcChar=="d" )
                     {
-                        bcNumber(5)=dirichlet; 
+                        bcNumber(5)=Ogev::dirichlet; 
                     }
                     else if( bcChar=="t" || bcChar=="n" )
                     {
-                        bcNumber(5)=neumann; 
+                        bcNumber(5)=Ogev::neumann; 
                     }
+                    else if( bcChar=="r" || bcChar=="c" )
+                    {
+                        bcNumber(5)=Ogev::characteristic;
+                    }  
                     else
                     {
                         printF("setBC: Unknown bc=[%s]\n",(const char*)bcChar);
@@ -502,12 +567,16 @@ int main(int argc,char **argv)
                 aString bcChar = arg(len,arg.length()-1);
                     if( bcChar=="d" )
                     {
-                        bcNumber(6)=dirichlet; 
+                        bcNumber(6)=Ogev::dirichlet; 
                     }
                     else if( bcChar=="t" || bcChar=="n" )
                     {
-                        bcNumber(6)=neumann; 
+                        bcNumber(6)=Ogev::neumann; 
                     }
+                    else if( bcChar=="r" || bcChar=="c" )
+                    {
+                        bcNumber(6)=Ogev::characteristic;
+                    }  
                     else
                     {
                         printF("setBC: Unknown bc=[%s]\n",(const char*)bcChar);
@@ -521,12 +590,16 @@ int main(int argc,char **argv)
                 aString bcChar = arg(len,arg.length()-1);
                     if( bcChar=="d" )
                     {
-                        bcNumber(7)=dirichlet; 
+                        bcNumber(7)=Ogev::dirichlet; 
                     }
                     else if( bcChar=="t" || bcChar=="n" )
                     {
-                        bcNumber(7)=neumann; 
+                        bcNumber(7)=Ogev::neumann; 
                     }
+                    else if( bcChar=="r" || bcChar=="c" )
+                    {
+                        bcNumber(7)=Ogev::characteristic;
+                    }  
                     else
                     {
                         printF("setBC: Unknown bc=[%s]\n",(const char*)bcChar);
@@ -540,12 +613,16 @@ int main(int argc,char **argv)
                 aString bcChar = arg(len,arg.length()-1);
                     if( bcChar=="d" )
                     {
-                        bcNumber(100)=dirichlet; 
+                        bcNumber(100)=Ogev::dirichlet; 
                     }
                     else if( bcChar=="t" || bcChar=="n" )
                     {
-                        bcNumber(100)=neumann; 
+                        bcNumber(100)=Ogev::neumann; 
                     }
+                    else if( bcChar=="r" || bcChar=="c" )
+                    {
+                        bcNumber(100)=Ogev::characteristic;
+                    }  
                     else
                     {
                         printF("setBC: Unknown bc=[%s]\n",(const char*)bcChar);
@@ -677,7 +754,11 @@ int main(int argc,char **argv)
 
     CompositeGrid cg;
   // bool loadBalance=true; // turn on or off the load balancer
+
     getFromADataBase(cg,nameOfGridFile,loadBalance);
+
+    Interpolant & interpolant = * new Interpolant(cg); // added for coarseToFine, DELETE ME  
+
 
     int firstChar=0; 
     for( int i=nameOfGridFile.length()-1; i>=0; i-- )
@@ -725,7 +806,7 @@ int main(int argc,char **argv)
 
     int numGhost = orderOfAccuracy/2;
 
-    if( (problem=="ile" &&  min(abs(bc-traction))==0) || useWideStencils )
+    if( (problem=="ile" &&  min(abs(bc-Ogev::traction))==0) || useWideStencils )
     {
     // includePressure=1;  // traction BCs need the pressure --> no more
         numGhost++;         // and one more ghost arg
@@ -760,9 +841,19 @@ int main(int argc,char **argv)
   // Overlapping grid eigenvalue solver:
     Ogev ogev;
 
+    ogev.setInterpolationWidth( interpWidth );
+    ogev.setUseAccurateInnerProduct( useAccurateInnerProduct );
+
+  // for testing we may force Ogev to solve the complex problem: 
+    ogev.setIsComplexProblem( solveComplex );
+
+  // Optionally shift eigen problem to avoid a singular matrix
+    ogev.setShift( shift );
 
     cg.update(MappedGrid::THEmask | MappedGrid::THEvertex | MappedGrid::THEcenter);  
 
+
+    aString & eigenSolver = ogev.dbase.get<aString>("eigenSolver"); // do this for now, *fix me*
 
   // MappedGrid & mg = cg[0]; // *** DO THIS FOR NOW ***
 
@@ -818,6 +909,8 @@ int main(int argc,char **argv)
     dialog.setExitCommand("exit", "exit");
 
     aString cmds[] = {"compute",
+                                        "orthogonalize",
+                                        "coarse to fine",
                                         "plot eigenvectors",
                                         "plot true eigenvectors",
                     // "contour",
@@ -825,11 +918,18 @@ int main(int argc,char **argv)
                                         "erase",
                                         "save show file",
                                         "save matlab file",
+                                        "read eigenvectors from a file",
                                         "" };
     int numberOfPushButtons=0;  // number of entries in cmds
     while( cmds[numberOfPushButtons]!="" ){numberOfPushButtons++;}; // 
     int numRows=(numberOfPushButtons+1)/2;
     dialog.setPushButtons( cmds, cmds, numRows ); 
+
+
+    aString eigenSolverLabel[] = {"KyrlovSchur", "ARPACK", "LAPACK", "" };
+    dialog.addOptionMenu("eigenSolver:", eigenSolverLabel, eigenSolverLabel, 
+        (eigenSolver=="KrylovSchur" ? 0 : eigenSolver=="ARPACK" ? 1 : 2) );
+
 
     const int numberOfTextStrings=15;  // max number allowed
     aString textLabels[numberOfTextStrings];
@@ -840,6 +940,7 @@ int main(int argc,char **argv)
     textLabels[nt] = "numPoints:";        sPrintF(textStrings[nt],"%i",numPoints);  nt++; 
     textLabels[nt] = "show file:";        sPrintF(textStrings[nt],"%s",(const char*)nameOfShowFile);  nt++; 
     textLabels[nt] = "flush frequency:";  sPrintF(textStrings[nt],"%i",flushFrequency);  nt++; 
+    textLabels[nt] = "eigenvector input file:";  sPrintF(textStrings[nt],"%s",(const char*)evFileName);  nt++; 
   // null strings terminal list
     textLabels[nt]="";   textStrings[nt]="";  assert( nt<numberOfTextStrings );
     dialog.setTextBoxes(textLabels, textLabels, textStrings);
@@ -851,12 +952,16 @@ int main(int argc,char **argv)
     RealArray eig; 
 
     RealArray eigErr, evectErr;
+    RealArray eigSquareRootErr; // holds error in sqrt(lambda) -- this is what eigenWave thinks the eigenvalues are
     IntegerArray multiplicityTrue, multIndexTrue;
     bool eigenVectorsAreKnown=false;
     bool eigenValuesAreKnown=false;
 
     IntegerArray eigMultiplicity, eigStartIndex;  
   
+    bool eigenvectorsHaveBeenOrthogonalized=false;
+    bool eigenvectorsHaveBeenComputed=false; 
+
     aString answer,buff;  
     for( ;; )
     {
@@ -870,6 +975,52 @@ int main(int argc,char **argv)
         {
             break;
         }
+        else if( answer=="KrylovSchur" || 
+                          answer=="ARPACK"      ||
+                          answer=="LAPACK" )
+        {
+            eigenSolver = answer;
+            printF("Setting eigenSolver=[%s]\n",(const char*)eigenSolver);
+        }
+        else if( answer=="orthogonalize" )
+        {
+            if( !eigenvectorsHaveBeenComputed )
+            {
+                printF("INFO: There are no eigenvectors to orthogonalize. First compute or read them in.\n");
+            }
+            else if( !eigenvectorsHaveBeenOrthogonalized )
+            {
+                ogev.orthogonalizeEigenvectors( problem, numberOfComponents, orderOfAccuracy, numEigenValues, numEigenVectors, eig,  u, eigMultiplicity, eigStartIndex );
+                eigenvectorsHaveBeenOrthogonalized=true;
+
+        // ----- compute residuals ----
+                printF("\n >>>> genEigs:: After orthogonalize, compute residuals || Au - lambda u ||/lambda ....\n");
+                Range all;
+                realCompositeGridFunction res(cg,all,all,all,numEigenVectors);
+                RealArray resMax(numEigenVectors), resbcMax(numEigenVectors), resbc;
+                for( int ie=0; ie<numEigenVectors; ie++ )
+                {
+                    Real lambdar = eig(0,ie);
+                    Real lambdai = eig(1,ie);
+                    resMax(ie) = ogev.getEigenPairResidual( lambdar, lambdai, u, res, cgop, resbc, ie );
+                    resbcMax(ie) = max(fabs(resbc));
+                    printF(" ie=%4d  eig=[%12.4e,%12.4e], mult=%d, max-norm res || Au - lambda u ||/lambda =%9.2e resbcMax=%9.2e\n",
+                        ie,lambdar,lambdai,eigMultiplicity(ie),resMax(ie),resbcMax(ie));
+                }
+                printF("... done compute residuals\n");
+
+            }
+            else
+            {
+                  printF("INFO: eigenvectors have aleady been orthogonalized.\n");
+            }
+        }
+        else if( answer=="coarse to fine" )
+        {
+      // --- Convert coarse grid eigenpairs to fine grid eigenpairs ---
+            ogev.coarseToFine( eigCase, numberOfComponents, orderOfAccuracy, numEigenValues, numEigenVectors, eig,  u, eigMultiplicity, eigStartIndex, cg, cgop );
+      // eigenvectorsHaveBeenOrthogonalized=false;
+        }   
         else if( answer=="compute" )
         {
       // --- compute eigenvalues and eigenvectors :
@@ -879,29 +1030,37 @@ int main(int argc,char **argv)
                                                               cg, u, cgop, tol, eigOption, maxIterations, setTargetEigenvalue, targetEigenvalue,
                                                               bc, numGhost, saveMatlab, useWideStencils, maximumProjectedDimension );
 
-          
+            eigenvectorsHaveBeenComputed=true;
+
             if( orthogonalize && numEigenVectors>0 )  
             {
         //  Count multiplicities and orthogonalize eigenvectors for multiple eigenvalues
 
                 ogev.orthogonalizeEigenvectors( problem, numberOfComponents, orderOfAccuracy, numEigenValues, numEigenVectors, eig,  u, eigMultiplicity, eigStartIndex );
-
+                eigenvectorsHaveBeenOrthogonalized=true;
             }
             else if( numEigenVectors>0 )
             {
+                ogev.normalizeEigenvectors( problem, numberOfComponents, orderOfAccuracy, numEigenValues, numEigenVectors, eig,  u );
+
                 eigMultiplicity.redim(numEigenVectors);
                 eigMultiplicity=1; 
             }
 
 
+      // checkResults
+
+
       // ----- compute residuals ----
-            printF("\n >>>> genEigs:: compute residuals ||  A - lambda u ||/lambda ....\n");
+            printF("\n >>>> genEigs:: compute residuals ||  A - lambda^2 u ||/|lambda|^2 ....\n");
             realCompositeGridFunction res(cg,all,all,all,numEigenVectors);
-            RealArray resMax(numEigenVectors);
+            RealArray resMax(numEigenVectors), resbcMax(numEigenVectors), resbc;
             for( int ie=0; ie<numEigenVectors; ie++ )
             {
-                Real lambda = eig(0,ie);
-                resMax(ie) = ogev.getEigenPairResidual( lambda, u, res, cgop, ie );
+                Real lambdar = eig(0,ie);
+                Real lambdai = eig(1,ie);
+                resMax(ie) = ogev.getEigenPairResidual( lambdar, lambdai, u, res, cgop, resbc, ie );
+                resbcMax(ie) = max(fabs(resbc));
         // printF(" ie=%4d  max norm resdiual ||  A - lambda u ||/lambda =%9.2e\n",resMax(ie));
             }
             printF("... done compute residuals\n");
@@ -914,8 +1073,8 @@ int main(int argc,char **argv)
 
             printF("\n======================== GenEigs problem=%s =======================\n",(const char*)problem);
             printF(" grid=%s\n"
-                          " orderOfAccuracy=%d, numberOfComponents=%d numGhost=%d \n",
-                        (const char*)nameOfGridFile,orderOfAccuracy,numberOfComponents,numGhost);
+                          " orderOfAccuracy=%d, numberOfComponents=%d numGhost=%d shift=%g \n",
+                        (const char*)nameOfGridFile,orderOfAccuracy,numberOfComponents,numGhost,ogev.getShift());
             printF(" useAccurateInnerProduct=%d, discreteEigenvalues=%d\n",useAccurateInnerProduct,discreteEigenvalues);
             printF(" includePressure=%d, useWideStencils=%d, eigCase=%s\n",includePressure,useWideStencils,(const char*)eigCase);
             fPrintF(outFile,"%% grid=%s\n",(const char*)nameOfGridFile);
@@ -952,6 +1111,7 @@ int main(int argc,char **argv)
                                 grid,(const char*)mg.getName());          
                 }        
             }
+            printF(" eigenSolver=[%s]\n",(const char*)eigenSolver);
             printF("===================================================================\n");
 
       // --- In some cases we know the true eigenvalues ----
@@ -964,50 +1124,59 @@ int main(int argc,char **argv)
 
             RealArray eigsTrue(numEigsTrue); 
 
-            eigErr.redim(numEigs);   eigErr=0.;
-            evectErr.redim(numEigs); evectErr=0.;
+            eigErr.redim(numEigs);           eigErr=0.;
+            eigSquareRootErr.redim(numEigs); eigSquareRootErr=0.;
+            evectErr.redim(numEigs);         evectErr=0.;
 
             eigsTrue=1.;
 
             int bcOpt=0; // Dirichlet BC's 
-            if( eigCase == "square" || eigCase == "box" )
+            if( false )
             {
-                eigenVectorsAreKnown=true;
-                eigenValuesAreKnown=true;
-                ogev.getEigenvaluesBox( numEigsTrue, eigsTrue, cg, lx,ly,lz, &evTrue, discreteEigenvalues );
+        // new way Dec 25, 2024
+                ogev.getTrueEigenValues( eigCase, cg, numEigsTrue, eigsTrue, eigenValuesAreKnown, eigenVectorsAreKnown, &evTrue, discreteEigenvalues );
             }
-            else if( eigCase == "annulus" || eigCase == "disk" )
-            {
-                eigenValuesAreKnown=true;
-                if( eigCase == "disk" )
-                    eigenVectorsAreKnown=true;
-
-                Real ra=.5, rb=1., za=0., zb=1.;
-                if( eigCase == "disk" ) 
-                {
-                    ra=0.;
-                    if( numberOfDimensions==3 )
-                        rb=.5; 
-                }
-                if( eigenVectorsAreKnown )
-                    ogev.getEigenvaluesCylinder( numEigsTrue, eigsTrue, cg, ra,rb, za, zb, &evTrue );
-                else
-                    ogev.getEigenvaluesCylinder( numEigsTrue, eigsTrue, cg, ra,rb, za, zb );
-            }
-            else if( eigCase == "sphere"  )
-            {
-                eigenValuesAreKnown=true;
-                eigenVectorsAreKnown=true;
-
-                Real ra=0., rb=1.;
-                if( eigenVectorsAreKnown )
-                    ogev.getEigenvaluesSphere( numEigsTrue, eigsTrue, cg, ra,rb,  &evTrue );
-                else
-                    ogev.getEigenvaluesSphere( numEigsTrue, eigsTrue, cg, ra,rb );
-            }      
             else
             {
-                printF("\n **** INFO: genEigs: unknown eigCase=[%s]\n\n",(const char*)eigCase);
+                if( eigCase == "square" || eigCase == "box" )
+                {
+                    eigenVectorsAreKnown=true;
+                    eigenValuesAreKnown=true;
+                    ogev.getEigenvaluesBox( numEigsTrue, eigsTrue, cg, lx,ly,lz, &evTrue, discreteEigenvalues );
+                }
+                else if( eigCase == "annulus" || eigCase == "disk" )
+                {
+                    eigenValuesAreKnown=true;
+                    if( eigCase == "disk" )
+                        eigenVectorsAreKnown=true;
+
+                    Real ra=.5, rb=1., za=0., zb=1.;
+                    if( eigCase == "disk" ) 
+                    {
+                        ra=0.;
+                        if( numberOfDimensions==3 )
+                            rb=.5; 
+                    }
+                    if( eigenVectorsAreKnown )
+                        ogev.getEigenvaluesCylinder( numEigsTrue, eigsTrue, cg, ra,rb, za, zb, &evTrue );
+                    else
+                        ogev.getEigenvaluesCylinder( numEigsTrue, eigsTrue, cg, ra,rb, za, zb );
+                }
+                else if( eigCase == "sphere"  )
+                {
+                    eigenValuesAreKnown=true;
+                    eigenVectorsAreKnown=true;
+
+                    Real ra=0., rb=1.;
+                    if( eigenVectorsAreKnown )
+                        ogev.getEigenvaluesSphere( numEigsTrue, eigsTrue, cg, ra,rb,  &evTrue );
+                    else
+                        ogev.getEigenvaluesSphere( numEigsTrue, eigsTrue, cg, ra,rb );
+                }      
+                else
+                {
+                    printF("\n **** INFO: genEigs: unknown eigCase=[%s]\n\n",(const char*)eigCase);
+                }
             }
 
       // ---- COMPUTE MULTIPLICITIES ----
@@ -1079,8 +1248,21 @@ int main(int argc,char **argv)
             for( int i=0; i<numEigenVectors; i++ )
             {
         // printF("Eigenvalue %d : k=%18.14e + %18.14e I",i,eig(0,i),eig(1,i));
-                printF("Eigenvalue %3d : k=%14.8f + (%+6.1e) i",i,eig(0,i),eig(1,i));
-                fPrintF(outFile,"  %4d  &  %9.3f + (%+6.1e) i  ",i,eig(0,i),eig(1,i));
+                if( solveComplex==0 )
+                {
+                    printF("Eigenvalue %3d : k=%14.8f + (%+6.1e) i",i,eig(0,i),eig(1,i));
+                    fPrintF(outFile,"  %4d  &  %9.3f + (%+6.1e) i  ",i,eig(0,i),eig(1,i));
+                    if( fabs(eig(1,i))<1e-10*fabs(eig(0,i)) )
+                    {
+                        printF(" lam=sqrt(k)=%14.8f",sqrt(eig(0,i)));
+                    }
+
+                }
+                else
+                {
+                    printF("Eigenvalue %3d : k=%14.8f + (%+14.8f) i",i,eig(0,i),eig(1,i));
+                    fPrintF(outFile,"  %4d  &  %9.3f + (%+14.8f) i  ",i,eig(0,i),eig(1,i));
+                }
                 if( eigenValuesAreKnown )
                 {
   
@@ -1103,6 +1285,9 @@ int main(int argc,char **argv)
                     const Real relErr = eigTrue !=0. ? absErr/eigTrue : absErr;
 
                     eigErr(i)=relErr; // save 
+
+                    eigSquareRootErr(i) = fabs( sqrt(eig(0,i)) - sqrt(eigTrue) );  // error in sqrt(lambda) for Eigenwave
+                    if( eigTrue!=0. ){ eigSquareRootErr(i) /= sqrt(eigTrue); }
 
           // printF(", true=%14.8f, err=%8.2e, rel-err=%8.2e",eigTrue,absErr,relErr);
                     printF(", eig=%4d, true=%14.8f, rel-err=%8.2e",eigIndex,eigTrue,relErr);
@@ -1160,14 +1345,19 @@ int main(int argc,char **argv)
                                                         int is = 1-2*side;
                                                         iab[side]=gid(side,axis);
                                                         const int bc = mg.boundaryCondition(side,axis);
-                                                        if( bc==dirichlet )
+                                                        if( bc==Ogev::dirichlet )
                                                         {
                                                               iab[side] += is;  // Dirichlet BC -- ignore the boundary
                                                         }
-                                                        else if( bc==neumann )
+                                                        else if( bc==Ogev::neumann )
                                                         {
                               // include boundary
                                                         }
+                                                        else if( bc==Ogev::characteristic )
+                                                        {
+                              // include ghost
+                                                            iab[side] -= is*numGhost;
+                                                        }      
                                                         else if( bc>0 )
                                                         {
                                                             printF("getActivePointIndex:ERROR: unknown bc=%d for grid=%d\n",bc,grid);
@@ -1233,14 +1423,19 @@ int main(int argc,char **argv)
                                                             int is = 1-2*side;
                                                             iab[side]=gid(side,axis);
                                                             const int bc = mg.boundaryCondition(side,axis);
-                                                            if( bc==dirichlet )
+                                                            if( bc==Ogev::dirichlet )
                                                             {
                                                                   iab[side] += is;  // Dirichlet BC -- ignore the boundary
                                                             }
-                                                            else if( bc==neumann )
+                                                            else if( bc==Ogev::neumann )
                                                             {
                                 // include boundary
                                                             }
+                                                            else if( bc==Ogev::characteristic )
+                                                            {
+                                // include ghost
+                                                                iab[side] -= is*numGhost;
+                                                            }      
                                                             else if( bc>0 )
                                                             {
                                                                 printF("getActivePointIndex:ERROR: unknown bc=%d for grid=%d\n",bc,grid);
@@ -1315,7 +1510,8 @@ int main(int argc,char **argv)
                             const Real errL2  =  l2Norm( w )/phiL2;
 
             // printF("i=%3d: max-err=%8.2e, l2-err=%8.2e\n",i,errMax,errL2);
-                        printF(", multe=%d mult=%d VECT: max-err=%8.2e, l2-err=%8.2e, resid=%8.2e",multiplicityTrue(ie),eigMultiplicity(i),errMax,errL2,resMax(i));
+                        printF(", multe=%d mult=%d VECT: max-err=%8.2e, l2-err=%8.2e, res=%8.2e resbc=%8.2e",
+                            multiplicityTrue(ie),eigMultiplicity(i),errMax,errL2,resMax(i),resbcMax(i));
                         
                         if( errMax > .05 ) printF(" @EV@");
                         if( resMax(i) > 1.0e-10 ) printF(" *RES*");
@@ -1333,15 +1529,17 @@ int main(int argc,char **argv)
                     {
                         fPrintF(outFile,"&    "); // leave blank
                     }
+
                     printF("\n");
 
                 }
                 else // eigenvalues not known
                 {
-                    printF(", mult=%d, resid=%8.2e\n",eigMultiplicity(i),resMax(i));
+                    printF(", mult=%d, resid=%8.2e resbc=%8.2e\n",eigMultiplicity(i),resMax(i),resbcMax(i));
                     fPrintF(outFile," &   %d     &    %8.2e   ",eigMultiplicity(i),resMax(i));
                 }
                 fPrintF(outFile,"\\\\\n");
+
 
             }
 
@@ -1428,41 +1626,54 @@ int main(int argc,char **argv)
       // show.saveComment(0,sPrintF(buff,"Eigenvalues computed by genEigs with SLEPc, %s: order=%d",(const char*)problem,orderOfAccuracy));  
       // show.saveComment(1,sPrintF(buffer,"  t=%e ",t));            // comment 1 (shown on plot)
 
-            bool saveEigenvectorsAsTimeSteps=true;
-            if( saveEigenvectorsAsTimeSteps )
+      // -- save eigenvectors as separate solutions --
+            const bool complexProblem = ogev.isComplexProblem();
+      // for complex problems we store the real and imaginary parts of the EVs
+            const int numberOfFields = complexProblem ? 2*numEigenVectors : numEigenVectors;
+
+            realCompositeGridFunction q(cg,all,all,all);
+            q.setName("phi",0);
+            Index I1,I2,I3;
+            for( int ie=0; ie<numberOfFields; ie++ )
             {
-        // -- save eigenvectors as separate solutions --
-
-                realCompositeGridFunction q(cg,all,all,all);
-                q.setName("phi",0);
-                Index I1,I2,I3;
-                for( int ie=0; ie<numEigenVectors; ie++ )
+                for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
                 {
-                    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
-                    {
-                        OV_GET_SERIAL_ARRAY(real,q[grid],qLocal);
-                        OV_GET_SERIAL_ARRAY(Real,u[grid],uLocal);
-                        getIndex(cg[grid].dimension(),I1,I2,I3);
-                        qLocal(I1,I2,I3)=uLocal(I1,I2,I3,ie);
-                    }
-
-                    if( ie>0 )
-                        show.startFrame();                  // start a new frame
-
-                    show.saveComment(0,sPrintF("genEigs: FD%i eig=%d lam=[%.4g,%.4g]",orderOfAccuracy,ie,eig(0,ie),eig(1,ie)));
-                    show.saveSolution( q );              // save to show file
-                    show.endFrame();
-
+                    OV_GET_SERIAL_ARRAY(real,q[grid],qLocal);
+                    OV_GET_SERIAL_ARRAY(Real,u[grid],uLocal);
+                    getIndex(cg[grid].dimension(),I1,I2,I3);
+                    qLocal(I1,I2,I3)=uLocal(I1,I2,I3,ie);
                 }
 
-            }
-            else
-            { // **old way** save EV's as components in one big grid function 
+                if( ie>0 )
+                    show.startFrame();                  // start a new frame
 
-                show.saveComment(0,sPrintF(buff,"genEigs: %s: order=%d",(const char*)problem,orderOfAccuracy));  
-                show.saveSolution( u );                                        // save the current grid function
-                show.endFrame(); 
-            }  
+                if( complexProblem )
+                {
+          // complex case 
+                    const int eigVector = ie/2; // we store real and imag parts
+          // psp.set(GI_TOP_LABEL,sPrintF(buff,"%s, eig=%.5g + (%.5g) I",(const char*)label,eig(0,eigVector),eig(1,eigVector)));
+                    aString clabel = ie % 2 ==0 ? "Re" : "Im"; 
+                    show.saveComment(0,sPrintF("genEigs: FD%i eig=%d lam=[%.4g, %.4g] %s",orderOfAccuracy,eigVector,eig(0,eigVector),eig(1,eigVector),(const char*)clabel));
+                }
+                else
+                {
+                    const int eigVector=ie; 
+                    show.saveComment(0,sPrintF("genEigs: FD%i eig=%d lam=[%.4g, %.4g]",orderOfAccuracy,eigVector,eig(0,eigVector),eig(1,eigVector)));
+                }
+
+                show.saveSolution( q );              // save to show file
+                show.endFrame();
+
+            }
+
+
+      // else
+      // { // **old way** save EV's as components in one big grid function 
+
+      //   show.saveComment(0,sPrintF(buff,"genEigs: %s: order=%d",(const char*)problem,orderOfAccuracy));  
+      //   show.saveSolution( u );                                        // save the current grid function
+      //   show.endFrame(); 
+      // }  
 
             show.close(); 
             printF("Wrote show file=[%s]\n",(const char*)nameOfShowFile);
@@ -1479,6 +1690,11 @@ int main(int argc,char **argv)
             FILE *matlabFile = fopen((const char*)fileName,"w" );     // Save some tex output here 
             fPrintF(matlabFile,"%% Eigenvalues for grid=[%s]\n",(const char*)nameOfGridFile);
             fPrintF(matlabFile,"%% File created eig/genEigs\n");
+
+            aString myLabel;
+            sPrintF(myLabel,"%s",(const char*)matlabFileName);  // could do better
+            fPrintF(matlabFile,"myLabel='%s';\n",(const char*)myLabel);
+
             fPrintF(matlabFile,"lambdav=[...\n");
             const int numPerLine=10;
             for( int i=0; i<numEigenVectors; i++ )
@@ -1489,32 +1705,63 @@ int main(int argc,char **argv)
             }
             fPrintF(matlabFile,"\n];\n");
 
-            fPrintF(matlabFile,"eigErr=[...\n");
-            for( int i=0; i<numEigenVectors; i++ )
+            if( eigenValuesAreKnown )
             {
-                fPrintF(matlabFile,"%9.2e ",i,eigErr(i));
-                if( i<numEigenVectors-1 ) fPrintF(matlabFile,",");
-                if( (i % numPerLine )==numPerLine-1 ) fPrintF(matlabFile,"...\n");
+                fPrintF(matlabFile,"eigErr=[...\n");
+                for( int i=0; i<numEigenVectors; i++ )
+                {
+                    fPrintF(matlabFile,"%9.2e ",i,eigErr(i));
+                    if( i<numEigenVectors-1 ) fPrintF(matlabFile,",");
+                    if( (i % numPerLine )==numPerLine-1 ) fPrintF(matlabFile,"...\n");
+                }
+                fPrintF(matlabFile,"\n];\n");
+
+                fPrintF(matlabFile,"eigSquareRootErr=[...\n");
+                for( int i=0; i<numEigenVectors; i++ )
+                {
+                    fPrintF(matlabFile,"%9.2e ",i,eigSquareRootErr(i));
+                    if( i<numEigenVectors-1 ) fPrintF(matlabFile,",");
+                    if( (i % numPerLine )==numPerLine-1 ) fPrintF(matlabFile,"...\n");
+                }
+                fPrintF(matlabFile,"\n];\n");
+            
+                fPrintF(matlabFile,"evectErr=[...\n");
+                for( int i=0; i<numEigenVectors; i++ )
+                {
+                    fPrintF(matlabFile,"%9.2e ",i,evectErr(i));
+                    if( i<numEigenVectors-1 ) fPrintF(matlabFile,",");
+                    if( (i % numPerLine )==numPerLine-1 ) fPrintF(matlabFile,"...\n");
+                }
+                fPrintF(matlabFile,"\n];\n");      
             }
-            fPrintF(matlabFile,"\n];\n");
-            fPrintF(matlabFile,"evectErr=[...\n");
-            for( int i=0; i<numEigenVectors; i++ )
-            {
-                fPrintF(matlabFile,"%9.2e ",i,evectErr(i));
-                if( i<numEigenVectors-1 ) fPrintF(matlabFile,",");
-                if( (i % numPerLine )==numPerLine-1 ) fPrintF(matlabFile,"...\n");
-            }
-            fPrintF(matlabFile,"\n];\n");      
 
             fclose(matlabFile);
             printF("Wrote file [%s]\n",(const char*)fileName);
 
+        }
+
+        else if( answer=="read eigenvectors from a file" )
+        {
+              printF("Read eigenvectors from file=[%s]\n",(const char*)evFileName);
+       // printF("FINISH ME");
+
+              ogev.readEigenvectors( evFileName, cg, orderOfAccuracy, 
+                                                            numEigenValues, numEigenVectors, eig, u, eigMultiplicity, eigStartIndex,
+                                                            eigenvectorsHaveBeenOrthogonalized );
+
+       // eigenvectorsHaveBeenOrthogonalized=orthogonal;
+              eigenvectorsHaveBeenComputed=true;
         }
         else if( answer=="plot eigenvectors" ||
                           answer=="plot true eigenvectors" )
         {
             const int numberOfEigenvectors = numEigenVectors;
             const bool plotTrue = answer=="plot true eigenvectors";
+
+            const bool complexProblem = ogev.isComplexProblem();
+      // for complex problems we store the real and imaginary parts of the EVs
+            const int numberOfFields = complexProblem ? 2*numberOfEigenvectors : numberOfEigenvectors;
+
 
             int vector=0; // plot this eigenvector 
 
@@ -1564,7 +1811,7 @@ int main(int argc,char **argv)
                 }
                 else if( dialog.getTextValue(answer2,"vector","%d",vector) )
                 {
-                    vector = max(0,min(numberOfEigenvectors-1,vector));
+                    vector = max(0,min(numberOfFields-1,vector));
                     printF("Setting vector=%d\n",vector);
                 }       
                 else if( answer2=="first" )
@@ -1573,21 +1820,38 @@ int main(int argc,char **argv)
                 }
                 else if( answer2=="next" )
                 {
-                    vector = ( vector +1 ) % numberOfEigenvectors;
+                    vector = ( vector +1 ) % numberOfFields;
                 }
                 else if( answer2=="previous" )
                 {
-                    vector = ( vector - 1 + numberOfEigenvectors) % numberOfEigenvectors;
+                    vector = ( vector - 1 + numberOfFields) % numberOfFields;
 
                 }        
                 gi.erase();
-                if( abs(eig(1,vector)) < 1.e-10*abs(eig(0,vector)) )
-                { // Real eigenvalue
-                    psp.set(GI_TOP_LABEL,sPrintF(buff,"Eigenvector %d, eig=%.5g",vector,eig(0,vector)));
+                if( complexProblem==0 )
+                {
+                    if( abs(eig(1,vector)) < 1.e-10*abs(eig(0,vector)) )
+                    { // Real eigenvalue
+                        psp.set(GI_TOP_LABEL,sPrintF(buff,"Eigenvector %d, eig=%.5g",vector,eig(0,vector)));
+                    }
+                    else
+                    { // complex eigenvalue in the real case 
+                        psp.set(GI_TOP_LABEL,sPrintF(buff,"Eigenvector %d, eig=%.5g + (%.5g) I",vector,eig(0,vector),eig(1,vector)));
+                    }
                 }
                 else
-                { // complex eigenvalue 
-                    psp.set(GI_TOP_LABEL,sPrintF(buff,"Eigenvector %d, eig=%.5g + (%.5g) I",vector,eig(0,vector),eig(1,vector)));
+                {
+          // complex case 
+
+                    const int eigVector = vector/2; // we store real and imag parts
+                    printF("plot vector=%d, eigVector=%d\n",vector,eigVector);
+
+                    aString label;
+                    if( (vector % 2)==0 )
+                        label = sPrintF("Re(psi%d)",eigVector);
+                    else
+                        label = sPrintF("Im(psi%d)",eigVector);
+                    psp.set(GI_TOP_LABEL,sPrintF(buff,"%s, eig=%.5g + (%.5g) I",(const char*)label,eig(0,eigVector),eig(1,eigVector)));
                 }
 
                 psp.set(GI_COMPONENT_FOR_CONTOURS,vector);
@@ -1620,6 +1884,7 @@ int main(int argc,char **argv)
         else if( dialog.getTextValue(answer,"time:","%g",time) ){}// 
         else if( dialog.getTextValue(answer,"numPoints:","%i",numPoints) ){}// 
         else if( dialog.getTextValue(answer,"show file:","%s",nameOfShowFile) ){}// 
+        else if( dialog.getTextValue(answer,"eigenvector input file:","%s",evFileName) ){}// 
         else if( dialog.getTextValue(answer,"flush frequency:","%i",flushFrequency) ){}// 
         else if( answer=="erase" )
         {
@@ -1683,7 +1948,7 @@ int main(int argc,char **argv)
                         getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3);
 
                         const int is = 1-2*side; 
-                        if( bc(side,axis)==displacement )
+                        if( bc(side,axis)==Ogev::displacement )
                         {
                             if( axis==0 )
                             {
@@ -1705,7 +1970,7 @@ int main(int argc,char **argv)
                 //   + (SQR(dx[1])/mu)*( pg.x(Ib1,Ib2,Ib3)(Ib1,Ib2,Ib3) - lambda*uLocal(Ib1,Ib2,Ib3,u1c) ) ;             
                             }
                         }
-                        else if( bc(side,axis)==traction )
+                        else if( bc(side,axis)==Ogev::traction )
                         {
               // Set v.x + u.y = 0 
               //     u.x + v.y = 0 
@@ -1747,7 +2012,7 @@ int main(int argc,char **argv)
             // getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3);
 
                         const int is = 1-2*side; 
-                        if( bc(side,axis)==displacement )
+                        if( bc(side,axis)==Ogev::displacement )
                         {
                             if( axis==0 )
                             {
@@ -1791,7 +2056,7 @@ int main(int argc,char **argv)
                 //   + (SQR(dx[1])/mu)*( pg.x(Ib1,Ib2,Ib3)(Ib1,Ib2,Ib3) - lambda*uLocal(Ib1,Ib2,Ib3,u1c) ) ;             
                             }
                         }
-                        else if( bc(side,axis)==traction )
+                        else if( bc(side,axis)==Ogev::traction )
                         {
               // Set v.x + u.y = 0 
               //     u.x + v.y = 0 
@@ -1840,7 +2105,7 @@ int main(int argc,char **argv)
             }
             else
             {
-                if( max(abs(bc-displacement)) ==0 )
+                if( max(abs(bc-Ogev::displacement)) ==0 )
                 {
           // displacement BCs all around : pressure equation is singular -- adjust mean value of p
                     Real sum=0., numPoints=0.; 
@@ -1933,8 +2198,8 @@ int main(int argc,char **argv)
                 getIndex(gid,I1,I2,I3);
                 for( int axis=0; axis<numberOfDimensions; axis++ )
                 {
-                    int ia = bc(0,axis)==displacement ? gid(0,axis)+1 : gid(0,axis); 
-                    int ib = bc(1,axis)==displacement ? gid(1,axis)-1 : gid(1,axis); 
+                    int ia = bc(0,axis)==Ogev::displacement ? gid(0,axis)+1 : gid(0,axis); 
+                    int ib = bc(1,axis)==Ogev::displacement ? gid(1,axis)-1 : gid(1,axis); 
                     Iv[axis] = Range(ia,ib); 
                 }          
 
@@ -1950,10 +2215,9 @@ int main(int argc,char **argv)
                 resMax = max(fabs(resLocal(I1,I2,I3,1)));
                 printF("grid=%d: lambda=%9.3e, max-residual in mu*Delta(u2) -p.y + lambda*u2  =%8.2e\n",grid,lambda,resMax);  
 
-
                 ForBoundary(side,axis)
                 {
-                    if( bc(side,axis)==traction )
+                    if( bc(side,axis)==Ogev::traction )
                     {
                         int extra=-1; // skip ends
                         getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3,extra);

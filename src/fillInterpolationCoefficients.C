@@ -6,6 +6,8 @@
 // Put this last
 #include "Ogev.h"
 
+// put last to avoid conflicts with "real"
+#include <slepceps.h>
 
 
 #define initExplicitInterp EXTERN_C_NAME(initexplicitinterp)

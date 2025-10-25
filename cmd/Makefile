@@ -3,6 +3,13 @@ genEigs = $(HOME)/research/eigSolvers/bin/genEigs
 WAHO= $(HOME)/Dropbox/AMP/waho
 
 
+# ============= Files for cgWave checks in checkEigen/grids
+checkEigen:
+	$(genEigs) -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order4.ng3 -numEigenValues=64  -tol=1.0e-14 -bc1=d -show=square32O4EigsEv64.show -orthogonalize=1 -go=go
+	$(genEigs) -noplot eigs.cmd -problem=laplace -eigCase=square -g=square64.order2     -numEigenValues=64  -tol=1.0e-14 -bc1=d -show=square64O2EigsEv64.show -orthogonalize=1 -go=go
+	$(genEigs) -noplot eigs.cmd -problem=laplace -eigCase=disk   -g=sice4.order2        -numEigenValues=128 -tol=1.0e-12 -bc1=d -show=diskG4O2Ev128.show      -orthogonalize=1 -go=go
+	$(genEigs) -noplot eigs.cmd -problem=laplace -eigCase=square -g=box1.order2         -numEigenValues=64 - tol=1.0e-12 -bc1=d -show=boxG1O2EigsEv64.show   -orthogonalize=1  -go=go
+
 # ============= DISK -- runs to find grid refinement convergence rates =============
 
 diskOrder2:

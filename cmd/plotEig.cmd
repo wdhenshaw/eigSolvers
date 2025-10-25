@@ -19,9 +19,27 @@ contour
   if( $lines eq "0" ){ $cmd="plot contour lines (toggle)"; }else{ $cmd="#"; }
   $cmd 
 exit
+pause
 # 
 DISPLAY AXES:0 0
 x-:0
+solution: $start
+stride: $stride
+$cmd = "";
+for( $i=$start; $i < $start+$numToSave; $i=$i+$stride ){\
+  $plotName = $name . "EigenVector$i.ps"; \
+  $cmd .= "hardcopy file name:0 $plotName\n"; \
+  $cmd .= "hardcopy save:0\n"; \
+  $cmd .= "next\n"; \
+}
+$cmd .= "#";
+# printf("start=$start, stride=$stride, numToSave=$numToSave, cmd=$cmd\n");
+# execute commands 
+$cmd
+
+
+
+# OLD WAY: 
 plot:psi0
 pause
 #
@@ -29,7 +47,7 @@ pause
 #
 $cmd = "";
 for( $i=$start; $i < $numToSave; $i=$i+$stride ){\
-  $cmd .= "plot:psi$i\n"; \
+  $cmd .= "plot:phi$i\n"; \
   $plotName = $name . "EigenVector$i.ps"; \
   $cmd .= "hardcopy file name:0 $plotName\n"; \
   $cmd .= "hardcopy save:0\n"; \

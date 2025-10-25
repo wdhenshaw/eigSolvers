@@ -4,6 +4,1695 @@ set eigSolvers = ~/Dropbox/research/eigSolvers
 set eigdoc = ~/Dropbox/research/eigSolvers/doc
 
 
+************************************************
+****** Sun Sept 7, 2025
+
+
+G4 ORDER=4:
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice4.order4 -numEigenValues=6000 -tol=1.0e-12 -bc1=d -matlab=1 -orthogonalize=0 -go=go
+
+mv genEigs.m eigsDiskG4O4NumEigs6000.m
+cp eigsDiskG4O4NumEigs6000.m ~/Dropbox/overHoltzPaper/matlab
+
+
+G2 - ORDER =4 
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order4 -numEigenValues=1500 -tol=1.0e-14 -bc1=d -show=diskG4O2Ev1500.show -matlab=1 -orthogonalize=0 -go=go
+
+mv genEigs.m eigsDiskG2O4NumEigs1500.m
+cp eigsDiskG2O4NumEigs1500.m ~/Dropbox/overHoltzPaper/matlab
+
+
+G4:
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice4.order2 -numEigenValues=8000 -tol=1.0e-12 -bc1=d -matlab=1 -orthogonalize=0 -go=go
+
+mv genEigs.m eigsDiskG4O2NumEigs8000.m
+cp eigsDiskG4O2NumEigs8000.m ~/Dropbox/overHoltzPaper/matlab
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice4.order2 -numEigenValues=4000 -tol=1.0e-12 -bc1=d -show=diskG4O2Ev4000.show -matlab=1 -orthogonalize=0 -go=go
+
+mv genEigs.m eigsDiskG4O2NumEigs4000.m
+cp eigsDiskG4O2NumEigs4000.m ~/Dropbox/overHoltzPaper/matlab
+
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice4.order2 -numEigenValues=2000 -tol=1.0e-14 -bc1=d -show=diskG4O2Ev2000.show -matlab=1 -orthogonalize=0 -go=go
+
+
+*************************************************
+****** Sat Sept 6, 2025
+
+ASK FOR MORE -- looks like there are 1331 finite eigs (same as before)
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order2 -numEigenValues=1500 -tol=1.0e-14 -bc1=d -show=none -matlab=1 -orthogonalize=0 -go=go
+
+Eigenvalue 1327 : k= 3518.81986028 + (-0.0e+00) i lam=sqrt(k)=   59.31964144, mult=1, resid=7.50e-15 resbc=0.00e+00
+Eigenvalue 1328 : k= 3519.31641098 + (-0.0e+00) i lam=sqrt(k)=   59.32382667, mult=1, resid=7.11e-15 resbc=0.00e+00
+Eigenvalue 1329 : k= 3522.23636556 + (-0.0e+00) i lam=sqrt(k)=   59.34843187, mult=1, resid=8.78e-15 resbc=0.00e+00
+Eigenvalue 1330 : k= 3522.84901493 + (-0.0e+00) i lam=sqrt(k)=   59.35359311, mult=1, resid=5.62e-15 resbc=0.00e+00
+Eigenvalue 1331 : k=249894328374828000.00000000 + (-0.0e+00) i lam=sqrt(k)=499894317.20597506, mult=1, resid=9.02e-15 resbc=0.00e+00
+
+
+
+TEST LAPACK: TROUBLE ON OVERSET 
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order2 -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=diskG2O2Ev1024.show -matlab=1 -orthogonalize=0  -eigenSolver=LAPACK -go=go
+
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sise1.order2 -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=none -matlab=1 -orthogonalize=0  -eigenSolver=LAPACK -go=go
+
+
+There are only 49 true eigs (others are infinite)
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=square8.order2 -numEigenValues=49 -tol=1.0e-14 -bc1=d -show=none -matlab=1 -orthogonalize=0 -eigenSolver=LAPACK -go=og
+
+genEigs -noplot eigs.cmd -problem=laplace -g=square8.order2 -numEigenValues=49 -tol=1.0e-14 -bc1=d -show=none -matlab=1 -orthogonalize=0 -eigenSolver=LAPACK -go=og
+
+*************************************************
+****** Fri Sept 5, 2025
+
+Can we compute all eigenvalues to show unstable modes for pollution paper??
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order2 -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=diskG2O2Ev1024.show -matlab=1 -orthogonalize=0 -go=go
+
+
+*************************************************
+****** Mon Aug 18, 2025
+
+
+plotStuff plotEig.cmd -show=rpiEigs1024.show -name=rpiSelected -start=64 -stride=64 -numToSave=1024 -lines=0
+
+
+plotStuff plotEig.cmd -show=darkCornerRoomG8O4EigsEv1600.show -name=darkCornerRoomG8O4 -start=1665 -numToSave=9
+
+
+darkCornerRoomG8O4EigsEv1600.show
+
+
+*************************************************
+****** Sun July 6, 2025
+
+match to cgwh freq=12 numEigs=16
+
+++++++++++ ORDER=2:
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order2.hdf -bc1=d -show=squareNearTarget.show -numEigenValues=16  -tol=1.0e-12 -setTargetEigenvalue=1 -targetEigenvalue=144 -orthogonalize=0 -go=go
+
+ total cpu =  8.20e-01 (s) (includes build matrix)
+
+
+++++++++++ ORDER=4:
+square512:
+ total cpu =  2.35e+01 (s) (includes build matrix)
+
+square256:
+ total cpu =  3.05e+00 (s) (includes build matrix)
+
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square512.order4.hdf -bc1=d -show=squareNearTarget.show -numEigenValues=16 -tol=1.0e-12 -setTargetEigenvalue=1 -targetEigenvalue=144 -orthogonalize=0 -go=go
+
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order4.hdf -bc1=d -show=squareNearTarget.show -numEigenValues=16 -tol=1.0e-12 -setTargetEigenvalue=1 -targetEigenvalue=144 -orthogonalize=0 -go=go
+
+Eigenvalue   0 : k=  128.30485553 + (-0.0e+00) i lam=sqrt(k)=   11.32717332, mult=1, resid=1.95e-11 resbc=0.00e+00
+Eigenvalue   1 : k=  128.30485553 + (-0.0e+00) i lam=sqrt(k)=   11.32717332, mult=1, resid=4.26e-11 resbc=0.00e+00
+Eigenvalue   2 : k=  167.78326612 + (-0.0e+00) i lam=sqrt(k)=   12.95311801, mult=1, resid=3.34e-11 resbc=0.00e+00
+Eigenvalue   3 : k=  167.78326612 + (-0.0e+00) i lam=sqrt(k)=   12.95311801, mult=1, resid=2.55e-11 resbc=0.00e+00
+Eigenvalue   4 : k=  177.65287612 + (-0.0e+00) i lam=sqrt(k)=   13.32864870, mult=1, resid=1.21e-10 resbc=0.00e+00
+Eigenvalue   5 : k=   98.69604246 + (-0.0e+00) i lam=sqrt(k)=    9.93458819, mult=1, resid=9.45e-10 resbc=0.00e+00
+Eigenvalue   6 : k=   98.69604246 + (-0.0e+00) i lam=sqrt(k)=    9.93458819, mult=1, resid=7.19e-09 resbc=0.00e+00
+Eigenvalue   7 : k=  197.39207919 + (-7.2e-13) i lam=sqrt(k)=   14.04962915, mult=1, resid=6.38e-11 resbc=0.00e+00
+Eigenvalue   8 : k=  197.39207919 + (+7.2e-13) i lam=sqrt(k)=   14.04962915, mult=1, resid=3.35e-11 resbc=0.00e+00
+Eigenvalue   9 : k=   78.95683494 + (-0.0e+00) i lam=sqrt(k)=    8.88576586, mult=1, resid=1.00e-10 resbc=0.00e+00
+Eigenvalue  10 : k=   49.34802187 + (-0.0e+00) i lam=sqrt(k)=    7.02481472, mult=1, resid=1.64e-10 resbc=0.00e+00
+Eigenvalue  11 : k=   49.34802187 + (-0.0e+00) i lam=sqrt(k)=    7.02481472, mult=1, resid=1.08e-09 resbc=0.00e+00
+Eigenvalue  12 : k=  246.74009978 + (-0.0e+00) i lam=sqrt(k)=   15.70796294, mult=1, resid=4.60e-09 resbc=0.00e+00
+Eigenvalue  13 : k=  246.74009978 + (-0.0e+00) i lam=sqrt(k)=   15.70796294, mult=1, resid=1.34e-06 resbc=0.00e+00
+Eigenvalue  14 : k=  256.60968124 + (-0.0e+00) i lam=sqrt(k)=   16.01904121, mult=1, resid=4.83e-11 resbc=0.00e+00
+Eigenvalue  15 : k=  256.60968124 + (-0.0e+00) i lam=sqrt(k)=   16.01904121, mult=1, resid=9.63e-11 resbc=0.00e+00
+Eigenvalue  16 : k=   19.73920880 + (-0.0e+00) i lam=sqrt(k)=    4.44288294, mult=1, resid=1.25e-09 resbc=0.00e+00
+Eigenvalue  17 : k=  286.21849431 + (-0.0e+00) i lam=sqrt(k)=   16.91799321, mult=1, resid=6.77e-07 resbc=0.00e+00
+
+
+
+*************************************************
+****** Sun July 6, 2025
+
+CAN WE COMPARE TIMINGS FOR EIGEN-WAVE AND SLEPSC FOR A HARD CASE ???
+REVISIT explicit SHIFT 
+
+***FIX ME -- SET TOL *******
+
+--> timings scaled by a factor 8 when N increases by a factor of 4 (mesh doubling in 2D)
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square2048.order4.hdf -bc1=d -show=squareNearTarget.show -numEigenValues=10 -setTargetEigenvalue=1 -targetEigenvalue=100 -orthogonalize=0 -go=go
+
+square2048.order4 : 130/16.5 = 7.9 
+--------------------------------------------------------------
+--------------- Ogev : computeEigenvalues --------------------
+   numberOfGridPoints=4214809, numEigenvalues=10, numEigenVectors=10
+      total cpu =  1.30e+03 (s) (includes build matrix)
+ cpu/eigenvalue =  1.30e+02 (s)
+
+
+square1024.order4
+--------------------------------------------------------------
+--------------- Ogev : computeEigenvalues --------------------
+   numberOfGridPoints=1058841, numEigenvalues=10, numEigenVectors=10
+      total cpu =  1.65e+02 (s) (includes build matrix)
+ cpu/eigenvalue =  1.65e+01 (s)
+ Number of iterations of the method: 2
+
+square512.order4:
+--------------------------------------------------------------
+--------------- Ogev : computeEigenvalues --------------------
+   numberOfGridPoints=267289, numEigenvalues=10, numEigenVectors=10
+      total cpu =  2.13e+01 (s) (includes build matrix)
+ cpu/eigenvalue =  2.13e+00 (s)
+
+square256.order4:
+--------------------------------------------------------------
+--------------- Ogev : computeEigenvalues --------------------
+   numberOfGridPoints=68121, numEigenvalues=10, numEigenVectors=10
+      total cpu =  2.79e+00 (s) (includes build matrix)
+ cpu/eigenvalue =  2.79e-01 (s)
+ Number of iterations of the method: 3
+
+
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order2.hdf -bc1=d -show=square64Order4EigsNearTarget.show -numEigenValues=10 -setTargetEigenvalue=1 -targetEigenvalue=100 -orthogonalize=0 -go=go
+
+Eigenvalue   0 : k=   98.53365314 + (-0.0e+00) i, mult=1, resid=1.37e-13 resbc=0.00e+00
+Eigenvalue   1 : k=   98.53365314 + (-0.0e+00) i, mult=1, resid=2.29e-13 resbc=0.00e+00
+Eigenvalue   2 : k=   78.89343820 + (-0.0e+00) i, mult=1, resid=9.30e-13 resbc=0.00e+00
+Eigenvalue   3 : k=  128.11274947 + (-0.0e+00) i, mult=1, resid=8.36e-11 resbc=0.00e+00
+Eigenvalue   4 : k=  128.11274947 + (-0.0e+00) i, mult=1, resid=4.51e-10 resbc=0.00e+00
+Eigenvalue   5 : k=   49.31434187 + (-0.0e+00) i, mult=1, resid=1.56e-12 resbc=0.00e+00
+Eigenvalue   6 : k=   49.31434187 + (-0.0e+00) i, mult=1, resid=3.53e-12 resbc=0.00e+00
+Eigenvalue   7 : k=  167.27460570 + (-0.0e+00) i, mult=1, resid=9.67e-11 resbc=0.00e+00
+Eigenvalue   8 : k=  167.27460570 + (-0.0e+00) i, mult=1, resid=2.39e-10 resbc=0.00e+00
+Eigenvalue   9 : k=  177.33206074 + (-0.0e+00) i, mult=1, resid=6.25e-13 resbc=0.00e+00
+Eigenvalue  10 : k=   19.73524553 + (-0.0e+00) i, mult=1, resid=9.93e-12 resbc=0.00e+00
+Eigenvalue  11 : k=  196.85370204 + (-0.0e+00) i, mult=1, resid=7.71e-08 resbc=0.00e+00
+Eigenvalue  12 : k=  196.85370204 + (-0.0e+00) i, mult=1, resid=4.36e-10 resbc=0.00e+00
+Eigenvalue  13 : k=  246.07301331 + (-0.0e+00) i, mult=1, resid=1.08e-12 resbc=0.00e+00
+Eigenvalue  14 : k=  255.37159660 + (-0.0e+00) i, mult=1, resid=7.58e-13 resbc=0.00e+00
+Eigenvalue  15 : k=  284.95069293 + (-0.0e+00) i, mult=1, resid=1.03e-08 resbc=0.00e+00
+
+>>> TARGET EIG: 
+-- trouble orthogonalize: **NEED TO SORT***
+
+ERROR: lambdaNorm(1)=    9.8534e+01  < lambdaNorm(0)=    9.8534e+01 -- expected eigenvalues to be non-decreasing in magnitude.
+
+
+
+*************************************************
+****** Fri July 4, 2025
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order4.hdf -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=square256O4Ev512.show -orthogonalize=1 -go=go
+
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order2.hdf -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=square256O2Ev512.show -orthogonalize=1 -go=go
+
+
+*************************************************
+****** Fri June 27, 2025
+
+RE-RUN for eigenWave paper : 
+
+RPI - running ...
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=rpi -g=rpiGride4.order2.hdf -numEigenValues=512 -tol=1.0e-12 -orthogonalize=1 -show=rpiEigs512.show -go=go > rpiEigs512.out
+
+
+
+*************************************************
+****** Tues June 24, 2025
+
+RE-RUN:
+
+darkCornerRoomG4O2EigsEv1500.show
+
+darkCornerRoomG4O4EigsEv1500.show
+
+Running ... OK
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoomGride4.order4.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=1502 -numEigenVectors=1500 -tol=1.0e-12 -bc1=d -show=darkCornerRoomG4O4EigsEv1500.show -orthogonalize=1 -go=go  > darkCornerRoomG4O4EigsEv1500.out
+
+Running ... OK 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoomGride4.order2.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=1502 -numEigenVectors=1500 -tol=1.0e-12 -bc1=d -show=darkCornerRoomG4O2EigsEv1500.show -orthogonalize=1 -go=go > darkCornerRoomG4O2EigsEv1500.out
+
+
+*************************************************
+****** Sat June 21, 2025
+
+for varying MG tol: 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sicFixede16.order2.ml4 -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=diskG16ml4O2Ev512.show -orthogonalize=1 -go=go > diskG16ml4O2Ev512.out
+
+**************************************************
+****** Thurs May 8, 2025
+
+O4 G4 - left gap
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=/home/henshw/runs/cgwave/grids/splitRingGridLeftGape4.order4.hdf -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=splitRingLeftGapG4O4Ev1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=splitRingLeftGapG4O4Ev1024 -matlab=1 -go=go > splitRingLeftGapG4O4Ev1024.out
+
+
+
+
+
+SPLIT ANNULUS RESONATOR
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=/home/henshw/runs/cgwave/grids/splitAnnulusGridLeftGape6.order4.hdf -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=splitAnnulusLeftGapG6O4Ev1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=splitAnnulusLeftGapG6O4Ev1024 -matlab=1 -go=go > splitAnnulusLeftGapG6O4Ev1024.out
+
+
+
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=/home/henshw/runs/cgwave/grids/splitAnnulusGridLeftGape6.order4.hdf -numEigenValues=256 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=splitAnnulusLeftGapG6O4Ev256.show -orthogonalize=0 -solveComplex=1 -matlabFileName=splitAnnulusLeftGapG6O4Ev256 -matlab=1 -go=go > splitAnnulusLeftGapG6O4Ev256.out
+
+
+
+**************************************************
+****** Fri May 2, 2025
+
+SPLIT RING RESONATOR
+
+O4 G4 - top gap
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=/home/henshw/runs/cgwave/grids/splitRingGridTopGape4.order4.hdf -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=splitRingTopGapG4O4Ev1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=splitRingTopGapG4O4Ev1024 -matlab=1 -go=go > splitRingTopGapG4O4Ev1024.out
+
+
+O4 G4 - top gap
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=/home/henshw/runs/cgwave/grids/splitRingGridTopGape4.order4.hdf -numEigenValues=256 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=splitRingTopGapG4O4Ev256.show -orthogonalize=0 -solveComplex=1 -matlabFileName=splitRingTopGapG4O4Ev256 -matlab=1 -go=go
+
+Eigenvalue 174 : k=   -2.65426159 + (  -14.37317050) i, mult=1, resid=4.96e-10 resbc=6.01e-05
+Eigenvalue 175 : k=   -2.65426159 + (  +14.37317050) i, mult=1, resid=4.96e-10 resbc=6.01e-05
+
+2x2 mode upward and right sound
+Eigenvalue 176 : k=   -0.00000022 + (  -14.81939338) i, mult=1, resid=4.38e-10 resbc=4.49e-05
+Eigenvalue 177 : k=   -0.00000022 + (  +14.81939338) i, mult=1, resid=4.38e-10 resbc=4.49e-05
+
+Eigenvalue 178 : k=   -3.01263263 + (  -14.43898369) i, mult=1, resid=5.13e-10 resbc=4.63e-05
+
+Upward sound
+Eigenvalue 186 : k=   -0.09418574 + (  -15.21589215) i, mult=1, resid=3.03e-10 resbc=2.17e-05
+Eigenvalue 187 : k=   -0.09418574 + (  +15.21589215) i, mult=1, resid=3.03e-10 resbc=2.17e-05
+
+
+**************************************************
+****** Fri May 2, 2025
+
+SPLIT RING RESONATOR
+
+SPR 1024
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=/home/henshw/runs/cgwave/grids/splitRingGride4.order2.hdf -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=splitRingG4O2BrrrrdEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=splitRingG4O2BrrrrdEv1024 -matlab=1 -go=go
+
+256
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=/home/henshw/runs/cgwave/grids/splitRingGride4.order2.hdf -numEigenValues=256 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=splitRingG4O2BrrrrdEv256.show -orthogonalize=0 -solveComplex=1 -matlabFileName=splitRingG4O2BrrrrdEv256 -matlab=1 -go=go
+
+
+SPR 128 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=/home/henshw/runs/cgwave/grids/splitRingGride4.order2.hdf -numEigenValues=128 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=splitRingG4O2BrrrrdEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=splitRingG4O2BrrrrdEv128 -matlab=1 -go=go
+
+Eigenvalue   5 : k=   -0.18216383 + (   -0.00000000) i, mult=1, resid=1.25e-10 resbc=3.88e-11
+Eigenvalue   6 : k=   -0.18266178 + (   -0.00000000) i, mult=1, resid=1.74e-10 resbc=5.49e-11
+Eigenvalue   7 : k=   -0.48961354 + (   -0.00000000) i, mult=1, resid=6.36e-11 resbc=2.38e-11
+Eigenvalue   8 : k=   -1.03342266 + (   -0.00000000) i, mult=1, resid=1.92e-10 resbc=4.89e-11
+Eigenvalue   9 : k=   -1.26439358 + (   -0.00000000) i, mult=1, resid=1.37e-10 resbc=3.00e-11
+Eigenvalue  10 : k=   -1.26608858 + (   -0.00000000) i, mult=1, resid=1.19e-10 resbc=4.24e-11
+Eigenvalue  11 : k=   -1.36008438 + (   -0.00000000) i, mult=1, resid=4.53e-11 resbc=2.62e-11
+Eigenvalue  12 : k=   -2.38168381 + (   -0.00000000) i, mult=1, resid=3.53e-11 resbc=2.22e-11
+Eigenvalue  13 : k=   -2.38786015 + (   -0.00000000) i, mult=1, resid=7.04e-11 resbc=3.44e-11
+Eigenvalue  14 : k=   -2.39362157 + (   -0.00000000) i, mult=1, resid=6.56e-11 resbc=3.87e-11
+Eigenvalue  15 : k=   -2.40855618 + (   -0.00000000) i, mult=1, resid=5.30e-11 resbc=3.32e-11
+Eigenvalue  16 : k=   -3.64389684 + (   -2.41521949) i, mult=1, resid=6.00e-11 resbc=7.84e-11
+Eigenvalue  17 : k=   -3.64389684 + (   +2.41521949) i, mult=1, resid=6.00e-11 resbc=7.84e-11
+
+
+Eigenvalue 126 : k=   -0.00000001 + (  -11.68989618) i, mult=1, resid=8.97e-11 resbc=6.94e-10
+Eigenvalue 127 : k=   -0.00000001 + (  +11.68989618) i, mult=1, resid=8.97e-11 resbc=6.94e-10
+
+
+FIX SHOW FILE FOR COMPLEX
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order4 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareGO4BrrrrEv16.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareGO4BrrrrEv16 -matlab=1 -go=go
+
+
+**************************************************
+****** Tues April 29, 2025
+
+**BUG FOUND** ORDER=4 CBC for EM was wrong
+
+CYL SCAT TEST CASE -- compute more
+
+ORDER=4
+2048: 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice4.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=cicG4O4BrrrrdEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=cicG4O4BrrrrdEv2048 -matlab=1 -go=go
+
+1024: OK
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice4.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=cicG4O4BrrrrdEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=cicG4O4BrrrrdEv1024 -matlab=1 -go=go
+
+
+128: **TROUBLE** CHECK rbc
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice4.order4 -numEigenValues=128 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=cicG4O4BrrrrdEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=cicG4O4BrrrrdEv128 -matlab=1 -go=go
+
+Eigenvalue   0 : k=    0.00000000 + (   -0.00000088) i, mult=1, resid=6.47e-11 resbc=6.68e-08
+Eigenvalue   1 : k=    0.00000000 + (   +0.00000088) i, mult=1, resid=6.47e-11 resbc=6.68e-08
+Eigenvalue   2 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=4.71e-11 resbc=4.63e-08
+Eigenvalue   3 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=5.44e-11 resbc=6.10e-08
+Eigenvalue   4 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=4.46e-11 resbc=5.47e-08
+Eigenvalue   5 : k=   -0.14592973 + (   -0.00000000) i, mult=1, resid=4.48e-11 resbc=3.65e-08
+Eigenvalue   6 : k=   -0.14592973 + (   -0.00000000) i, mult=1, resid=4.87e-11 resbc=6.13e-08
+Eigenvalue   7 : k=   -0.32275275 + (   -0.00000000) i, mult=1, resid=2.26e-11 resbc=3.65e-08
+Eigenvalue   8 : k=   -0.83036730 + (   -0.00000000) i, mult=1, resid=5.78e-11 resbc=6.10e-08
+Eigenvalue   9 : k=   -0.85164402 + (   -0.00000000) i, mult=1, resid=4.11e-11 resbc=5.63e-08
+Eigenvalue  10 : k=   -0.94468828 + (   -0.00000000) i, mult=1, resid=3.81e-11 resbc=5.60e-08
+Eigenvalue  11 : k=   -0.94468828 + (   -0.00000000) i, mult=1, resid=5.30e-11 resbc=6.26e-08
+Eigenvalue  12 : k=   -1.05077771 + (   -0.00000000) i, mult=1, resid=4.75e-11 resbc=5.98e-08
+Eigenvalue  13 : k=   -1.07015879 + (   -0.00000000) i, mult=1, resid=4.38e-11 resbc=5.42e-08
+Eigenvalue  14 : k=   -1.07015879 + (   -0.00000000) i, mult=1, resid=3.71e-11 resbc=5.24e-08
+Eigenvalue  15 : k=   -1.26728417 + (   -0.00000000) i, mult=1, resid=4.35e-11 resbc=3.74e-08
+Eigenvalue  16 : k=   -1.86247327 + (   -1.32027364) i, mult=1, resid=3.93e-11 resbc=1.50e-07
+
+
+SQUARE ORDER=4:
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order4 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareGO4BrrrrEv16.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareGO4BrrrrEv16 -matlab=1 -go=go
+
+
+Eigenvalue   0 : k=    0.00000000 + (   -0.00000000) i, mult=1, resid=1.01e-09 resbc=1.61e-05
+Eigenvalue   1 : k=    0.00000000 + (   +0.00000000) i, mult=1, resid=1.01e-09 resbc=1.61e-05
+Eigenvalue   2 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=6.71e-10 resbc=1.60e-05
+Eigenvalue   3 : k=   -0.00000000 + (   -0.00000394) i, mult=1, resid=1.88e-09 resbc=1.35e-05
+Eigenvalue   4 : k=   -0.00000000 + (   +0.00000394) i, mult=1, resid=1.88e-09 resbc=1.35e-05
+Eigenvalue   5 : k=   -0.65218354 + (   -0.00000000) i, mult=1, resid=7.34e-10 resbc=1.77e-05
+Eigenvalue   6 : k=   -0.65218354 + (   -0.00000000) i, mult=1, resid=1.54e-09 resbc=3.26e-05
+Eigenvalue   7 : k=   -1.30063633 + (   -0.00000000) i, mult=1, resid=6.28e-10 resbc=1.96e-05
+Eigenvalue   8 : k=   -1.30063645 + (   -0.00000000) i, mult=1, resid=4.49e-09 resbc=6.54e-05
+Eigenvalue   9 : k=   -3.40662436 + (   -0.00000000) i, mult=1, resid=6.73e-10 resbc=2.24e-05
+Eigenvalue  10 : k=   -3.40662911 + (   -0.00000000) i, mult=1, resid=1.21e-09 resbc=7.21e-05
+Eigenvalue  11 : k=   -3.84907977 + (   -0.67310711) i, mult=1, resid=1.61e-09 resbc=5.70e-05
+Eigenvalue  12 : k=   -3.84907977 + (   +0.67310711) i, mult=1, resid=1.61e-09 resbc=5.70e-05
+Eigenvalue  13 : k=   -3.84907977 + (   -0.67310711) i, mult=1, resid=8.22e-10 resbc=5.18e-05
+Eigenvalue  14 : k=   -3.84907977 + (   +0.67310711) i, mult=1, resid=8.22e-10 resbc=5.18e-05
+Eigenvalue  15 : k=   -4.98586402 + (   -0.00000000) i, mult=1, resid=1.21e-09 resbc=9.83e-05
+Eigenvalue  16 : k=   -4.98571484 + (   -4.44281243) i, mult=1, resid=4.38e-09 resbc=2.63e-04
+Eigenvalue  17 : k=   -4.98571484 + (   +4.44281243) i, mult=1, resid=4.38e-09 resbc=2.63e-04
+
+
+
+
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square32.order4 -numEigenValues=16 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -shift=-1  -go=go
+
+
+
+SHIFT=-1
+Eigenvalue   0 : k=    0.00000000 + (   -0.00000000) i, mult=1, resid=1.48e-11 resbc=1.57e-08
+Eigenvalue   1 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=2.08e-11 resbc=3.13e-08
+Eigenvalue   2 : k=   -0.00000000 + (   -0.00000030) i, mult=1, resid=1.34e-11 resbc=1.51e-08
+Eigenvalue   3 : k=   -0.00000000 + (   +0.00000030) i, mult=1, resid=1.34e-11 resbc=1.51e-08
+Eigenvalue   4 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=5.53e-12 resbc=8.76e-09
+Eigenvalue   5 : k=   -0.65218458 + (   -0.00000000) i, mult=1, resid=4.61e-11 resbc=7.03e-08
+Eigenvalue   6 : k=   -0.65218458 + (   +0.00000000) i, mult=1, resid=4.61e-11 resbc=7.03e-08
+Eigenvalue   7 : k=   -1.30063521 + (   -0.00000000) i, mult=1, resid=7.46e-12 resbc=1.97e-08
+Eigenvalue   8 : k=   -1.30066123 + (   -0.00000000) i, mult=1, resid=7.30e-11 resbc=1.41e-07
+Eigenvalue   9 : k=   -3.40670776 + (   -0.00000000) i, mult=1, resid=1.56e-11 resbc=1.01e-07
+Eigenvalue  10 : k=   -3.40768289 + (   -0.00000000) i, mult=1, resid=1.09e-11 resbc=6.00e-08
+Eigenvalue  11 : k=   -3.85104353 + (   -0.67404033) i, mult=1, resid=2.29e-11 resbc=1.32e-07
+Eigenvalue  12 : k=   -3.85104353 + (   +0.67404033) i, mult=1, resid=2.29e-11 resbc=1.32e-07
+Eigenvalue  13 : k=   -3.85104353 + (   -0.67404033) i, mult=1, resid=9.01e-12 resbc=5.75e-08
+Eigenvalue  14 : k=   -3.85104353 + (   +0.67404033) i, mult=1, resid=9.01e-12 resbc=5.75e-08
+Eigenvalue  15 : k=   -4.99843442 + (   -0.00000000) i, mult=1, resid=8.65e-12 resbc=6.93e-08
+Eigenvalue  16 : k=   -4.96619968 + (   -4.43297003) i, mult=1, resid=7.75e-11 resbc=5.77e-07
+Eigenvalue  17 : k=   -4.96619968 + (   +4.43297003) i, mult=1, resid=7.75e-11 resbc=5.77e-07
+
+
+
+
+**************************************************
+****** Sun April 27, 2025
+
+SQUARE: OPEN AND WAVE GUIDE
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order2 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=d -bc4=d -show=squareGO2BrrddEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareGO2BrrddEv1024 -matlab=1 -go=go
+
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order2 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareGO2BrrrrEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareGO2BrrrrEv1024 -matlab=1 -go=go
+
+
+CYL SCAT TEST CASE -- compute more
+
+3000: 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice4.order2 -numEigenValues=3000 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=cicG4O2BrrrrdEv3000.show -orthogonalize=0 -solveComplex=1 -matlabFileName=cicG4O2BrrrrdEv3000 -matlab=1 -go=go
+
+
+2048: 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice4.order2 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=cicG4O2BrrrrdEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=cicG4O2BrrrrdEv2048 -matlab=1 -go=go
+
+Eigenvalue 2090 : k=   -0.98501045 + (  -26.83397784) i, mult=1, resid=2.20e-10 resbc=2.26e-09
+Eigenvalue 2091 : k=   -0.98501045 + (  +26.83397784) i, mult=1, resid=2.20e-10 resbc=2.26e-09
+Eigenvalue 2092 : k=   -0.91841281 + (  -26.83932444) i, mult=1, resid=1.52e-10 resbc=2.03e-09
+Eigenvalue 2093 : k=   -0.91841281 + (  +26.83932444) i, mult=1, resid=1.52e-10 resbc=2.03e-09
+Eigenvalue 2094 : k=   -1.04908038 + (  -26.86182971) i, mult=1, resid=9.54e-11 resbc=2.37e-09
+Eigenvalue 2095 : k=   -1.04908038 + (  +26.86182971) i, mult=1, resid=9.54e-11 resbc=2.37e-09
+
+1024: 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice4.order2 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=cicG4O2BrrrrdEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=cicG4O2BrrrrdEv1024 -matlab=1 -go=go
+
+
+
+1024: 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice4.order2 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=cicG4O2BrrrrdEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=cicG4O2BrrrrdEv1024 -matlab=1 -go=go
+
+
+Eigenvalue 1032 : k=   -8.01539785 + (  -16.82272111) i, mult=1, resid=3.91e-11 resbc=4.93e-10
+Eigenvalue 1033 : k=   -8.01539785 + (  +16.82272111) i, mult=1, resid=3.91e-11 resbc=4.93e-10
+Eigenvalue 1034 : k=   -1.16864608 + (  -18.97559267) i, mult=1, resid=1.12e-10 resbc=1.14e-09
+Eigenvalue 1035 : k=   -1.16864608 + (  +18.97559267) i, mult=1, resid=1.12e-10 resbc=1.14e-09
+Eigenvalue 1036 : k=   -1.14556729 + (  -18.98615915) i, mult=1, resid=7.94e-11 resbc=1.14e-09
+Eigenvalue 1037 : k=   -1.14556729 + (  +18.98615915) i, mult=1, resid=7.94e-11 resbc=1.14e-09
+
+
+
+**************************************************
+****** Sat April 26, 2025
+
+CYL SCAT TEST CASE
+
+SAVE MATLAB FILE
+cicG4O2BrrrrdEv128.m
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice4.order2 -numEigenValues=128 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=cicG4O2BrrrrdEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=cicG4O2BrrrrdEv128 -matlab=1 -go=go
+
+Eigenvalue   0 : k=    0.00000018 + (   -0.00000000) i, mult=1, resid=2.61e-04 resbc=9.83e-12
+Eigenvalue   1 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=1.21e+02 resbc=5.74e-12
+Eigenvalue   2 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=1.30e+01 resbc=5.26e-12
+Eigenvalue   3 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=4.78e+00 resbc=7.97e-12
+Eigenvalue   4 : k=   -0.00000018 + (   -0.00000000) i, mult=1, resid=2.57e-04 resbc=8.13e-12
+Eigenvalue   5 : k=   -0.14593510 + (   -0.00000000) i, mult=1, resid=3.01e-10 resbc=1.10e-11
+Eigenvalue   6 : k=   -0.14593510 + (   -0.00000000) i, mult=1, resid=2.47e-10 resbc=9.99e-12
+Eigenvalue   7 : k=   -0.32275325 + (   -0.00000000) i, mult=1, resid=4.45e-11 resbc=6.71e-12
+Eigenvalue   8 : k=   -0.83017116 + (   -0.00000000) i, mult=1, resid=4.68e-11 resbc=7.39e-12
+Eigenvalue   9 : k=   -0.85140977 + (   -0.00000000) i, mult=1, resid=2.28e-11 resbc=7.67e-12
+Eigenvalue  10 : k=   -0.94418077 + (   -0.00000000) i, mult=1, resid=3.29e-11 resbc=1.17e-11
+Eigenvalue  11 : k=   -0.94418092 + (   -0.00000000) i, mult=1, resid=3.35e-11 resbc=7.22e-12
+Eigenvalue  12 : k=   -1.05068059 + (   -0.00000000) i, mult=1, resid=3.49e-11 resbc=9.64e-12
+Eigenvalue  13 : k=   -1.07053719 + (   -0.00000000) i, mult=1, resid=3.00e-11 resbc=8.26e-12
+Eigenvalue  14 : k=   -1.07053741 + (   -0.00000000) i, mult=1, resid=2.90e-11 resbc=1.13e-11
+Eigenvalue  15 : k=   -1.26762926 + (   -0.00000000) i, mult=1, resid=2.79e-11 resbc=7.28e-12
+Eigenvalue  16 : k=   -1.85622988 + (   -1.31444300) i, mult=1, resid=1.71e-11 resbc=1.14e-11
+Eigenvalue  17 : k=   -1.85622988 + (   +1.31444300) i, mult=1, resid=1.71e-11 resbc=1.14e-11
+Eigenvalue  18 : k=   -1.75680820 + (   -1.51849100) i, mult=1, resid=9.76e-12 resbc=1.14e-11
+Eigenvalue  19 : k=   -1.75680820 + (   +1.51849100) i, mult=1, resid=9.76e-12 resbc=1.14e-11
+Eigenvalue  20 : k=   -1.75680877 + (   -1.51849111) i, mult=1, resid=1.27e-11 resbc=1.21e-11
+Eigenvalue  21 : k=   -1.75680877 + (   +1.51849111) i, mult=1, resid=1.27e-11 resbc=1.21e-11
+Eigenvalue  22 : k=   -1.31893792 + (   -2.18982959) i, mult=1, resid=1.83e-11 resbc=1.31e-11
+Eigenvalue  23 : k=   -1.31893792 + (   +2.18982959) i, mult=1, resid=1.83e-11 resbc=1.31e-11
+Eigenvalue  24 : k=   -1.85518130 + (   -1.99520320) i, mult=1, resid=9.31e-12 resbc=1.31e-11
+
+
+
+TEST SHIFT:
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice2.order2 -numEigenValues=32 -shift=10 -tol=1.0e-12 -bc1=r -bc2=r -bc3=d -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+SHIFT=-10
+Eigenvalue   0 : k=   -0.26529515 + (   -1.83426729) i, mult=1, resid=1.31e-11 resbc=3.65e-12
+Eigenvalue   1 : k=   -0.26529515 + (   +1.83426729) i, mult=1, resid=1.31e-11 resbc=3.65e-12
+Eigenvalue   2 : k=   -0.28384715 + (   -2.24903183) i, mult=1, resid=8.17e-11 resbc=7.23e-12
+Eigenvalue   3 : k=   -0.28384715 + (   +2.24903183) i, mult=1, resid=8.17e-11 resbc=7.23e-12
+Eigenvalue   4 : k=   -0.52026843 + (   -1.89830444) i, mult=1, resid=2.87e-11 resbc=5.28e-12
+Eigenvalue   5 : k=   -0.52026843 + (   +1.89830444) i, mult=1, resid=2.87e-11 resbc=5.28e-12
+Eigenvalue   6 : k=   -0.37756035 + (   -2.66957190) i, mult=1, resid=9.38e-12 resbc=3.55e-12
+Eigenvalue   7 : k=   -0.37756035 + (   +2.66957190) i, mult=1, resid=9.38e-12 resbc=3.55e-12
+Eigenvalue   8 : k=   -0.24837008 + (   -3.46827147) i, mult=1, resid=2.86e-11 resbc=8.96e-12
+Eigenvalue   9 : k=   -0.24837008 + (   +3.46827147) i, mult=1, resid=2.86e-11 resbc=8.96e-12
+Eigenvalue  10 : k=   -0.24953337 + (   -3.47066729) i, mult=1, resid=1.02e-11 resbc=4.60e-12
+Eigenvalue  11 : k=   -0.24953337 + (   +3.47066729) i, mult=1, resid=1.02e-11 resbc=4.60e-12
+Eigenvalue  12 : k=   -0.13324203 + (   -4.04109048) i, mult=1, resid=9.84e-12 resbc=2.30e-12
+Eigenvalue  13 : k=   -0.13324203 + (   +4.04109048) i, mult=1, resid=9.84e-12 resbc=2.30e-12
+Eigenvalue  14 : k=   -0.18181966 + (   -4.18414360) i, mult=1, resid=6.47e-12 resbc=1.05e-11
+Eigenvalue  15 : k=   -0.18181966 + (   +4.18414360) i, mult=1, resid=6.47e-12 resbc=1.05e-11
+Eigenvalue  16 : k=   -1.01288667 + (   -0.00000000) i, mult=1, resid=4.64e-12 resbc=3.10e-12
+Eigenvalue  17 : k=   -0.61626605 + (   -2.95484095) i, mult=1, resid=2.20e-11 resbc=4.35e-12
+Eigenvalue  18 : k=   -0.61626605 + (   +2.95484095) i, mult=1, resid=2.20e-11 resbc=4.35e-12
+Eigenvalue  19 : k=   -0.78399658 + (   -2.56068012) i, mult=1, resid=8.48e-12 resbc=4.35e-12
+Eigenvalue  20 : k=   -0.78399658 + (   +2.56068012) i, mult=1, resid=8.48e-12 resbc=4.35e-12
+
+
+SHIFT=-1
+Eigenvalue   0 : k=   -1.01288667 + (   -0.00000000) i, mult=1, resid=2.51e-12 resbc=9.05e-13
+Eigenvalue   1 : k=   -0.26529515 + (   -1.83426729) i, mult=1, resid=1.62e-12 resbc=1.83e-12
+Eigenvalue   2 : k=   -0.26529515 + (   +1.83426729) i, mult=1, resid=1.62e-12 resbc=1.83e-12
+Eigenvalue   3 : k=   -1.30735307 + (   -0.23139427) i, mult=1, resid=2.35e-12 resbc=1.47e-12
+Eigenvalue   4 : k=   -1.30735307 + (   +0.23139427) i, mult=1, resid=2.35e-12 resbc=1.47e-12
+Eigenvalue   5 : k=   -0.52026843 + (   -1.89830444) i, mult=1, resid=2.61e-12 resbc=2.50e-12
+Eigenvalue   6 : k=   -0.52026843 + (   +1.89830444) i, mult=1, resid=2.61e-12 resbc=2.50e-12
+Eigenvalue   7 : k=   -0.28384715 + (   -2.24903183) i, mult=1, resid=2.94e-12 resbc=5.24e-12
+Eigenvalue   8 : k=   -0.28384715 + (   +2.24903183) i, mult=1, resid=2.94e-12 resbc=5.24e-12
+Eigenvalue   9 : k=   -1.72906329 + (   -0.26381209) i, mult=1, resid=3.74e-12 resbc=5.15e-12
+Eigenvalue  10 : k=   -1.72906329 + (   +0.26381209) i, mult=1, resid=3.74e-12 resbc=5.15e-12
+Eigenvalue  11 : k=   -1.81007021 + (   -0.00000000) i, mult=1, resid=1.06e-11 resbc=1.87e-11
+Eigenvalue  12 : k=   -0.37756035 + (   -2.66957190) i, mult=1, resid=4.59e-11 resbc=1.13e-10
+Eigenvalue  13 : k=   -0.37756035 + (   +2.66957190) i, mult=1, resid=4.59e-11 resbc=1.13e-10
+Eigenvalue  14 : k=   -0.78399658 + (   -2.56068012) i, mult=1, resid=1.15e-12 resbc=2.54e-12
+Eigenvalue  15 : k=   -0.78399658 + (   +2.56068012) i, mult=1, resid=1.15e-12 resbc=2.54e-12
+Eigenvalue  16 : k=   -0.61626605 + (   -2.95484095) i, mult=1, resid=1.72e-10 resbc=4.88e-10
+Eigenvalue  17 : k=   -0.61626605 + (   +2.95484095) i, mult=1, resid=1.72e-10 resbc=4.88e-10
+Eigenvalue  18 : k=   -0.24837008 + (   -3.46827147) i, mult=1, resid=1.83e-12 resbc=3.25e-12
+Eigenvalue  19 : k=   -0.24837008 + (   +3.46827147) i, mult=1, resid=1.83e-12 resbc=3.25e-12
+Eigenvalue  20 : k=   -0.24953337 + (   -3.47066729) i, mult=1, resid=1.52e-12 resbc=3.48e-12
+Eigenvalue  21 : k=   -0.24953337 + (   +3.47066729) i, mult=1, resid=1.52e-12 resbc=3.48e-12
+Eigenvalue  22 : k=   -1.84621988 + (   -2.47252404) i, mult=1, resid=6.51e-11 resbc=1.65e-10
+Eigenvalue  23 : k=   -1.84621988 + (   +2.47252404) i, mult=1, resid=6.51e-11 resbc=1.65e-10
+Eigenvalue  24 : k=   -1.82777910 + (   -2.52871046) i, mult=1, resid=1.66e-10 resbc=4.52e-10
+Eigenvalue  25 : k=   -1.82777910 + (   +2.52871046) i, mult=1, resid=1.66e-10 resbc=4.52e-10
+Eigenvalue  26 : k=   -1.50572597 + (   -3.15494853) i, mult=1, resid=1.28e-12 resbc=3.69e-12
+Eigenvalue  27 : k=   -1.50572597 + (   +3.15494853) i, mult=1, resid=1.28e-12 resbc=3.69e-12
+Eigenvalue  28 : k=   -1.04921965 + (   -3.59233978) i, mult=1, resid=8.61e-11 resbc=2.45e-10
+Eigenvalue  29 : k=   -1.04921965 + (   +3.59233978) i, mult=1, resid=8.61e-11 resbc=2.45e-10
+Eigenvalue  30 : k=   -0.13324203 + (   -4.04109048) i, mult=1, resid=2.29e-10 resbc=6.38e-10
+Eigenvalue  31 : k=   -0.13324203 + (   +4.04109048) i, mult=1, resid=2.29e-10 resbc=6.38e-10
+Eigenvalue  32 : k=   -1.77813701 + (   -3.29852987) i, mult=1, resid=2.53e-12 resbc=6.58e-12
+
+
+
+SHIFT=0:
+Eigenvalue   0 : k=   -1.01288667 + (   -0.00000000) i, mult=1, resid=4.26e-12 resbc=9.72e-13
+Eigenvalue   1 : k=   -1.30735307 + (   -0.23139427) i, mult=1, resid=1.81e-12 resbc=1.56e-12
+Eigenvalue   2 : k=   -1.30735307 + (   +0.23139427) i, mult=1, resid=1.81e-12 resbc=1.56e-12
+Eigenvalue   3 : k=   -1.72906329 + (   -0.26381209) i, mult=1, resid=4.35e-12 resbc=1.83e-12
+Eigenvalue   4 : k=   -1.72906329 + (   +0.26381209) i, mult=1, resid=4.35e-12 resbc=1.83e-12
+Eigenvalue   5 : k=   -1.81007021 + (   -0.00000000) i, mult=1, resid=1.92e-12 resbc=1.46e-12
+Eigenvalue   6 : k=   -0.26529515 + (   -1.83426729) i, mult=1, resid=8.47e-12 resbc=3.45e-12
+Eigenvalue   7 : k=   -0.26529515 + (   +1.83426729) i, mult=1, resid=8.47e-12 resbc=3.45e-12
+Eigenvalue   8 : k=   -0.52026843 + (   -1.89830444) i, mult=1, resid=6.08e-12 resbc=5.43e-12
+Eigenvalue   9 : k=   -0.52026843 + (   +1.89830444) i, mult=1, resid=6.08e-12 resbc=5.43e-12
+Eigenvalue  10 : k=   -0.28384715 + (   -2.24903183) i, mult=1, resid=4.47e-12 resbc=3.22e-12
+Eigenvalue  11 : k=   -0.28384715 + (   +2.24903183) i, mult=1, resid=4.47e-12 resbc=3.22e-12
+Eigenvalue  12 : k=   -0.78399658 + (   -2.56068012) i, mult=1, resid=7.70e-12 resbc=5.31e-12
+Eigenvalue  13 : k=   -0.78399658 + (   +2.56068012) i, mult=1, resid=7.70e-12 resbc=5.31e-12
+Eigenvalue  14 : k=   -0.37756035 + (   -2.66957190) i, mult=1, resid=6.79e-12 resbc=4.05e-12
+Eigenvalue  15 : k=   -0.37756035 + (   +2.66957190) i, mult=1, resid=6.79e-12 resbc=4.05e-12
+Eigenvalue  16 : k=   -0.61626605 + (   -2.95484095) i, mult=1, resid=5.47e-12 resbc=4.64e-12
+Eigenvalue  17 : k=   -0.61626605 + (   +2.95484095) i, mult=1, resid=5.47e-12 resbc=4.64e-12
+Eigenvalue  18 : k=   -1.84621988 + (   -2.47252404) i, mult=1, resid=3.91e-12 resbc=4.06e-12
+Eigenvalue  19 : k=   -1.84621988 + (   +2.47252404) i, mult=1, resid=3.91e-12 resbc=4.06e-12
+Eigenvalue  20 : k=   -1.82777910 + (   -2.52871046) i, mult=1, resid=3.53e-12 resbc=2.69e-12
+Eigenvalue  21 : k=   -1.82777910 + (   +2.52871046) i, mult=1, resid=3.53e-12 resbc=2.69e-12
+Eigenvalue  22 : k=   -3.44322120 + (   -0.00000000) i, mult=1, resid=4.54e-12 resbc=7.06e-12
+Eigenvalue  23 : k=   -3.44333317 + (   -0.00000000) i, mult=1, resid=5.41e-12 resbc=6.28e-12
+Eigenvalue  24 : k=   -0.24837008 + (   -3.46827147) i, mult=1, resid=7.88e-12 resbc=8.38e-12
+Eigenvalue  25 : k=   -0.24837008 + (   +3.46827147) i, mult=1, resid=7.88e-12 resbc=8.38e-12
+Eigenvalue  26 : k=   -0.24953337 + (   -3.47066729) i, mult=1, resid=8.02e-12 resbc=7.28e-12
+Eigenvalue  27 : k=   -0.24953337 + (   +3.47066729) i, mult=1, resid=8.02e-12 resbc=7.28e-12
+Eigenvalue  28 : k=   -1.50572597 + (   -3.15494853) i, mult=1, resid=5.10e-12 resbc=8.33e-12
+Eigenvalue  29 : k=   -1.50572597 + (   +3.15494853) i, mult=1, resid=5.10e-12 resbc=8.33e-12
+Eigenvalue  30 : k=   -1.04921965 + (   -3.59233978) i, mult=1, resid=9.89e-12 resbc=3.73e-11
+Eigenvalue  31 : k=   -1.04921965 + (   +3.59233978) i, mult=1, resid=9.89e-12 resbc=3.73e-11
+Eigenvalue  32 : k=   -1.77813701 + (   -3.29852987) i, mult=1, resid=6.13e-12 resbc=6.45e-12
+
+
+
+
+
+CIC TROUBLE: corner with rr ... ADD SHIFT
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice2.order2 -numEigenValues=32 -shift=-10 -tol=1.0e-12 -bc1=r -bc2=d -bc3=r -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice4.order2 -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=d -bc3=r -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+
+SQUARE: corner with rr is OK 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2 -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=d -bc3=r -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+SQUARE: corner with rrrr is OK 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2 -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+ORDER=4 **TROUBLE**
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice4.order4 -numEigenValues=128 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=cicG4O4BrrrrdEv128.show -orthogonalize=0 -solveComplex=1 -go=go
+
+Eigenvalue  31 : k=   -2.26655150 + (   +1.08422319) i, mult=1, resid=3.99e+01 resbc=1.32e+05
+Eigenvalue  32 : k=   -1.25681120 + (   -2.31523500) i, mult=1, resid=9.45e+01 resbc=2.43e+05
+Eigenvalue  33 : k=   -1.25681120 + (   +2.31523500) i, mult=1, resid=9.45e+01 resbc=2.43e+05
+
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice4.order2 -numEigenValues=128 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=cicG4O2BrrrrdEv128.show -orthogonalize=0 -solveComplex=1 -go=go
+
+
+CIC TROUBLE: corner with rr
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice2.order2 -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=d -bc3=r -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+Eigenvalue   0 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=1.56e+01 resbc=1.31e-12
+Eigenvalue   1 : k=   -0.19647448 + (   -0.00000000) i, mult=1, resid=1.87e+01 resbc=1.37e+00
+Eigenvalue   2 : k=   -0.41897832 + (   -0.00000000) i, mult=1, resid=2.36e+01 resbc=3.97e+00
+Eigenvalue   3 : k=   -0.95092317 + (   -0.10898950) i, mult=1, resid=3.34e+01 resbc=1.24e+01
+Eigenvalue   4 : k=   -0.95092317 + (   +0.10898950) i, mult=1, resid=3.34e+01 resbc=1.24e+01
+
+
+
+B=ddrr OK
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice2.order2 -numEigenValues=32 -tol=1.0e-12 -bc1=d -bc2=d -bc3=r -bc4=r -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+
+B=rrdd
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice2.order2 -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=r -bc3=d -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+bc = [r,r,d,d] for grid=0 (square)
+ bc = [p,p,d,i] for grid=1 (Annulus)
+===================================================================
+
+ **** INFO: genEigs: unknown eigCase=[none]
+
+  resid = || A phi - lambda phi ||_max / |lambda| 
+  VECT max-err = max-norm( closest vector in 2 norm to eigenpsace )/( max-norm of phi)  
+  VECT l2-err  =      L2h( closest vector in 2 norm to eigenpsace )/( L2h norm of phi)  
+Eigenvalue   0 : k=   -1.01288667 + (   -0.00000000) i, mult=1, resid=4.52e-12 resbc=9.26e-13
+Eigenvalue   1 : k=   -1.30735307 + (   -0.23139427) i, mult=1, resid=2.26e-12 resbc=1.14e-12
+Eigenvalue   2 : k=   -1.30735307 + (   +0.23139427) i, mult=1, resid=2.26e-12 resbc=1.14e-12
+Eigenvalue   3 : k=   -1.72906329 + (   -0.26381209) i, mult=1, resid=4.67e-12 resbc=1.92e-12
+Eigenvalue   4 : k=   -1.72906329 + (   +0.26381209) i, mult=1, resid=4.67e-12 resbc=1.92e-12
+Eigenvalue   5 : k=   -1.81007021 + (   -0.00000000) i, mult=1, resid=2.01e-12 resbc=1.65e-12
+Eigenvalue   6 : k=   -0.26529515 + (   -1.83426729) i, mult=1, resid=8.14e-12 resbc=3.14e-12
+
+
+
+
+OK:  B=rddd
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice2.order2 -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+
+
+**************************************************
+****** Mon April 21, 2025
+
+>>> SCALE EIGENVECTORS FOR PLOTTING 
+
+>>>>  START TESTING 3D + RBCS
+
+
+>>>> OVERSET GRID:
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice2.order2 -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=r -bc3=d -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice2.order2 -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+
+Eigenvalue   0 : k=   -1.13634343 + (   -0.00000000) i, mult=1, resid=2.05e-12 resbc=9.19e-13
+Eigenvalue   1 : k=   -1.65633550 + (   -0.15120146) i, mult=1, resid=1.97e-12 resbc=1.24e-12
+Eigenvalue   2 : k=   -1.65633550 + (   +0.15120146) i, mult=1, resid=1.97e-12 resbc=1.24e-12
+Eigenvalue   3 : k=   -0.01540755 + (   -1.88625350) i, mult=1, resid=3.25e-12 resbc=2.79e-12
+Eigenvalue   4 : k=   -0.01540755 + (   +1.88625350) i, mult=1, resid=3.25e-12 resbc=2.79e-12
+Eigenvalue   5 : k=   -0.37778015 + (   -1.94797124) i, mult=1, resid=4.01e-12 resbc=3.49e-12
+Eigenvalue   6 : k=   -0.37778015 + (   +1.94797124) i, mult=1, resid=4.01e-12 resbc=3.49e-12
+Eigenvalue   7 : k=   -0.08534317 + (   -2.07571941) i, mult=1, resid=5.13e-12 resbc=3.04e-12
+Eigenvalue   8 : k=   -0.08534317 + (   +2.07571941) i, mult=1, resid=5.13e-12 resbc=3.04e-12
+Eigenvalue   9 : k=   -0.18489102 + (   -2.44759866) i, mult=1, resid=4.89e-12 resbc=5.56e-12
+Eigenvalue  10 : k=   -0.18489102 + (   +2.44759866) i, mult=1, resid=4.89e-12 resbc=5.56e-12
+Eigenvalue  11 : k=   -0.18585291 + (   -2.84082743) i, mult=1, resid=5.06e-12 resbc=5.47e-12
+Eigenvalue  12 : k=   -0.18585291 + (   +2.84082743) i, mult=1, resid=5.06e-12 resbc=5.47e-12
+Eigenvalue  13 : k=   -0.32978081 + (   -2.89041420) i, mult=1, resid=4.20e-12 resbc=4.67e-12
+Eigenvalue  14 : k=   -0.32978081 + (   +2.89041420) i, mult=1, resid=4.20e-12 resbc=4.67e-12
+
+
+
+3D b=rrrrrr : TROUBLE **BUG FIXED** residual
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=box1.order4.hdf -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -bc5=r -bc6=r -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+
+Eigenvalue   0 : k=   -0.82217463 + (   -0.00000000) i, mult=1, resid=5.20e-10 resbc=3.59e-08
+Eigenvalue   1 : k=   -0.82217463 + (   +0.00000000) i, mult=1, resid=5.20e-10 resbc=3.59e-08
+Eigenvalue   2 : k=   -0.82217463 + (   -0.00000000) i, mult=1, resid=1.09e-10 resbc=1.08e-08
+Eigenvalue   3 : k=   -0.82092037 + (   -0.00000000) i, mult=1, resid=6.03e-10 resbc=6.32e-08
+Eigenvalue   4 : k=   -0.82092037 + (   -0.00000000) i, mult=1, resid=5.85e-10 resbc=6.33e-08
+Eigenvalue   5 : k=   -0.82092037 + (   -0.00000000) i, mult=1, resid=2.90e-10 resbc=2.08e-08
+Eigenvalue   6 : k=   -1.12583499 + (   -0.34980334) i, mult=1, resid=1.40e-09 resbc=1.65e-07
+Eigenvalue   7 : k=   -1.12583499 + (   +0.34980334) i, mult=1, resid=1.40e-09 resbc=1.65e-07
+Eigenvalue   8 : k=   -1.12768277 + (   -0.34916081) i, mult=1, resid=1.16e-09 resbc=1.86e-07
+Eigenvalue   9 : k=   -1.12768277 + (   +0.34916081) i, mult=1, resid=1.16e-09 resbc=1.86e-07
+Eigenvalue  10 : k=   -1.12768277 + (   -0.34916081) i, mult=1, resid=7.00e-10 resbc=9.14e-08
+Eigenvalue  11 : k=   -1.12768277 + (   +0.34916081) i, mult=1, resid=7.00e-10 resbc=9.14e-08
+Eigenvalue  12 : k=   -0.60405091 + (   -0.00000000) i, mult=1, resid=4.22e-10 resbc=4.79e-08
+Eigenvalue  13 : k=   -0.60405091 + (   -0.00000000) i, mult=1, resid=1.84e-09 resbc=1.47e-07
+Eigenvalue  14 : k=   -0.60405091 + (   +0.00000000) i, mult=1, resid=1.84e-09 resbc=1.47e-07
+Eigenvalue  15 : k=   -0.56088033 + (   -0.00000000) i, mult=1, resid=7.70e-10 resbc=5.06e-08
+Eigenvalue  16 : k=   -0.56088033 + (   +0.00000000) i, mult=1, resid=7.70e-10 resbc=5.06e-08
+Eigenvalue  17 : k=   -0.56088033 + (   -0.00000000) i, mult=1, resid=3.02e-09 resbc=2.40e-07
+Eigenvalue  18 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=1.49e+04 resbc=2.12e-08
+
+
+
+BC=ddddrd *trouble* ... fixed 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=box1.order4.hdf -numEigenValues=32 -tol=1.0e-12 -bc1=d -bc2=d -bc3=d -bc4=d -bc5=r -bc6=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+Eigenvalue   0 : k=   -0.61950312 + (   -5.09646392) i, mult=1, resid=2.57e-13 resbc=1.32e-10
+Eigenvalue   1 : k=   -0.61950312 + (   +5.09646392) i, mult=1, resid=2.57e-13 resbc=1.32e-10
+Eigenvalue   2 : k=   -6.47339670 + (   -3.18021088) i, mult=1, resid=4.22e-13 resbc=4.92e-10
+Eigenvalue   3 : k=   -6.47339670 + (   +3.18021088) i, mult=1, resid=4.22e-13 resbc=4.92e-10
+Eigenvalue   4 : k=   -1.83371639 + (   -7.10413894) i, mult=1, resid=3.03e-13 resbc=4.34e-10
+Eigenvalue   5 : k=   -1.83371639 + (   +7.10413894) i, mult=1, resid=3.03e-13 resbc=4.34e-10
+Eigenvalue   6 : k=   -0.31550699 + (   -7.56856932) i, mult=1, resid=3.79e-13 resbc=3.71e-10
+Eigenvalue   7 : k=   -0.31550699 + (   +7.56856932) i, mult=1, resid=3.79e-13 resbc=3.71e-10
+Eigenvalue   8 : k=   -0.31550699 + (   -7.56856932) i, mult=1, resid=3.48e-13 resbc=5.27e-10
+Eigenvalue   9 : k=   -0.31550699 + (   +7.56856932) i, mult=1, resid=3.48e-13 resbc=5.27e-10
+Eigenvalue  10 : k=   -7.50694386 + (   -4.07714324) i, mult=1, resid=8.76e-13 resbc=1.36e-09
+
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=box1.order4.hdf -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -bc5=d -bc6=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+Eigenvalue   0 : k=   -1.29846090 + (   -0.00000000) i, mult=1, resid=7.24e-13 resbc=2.09e-10
+Eigenvalue   1 : k=   -1.70500075 + (   -0.88351515) i, mult=1, resid=4.59e-13 resbc=1.79e-10
+Eigenvalue   2 : k=   -1.70500075 + (   +0.88351515) i, mult=1, resid=4.59e-13 resbc=1.79e-10
+Eigenvalue   3 : k=   -1.70500075 + (   -0.88351515) i, mult=1, resid=5.71e-13 resbc=1.72e-10
+Eigenvalue   4 : k=   -1.70500075 + (   +0.88351515) i, mult=1, resid=5.71e-13 resbc=1.72e-10
+Eigenvalue   5 : k=   -1.22728510 + (   -2.31608773) i, mult=1, resid=7.48e-13 resbc=3.11e-10
+Eigenvalue   6 : k=   -1.22728510 + (   +2.31608773) i, mult=1, resid=7.48e-13 resbc=3.11e-10
+Eigenvalue   7 : k=   -2.68341362 + (   -0.00000000) i, mult=1, resid=6.76e-13 resbc=5.20e-10
+Eigenvalue   8 : k=   -2.95068215 + (   -0.00000000) i, mult=1, resid=4.45e-13 resbc=5.10e-10
+
+
+ORDER=4
+3D b=rdddd solveComplex : eigs are square-root of values below 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=box1.order4.hdf -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+Eigenvalue   0 : k=   -0.61950312 + (   -5.09646392) i, mult=1, resid=2.33e-13 resbc=7.65e-11
+Eigenvalue   1 : k=   -0.61950312 + (   +5.09646392) i, mult=1, resid=2.33e-13 resbc=7.65e-11
+Eigenvalue   2 : k=   -6.47339670 + (   -3.18021088) i, mult=1, resid=6.15e-13 resbc=4.50e-10
+Eigenvalue   3 : k=   -6.47339670 + (   +3.18021088) i, mult=1, resid=6.15e-13 resbc=4.50e-10
+Eigenvalue   4 : k=   -1.83371639 + (   -7.10413894) i, mult=1, resid=4.22e-13 resbc=6.05e-10
+Eigenvalue   5 : k=   -1.83371639 + (   +7.10413894) i, mult=1, resid=4.22e-13 resbc=6.05e-10
+Eigenvalue   6 : k=   -0.31550699 + (   -7.56856932) i, mult=1, resid=3.81e-13 resbc=4.39e-10
+Eigenvalue   7 : k=   -0.31550699 + (   +7.56856932) i, mult=1, resid=3.81e-13 resbc=4.39e-10
+Eigenvalue   8 : k=   -0.31550699 + (   -7.56856932) i, mult=1, resid=4.41e-13 resbc=5.76e-10
+Eigenvalue   9 : k=   -0.31550699 + (   +7.56856932) i, mult=1, resid=4.41e-13 resbc=5.76e-10
+Eigenvalue  10 : k=   -7.50694386 + (   -4.07714324) i, mult=1, resid=6.78e-13 resbc=1.60e-09
+Eigenvalue  11 : k=   -7.50694386 + (   +4.07714324) i, mult=1, resid=6.78e-13 resbc=1.60e-09
+Eigenvalue  12 : k=   -7.50694386 + (   -4.07714324) i, mult=1, resid=1.39e-12 resbc=1.92e-09
+
+
+3D b=rrrrrr solveComplex 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=box1.order2.hdf -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -bc5=r -bc6=r -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+Eigenvalue   0 : k=   -0.82138865 + (   -0.00000000) i, mult=1, resid=5.27e-11 resbc=3.28e-11
+Eigenvalue   1 : k=   -0.82138865 + (   -0.00000000) i, mult=1, resid=7.72e-11 resbc=1.04e-10
+Eigenvalue   2 : k=   -0.82138865 + (   -0.00000000) i, mult=1, resid=5.04e-11 resbc=3.35e-11
+Eigenvalue   3 : k=   -0.82138865 + (   -0.00000000) i, mult=1, resid=6.91e-11 resbc=5.60e-11
+Eigenvalue   4 : k=   -0.82138865 + (   +0.00000000) i, mult=1, resid=6.91e-11 resbc=5.60e-11
+Eigenvalue   5 : k=   -0.82138865 + (   -0.00000000) i, mult=1, resid=1.66e-11 resbc=1.77e-11
+Eigenvalue   6 : k=   -1.13094131 + (   -0.34815264) i, mult=1, resid=4.10e-11 resbc=4.45e-11
+Eigenvalue   7 : k=   -1.13094131 + (   +0.34815264) i, mult=1, resid=4.10e-11 resbc=4.45e-11
+
+
+3D b=rrrddd solveComplex 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=box1.order2.hdf -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+
+3D b=rdddd solveComplex : eigs are square-root of values below 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=box1.order2.hdf -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+Eigenvalue   0 : k=   -4.69911985 + (   -0.00000000) i, mult=1, resid=2.28e-15 resbc=7.12e-15
+Eigenvalue   1 : k=   -0.62911395 + (   -5.09214441) i, mult=1, resid=2.41e-15 resbc=7.33e-15
+Eigenvalue   2 : k=   -0.62911395 + (   +5.09214441) i, mult=1, resid=2.41e-15 resbc=7.33e-15
+Eigenvalue   3 : k=   -5.84293975 + (   -0.00000000) i, mult=1, resid=5.95e-14 resbc=5.05e-14
+Eigenvalue   4 : k=   -5.84293975 + (   -0.00000000) i, mult=1, resid=3.65e-14 resbc=3.71e-14
+Eigenvalue   5 : k=   -2.40612545 + (   -5.97330249) i, mult=1, resid=2.04e-15 resbc=8.52e-15
+Eigenvalue   6 : k=   -2.40612545 + (   +5.97330249) i, mult=1, resid=2.04e-15 resbc=8.52e-15
+Eigenvalue   7 : k=   -6.46419396 + (   -0.00000000) i, mult=1, resid=4.85e-15 resbc=1.46e-14
+Eigenvalue   8 : k=   -6.71584994 + (   -0.00000000) i, mult=1, resid=7.06e-15 resbc=1.38e-14
+Eigenvalue   9 : k=   -6.71584994 + (   -0.00000000) i, mult=1, resid=7.94e-15 resbc=1.32e-14
+Eigenvalue  10 : k=   -7.07029800 + (   -0.00000000) i, mult=1, resid=8.08e-15 resbc=1.09e-14
+Eigenvalue  11 : k=   -7.07029800 + (   -0.00000000) i, mult=1, resid=3.64e-15 resbc=1.72e-14
+Eigenvalue  12 : k=   -7.33416444 + (   -0.00000000) i, mult=1, resid=3.70e-15 resbc=2.27e-14
+Eigenvalue  13 : k=   -7.33416444 + (   -0.00000000) i, mult=1, resid=9.63e-15 resbc=1.58e-14
+Eigenvalue  14 : k=   -7.47098884 + (   -0.00000000) i, mult=1, resid=2.26e-15 resbc=1.07e-14
+Eigenvalue  15 : k=   -0.31730724 + (   -7.48429465) i, mult=1, resid=2.62e-14 resbc=3.13e-14
+Eigenvalue  16 : k=   -0.31730724 + (   +7.48429465) i, mult=1, resid=2.62e-14 resbc=3.13e-14
+Eigenvalue  17 : k=   -0.31730724 + (   -7.48429465) i, mult=1, resid=2.17e-14 resbc=2.45e-14
+Eigenvalue  18 : k=   -0.31730724 + (   +7.48429465) i, mult=1, resid=2.17e-14 resbc=2.45e-14
+
+
+
+3D b=ddddd solveComplex : eigs are square-root of values below 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -discreteEigenvalues=1 -g=box1.order2.hdf -numEigenValues=32 -tol=1.0e-12 -bc1=d -bc2=d -bc3=d -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og
+
+Eigenvalue   0 : k=   -0.00000000 + (   -5.41904883) i, mult=1, resid=4.84e-15 resbc=0.00e+00
+Eigenvalue   1 : k=   -0.00000000 + (   +5.41904883) i, mult=1, resid=4.84e-15 resbc=0.00e+00
+Eigenvalue   2 : k=    0.00000000 + (   -7.60092064) i, mult=1, resid=1.57e-14 resbc=0.00e+00
+Eigenvalue   3 : k=    0.00000000 + (   +7.60092064) i, mult=1, resid=1.57e-14 resbc=0.00e+00
+Eigenvalue   4 : k=   -0.00000000 + (   -7.60092064) i, mult=1, resid=1.22e-14 resbc=0.00e+00
+Eigenvalue   5 : k=   -0.00000000 + (   +7.60092064) i, mult=1, resid=1.22e-14 resbc=0.00e+00
+Eigenvalue   6 : k=   -0.00000000 + (   -7.60092064) i, mult=1, resid=1.28e-14 resbc=0.00e+00
+Eigenvalue   7 : k=   -0.00000000 + (   +7.60092064) i, mult=1, resid=1.28e-14 resbc=0.00e+00
+Eigenvalue   8 : k=   -0.00000000 + (   -9.28342065) i, mult=1, resid=1.13e-13 resbc=0.00e+00
+
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=box1.order2.hdf -numEigenValues=32 -tol=1.0e-12 -bc1=d -bc2=d -bc3=d -bc4=d -show=junk.show -orthogonalize=0 -solveComplex=0 -go=og
+
+Eigenvalue   0 : k=   29.36609022 + (-0.0e+00) i, eig=   0, true=   29.36609022, rel-err=3.63e-16, multe=1 mult=1 VECT: max-err=2.49e-15, l2-err=1.55e-15, res=1.59e-15 resbc=0.00e+00
+Eigenvalue   1 : k=   57.77399461 + (-0.0e+00) i, eig=   1, true=   57.77399461, rel-err=3.81e-15, multe=3 mult=1 VECT: max-err=3.39e-15, l2-err=2.56e-15, res=1.21e-15 resbc=0.00e+00
+Eigenvalue   2 : k=   57.77399461 + (-0.0e+00) i, eig=   1, true=   57.77399461, rel-err=3.69e-16, multe=3 mult=1 VECT: max-err=3.61e-15, l2-err=2.13e-15, res=1.34e-15 resbc=0.00e+00
+Eigenvalue   3 : k=   57.77399461 + (-0.0e+00) i, eig=   1, true=   57.77399461, rel-err=1.48e-15, multe=3 mult=1 VECT: max-err=3.00e-15, l2-err=1.87e-15, res=1.18e-15 resbc=0.00e+00
+Eigenvalue   4 : k=   86.18189899 + (-0.0e+00) i, eig=   4, true=   86.18189899, rel-err=2.31e-15, multe=3 mult=1 VECT: max-err=5.73e-15, l2-err=4.08e-15, res=8.14e-16 resbc=0.00e+00
+Eigenvalue   5 : k=   86.18189899 + (-0.0e+00) i, eig=   4, true=   86.18189899, rel-err=1.15e-15, multe=3 mult=1 VECT: max-err=5.28e-15, l2-err=4.36e-15, res=8.06e-16 resbc=0.00e+00
+Eigenvalue   6 : k=   86.18189899 + (-0.0e+00) i, eig=   4, true=   86.18189899, rel-err=4.95e-16, multe=3 mult=1 VECT: max-err=6.12e-15, l2-err=5.05e-15, res=6.18e-16 resbc=0.00e+00
+
+
+**************************************************
+****** Sun April 20, 2025
+
+TO FIX SINGULAR A -- set target eigenvalue ??
+
+ADD SHIFT TO AVOID SINGULAR A
+
+AUTOMATICALLY ADD THE SHIFT
+
+ORDER=4 2D: BC=RRRR  -- SINGULAR A ---
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order4.hdf -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+
+
+ORDER=2 2D: BC=RRRR  -- SINGULAR A ---
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2.hdf -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=square16O2Ev8.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+
+ORDER=2 2D: BC=RRRR  -- SINGULAR A ---
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2.hdf -numEigenValues=32 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=square16O4Ev8.show -orthogonalize=0 -solveComplex=1 -shift=1.0 -go=og 
+
+Eigenvalue   0 : k=   -1.30027115 + (   -0.00000000) i, mult=1, resid=5.85e-14 resbc=2.44e-14
+Eigenvalue   1 : k=   -1.30027115 + (   -0.00000000) i, mult=1, resid=5.15e-14 resbc=3.99e-14
+Eigenvalue   2 : k=   -0.65237828 + (   -0.00000000) i, mult=1, resid=2.51e-13 resbc=6.61e-14
+Eigenvalue   3 : k=   -0.65237828 + (   -0.00000000) i, mult=1, resid=1.11e-13 resbc=7.07e-14
+Eigenvalue   4 : k=   -0.00000029 + (   -0.00000000) i, mult=1, resid=3.05e-06 resbc=2.86e-13
+Eigenvalue   5 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=1.21e+02 resbc=1.70e-13
+Eigenvalue   6 : k=   -0.00000000 + (   -0.00000000) i, mult=1, resid=1.10e+02 resbc=1.66e-13
+Eigenvalue   7 : k=    0.00000000 + (   -0.00000000) i, mult=1, resid=6.22e+01 resbc=1.50e-13
+Eigenvalue   8 : k=    0.00000029 + (   -0.00000000) i, mult=1, resid=3.05e-06 resbc=2.86e-13
+Eigenvalue   9 : k=   -3.31812718 + (   -0.00000000) i, mult=1, resid=9.43e-13 resbc=4.94e-13
+Eigenvalue  10 : k=   -3.31812718 + (   -0.00000000) i, mult=1, resid=9.45e-14 resbc=1.21e-13
+Eigenvalue  11 : k=   -3.82803674 + (   -0.60580746) i, mult=1, resid=4.29e-13 resbc=8.38e-13
+Eigenvalue  12 : k=   -3.82803674 + (   +0.60580746) i, mult=1, resid=4.29e-13 resbc=8.38e-13
+Eigenvalue  13 : k=   -3.82803674 + (   -0.60580746) i, mult=1, resid=3.76e-13 resbc=8.63e-13
+Eigenvalue  14 : k=   -3.82803674 + (   +0.60580746) i, mult=1, resid=3.76e-13 resbc=8.63e-13
+Eigenvalue  15 : k=   -5.16119675 + (   -0.00000000) i, mult=1, resid=1.06e-12 resbc=8.52e-13
+Eigenvalue  16 : k=   -6.86169664 + (   -0.00000000) i, mult=1, resid=3.99e-13 resbc=9.57e-13
+Eigenvalue  17 : k=   -6.86169664 + (   -0.00000000) i, mult=1, resid=4.68e-13 resbc=1.59e-12
+Eigenvalue  18 : k=   -6.87885108 + (   -0.00000000) i, mult=1, resid=2.86e-13 resbc=8.60e-13
+Eigenvalue  19 : k=   -6.87885108 + (   -0.00000000) i, mult=1, resid=2.31e-13 resbc=7.32e-13
+Eigenvalue  20 : k=   -4.95766845 + (   -4.73729283) i, mult=1, resid=5.82e-13 resbc=9.82e-13
+Eigenvalue  21 : k=   -4.95766845 + (   +4.73729283) i, mult=1, resid=5.82e-13 resbc=9.82e-13
+Eigenvalue  22 : k=   -5.81868535 + (   -5.36132273) i, mult=1, resid=2.97e-13 resbc=1.00e-12
+Eigenvalue  23 : k=   -5.81868535 + (   +5.36132273) i, mult=1, resid=2.97e-13 resbc=1.00e-12
+Eigenvalue  24 : k=   -5.81868535 + (   -5.36132273) i, mult=1, resid=5.75e-13 resbc=1.30e-12
+Eigenvalue  25 : k=   -5.81868535 + (   +5.36132273) i, mult=1, resid=5.75e-13 resbc=1.30e-12
+Eigenvalue  26 : k=   -5.65905109 + (   -5.83625524) i, mult=1, resid=5.05e-13 resbc=1.02e-12
+Eigenvalue  27 : k=   -5.65905109 + (   +5.83625524) i, mult=1, resid=5.05e-13 resbc=1.02e-12
+Eigenvalue  28 : k=   -5.65905109 + (   -5.83625524) i, mult=1, resid=4.39e-13 resbc=1.05e-12
+Eigenvalue  29 : k=   -5.65905109 + (   +5.83625524) i, mult=1, resid=4.39e-13 resbc=1.05e-12
+Eigenvalue  30 : k=   -8.68344271 + (   -0.00000000) i, mult=1, resid=3.53e-13 resbc=1.46e-12
+Eigenvalue  31 : k=   -8.68344271 + (   +0.00000000) i, mult=1, resid=3.53e-13 resbc=1.46e-12
+Eigenvalue  32 : k=   -8.68386658 + (   -0.00000000) i, mult=1, resid=3.02e-13 resbc=1.14e-12
+Eigenvalue  33 : k=   -8.68386658 + (   -0.00000000) i, mult=1, resid=3.86e-13 resbc=1.34e-12
+Eigenvalue  34 : k=   -4.28203276 + (   -7.88045209) i, mult=1, resid=4.56e-13 resbc=1.85e-12
+Eigenvalue  35 : k=   -4.28203276 + (   +7.88045209) i, mult=1, resid=4.56e-13 resbc=1.85e-12
+Eigenvalue  36 : k=   -4.28203276 + (   -7.88045209) i, mult=1, resid=4.26e-13 resbc=1.85e-12
+Eigenvalue  37 : k=   -4.28203276 + (   +7.88045209) i, mult=1, resid=4.26e-13 resbc=1.85e-12
+
+
+
+TEST SHIFT:
+ORDER=4 2D: BC=RRDD
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order4.hdf -numEigenValues=8 -tol=1.0e-12 -bc1=r -bc2=r -show=square16O4Ev8.show -orthogonalize=0 -solveComplex=1 -shift=0.0 -go=og
+
+SHIFT:
+Eigenvalue   0 : k=   -0.62543079 + (   -2.99207253) i, mult=1, resid=7.83e-14 resbc=6.20e-11
+Eigenvalue   1 : k=   -0.62543079 + (   +2.99207253) i, mult=1, resid=7.83e-14 resbc=6.20e-11
+Eigenvalue   2 : k=   -3.57879399 + (   -2.86214309) i, mult=1, resid=1.17e-13 resbc=1.82e-10
+Eigenvalue   3 : k=   -3.57879399 + (   +2.86214309) i, mult=1, resid=1.17e-13 resbc=1.82e-10
+Eigenvalue   4 : k=   -0.50075558 + (   -6.54015488) i, mult=1, resid=1.17e-13 resbc=3.58e-10
+Eigenvalue   5 : k=   -0.50075558 + (   +6.54015488) i, mult=1, resid=1.17e-13 resbc=3.58e-10
+Eigenvalue   6 : k=   -7.57628455 + (   -3.06048771) i, mult=1, resid=3.74e-14 resbc=5.31e-11
+Eigenvalue   7 : k=   -7.57628455 + (   +3.06048771) i, mult=1, resid=3.74e-14 resbc=5.31e-11
+Eigenvalue   8 : k=   -7.39167868 + (   -3.57742637) i, mult=1, resid=1.78e-13 resbc=4.87e-10
+Eigenvalue   9 : k=   -7.39167868 + (   +3.57742637) i, mult=1, resid=1.78e-13 resbc=4.87e-10
+
+
+NO SHIFT:
+Eigenvalue   0 : k=   -0.62543079 + (   -2.99207253) i, mult=1, resid=1.70e-14 resbc=2.69e-11
+Eigenvalue   1 : k=   -0.62543079 + (   +2.99207253) i, mult=1, resid=1.70e-14 resbc=2.69e-11
+Eigenvalue   2 : k=   -3.57879399 + (   -2.86214309) i, mult=1, resid=9.10e-15 resbc=1.99e-11
+Eigenvalue   3 : k=   -3.57879399 + (   +2.86214309) i, mult=1, resid=9.10e-15 resbc=1.99e-11
+Eigenvalue   4 : k=   -0.50075558 + (   -6.54015488) i, mult=1, resid=4.74e-15 resbc=1.37e-11
+Eigenvalue   5 : k=   -0.50075558 + (   +6.54015488) i, mult=1, resid=4.74e-15 resbc=1.37e-11
+Eigenvalue   6 : k=   -1.87878987 + (   -7.54308844) i, mult=1, resid=2.09e-14 resbc=3.94e-11
+Eigenvalue   7 : k=   -1.87878987 + (   +7.54308844) i, mult=1, resid=2.09e-14 resbc=3.94e-11
+Eigenvalue   8 : k=   -7.57628455 + (   -3.06048771) i, mult=1, resid=1.76e-13 resbc=1.70e-10
+Eigenvalue   9 : k=   -7.57628455 + (   +3.06048771) i, mult=1, resid=1.76e-13 resbc=1.70e-10
+
+
+
+ORDER=4 2D: BC=DDRR
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order4.hdf  -numEigenValues=8 -tol=1.0e-12 -bc3=r -bc4=r -show=square16O4Ev8.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+
+ORDER=4 2D: BC=RRDD
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order4.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=r -bc2=r -show=square16O4Ev8.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+Eigenvalue   0 : k=   -0.62543079 + (   -2.99207253) i, mult=1, resid=1.70e-14 resbc=2.69e-11
+Eigenvalue   1 : k=   -0.62543079 + (   +2.99207253) i, mult=1, resid=1.70e-14 resbc=2.69e-11
+Eigenvalue   2 : k=   -3.57879399 + (   -2.86214309) i, mult=1, resid=9.10e-15 resbc=1.99e-11
+Eigenvalue   3 : k=   -3.57879399 + (   +2.86214309) i, mult=1, resid=9.10e-15 resbc=1.99e-11
+Eigenvalue   4 : k=   -0.50075558 + (   -6.54015488) i, mult=1, resid=4.74e-15 resbc=1.37e-11
+
+
+**************************************************
+****** Sat April 19, 2025
+
+CONTINUE ADDING RADIATION BCS FOR COMPLEX PROBLEMS
+
+
+ASSIGN EXTENDED DIRICHLET BCS
+
+
+ORDER=4 2D:
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order4.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=r -bc2=r -show=square16O4Ev8.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+
+ORDER=4 2D BC=dddd
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order4.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=d -bc2=d -show=square16O4Ev8.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=r -bc2=r -show=square16O2Ev8.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+
+
+
+TRY BC=rrdd
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=r -bc2=r -show=square16O2Ev8.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+
+
+EM RBC: compr=0 compi=1 : (side,axis)=(0,0) : resbc1= 1.77e-14
+EM RBC: compr=0 compi=1 : (side,axis)=(1,0) : resbc1= 1.80e-14
+EM RBC: compr=2 compi=3 : (side,axis)=(0,0) : resbc1= 1.77e-14
+EM RBC: compr=2 compi=3 : (side,axis)=(1,0) : resbc1= 1.80e-14
+EM RBC: compr=4 compi=5 : (side,axis)=(0,0) : resbc1= 2.02e-14
+EM RBC: compr=4 compi=5 : (side,axis)=(1,0) : resbc1= 1.97e-14
+
+Eigenvalue   0 : k=   -0.62374501 + (-3.0e+00) i, mult=1, resid=1.00e-14
+Eigenvalue   1 : k=   -0.62374501 + (+3.0e+00) i, mult=1, resid=1.00e-14
+Eigenvalue   2 : k=   -4.22071932 + (-0.0e+00) i, mult=1, resid=7.97e-15
+Eigenvalue   3 : k=   -3.16277892 + (-3.2e+00) i, mult=1, resid=8.00e-15
+Eigenvalue   4 : k=   -3.16277892 + (+3.2e+00) i, mult=1, resid=8.00e-15
+Eigenvalue   5 : k=   -5.14579368 + (-0.0e+00) i, mult=1, resid=9.56e-15
+Eigenvalue   6 : k=   -0.50804919 + (-6.5e+00) i, mult=1, resid=7.12e-15
+Eigenvalue   7 : k=   -0.50804919 + (+6.5e+00) i, mult=1, resid=7.12e-15
+Eigenvalue   8 : k=   -4.08838434 + (-5.5e+00) i, mult=1, resid=1.90e-13
+Eigenvalue   9 : k=   -4.08838434 + (+5.5e+00) i, mult=1, resid=1.90e-13
+
+
+**************************************************
+****** Fri April 18, 2025
+
+CONTINUE ADDING RADIATION BCS FOR COMPLEX PROBLEMS
+
+
+TRY BC=rrdd COARSE GRID -- OUTPUT MATRIX TO MATLAB
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square2.order2.ng1.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=r -bc2=r -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+
+TRY BC=rrdd
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square5.order2.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=r -bc2=r -show=junk.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=d -bc2=d -bc3=r -bc4=r -show=square16O2Ev8.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+
+TRY BC=ccdd
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=r -bc2=r -show=square16O2Ev8.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=n -bc2=d -show=square16O2Ev8.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+
+BC=dddd but solve with complex: 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=d -show=square16O2Ev8.show -orthogonalize=0 -solveComplex=1 -go=og 
+
+======================== GenEigs problem=laplace =======================
+ grid=/home/henshw/grids/square16.order2.hdf
+ orderOfAccuracy=2, numberOfComponents=1 numGhost=1 
+ useAccurateInnerProduct=0, discreteEigenvalues=0
+ includePressure=0, useWideStencils=0, eigCase=none
+ bc = [d,d,d,d] for grid=0 (square)
+===================================================================
+
+ **** INFO: genEigs: unknown eigCase=[none]
+
+  resid = || A phi - lambda phi ||_max / |lambda| 
+  VECT max-err = max-norm( closest vector in 2 norm to eigenpsace )/( max-norm of phi)  
+  VECT l2-err  =      L2h( closest vector in 2 norm to eigenpsace )/( L2h norm of phi)  
+Eigenvalue   0 : k=    4.43574941 + (-0.0e+00) i, mult=1, resid=1.28e-14
+Eigenvalue   1 : k=   -4.43574941 + (-0.0e+00) i, mult=1, resid=1.20e-14
+Eigenvalue   2 : k=    6.98653103 + (-0.0e+00) i, mult=1, resid=6.37e-13
+Eigenvalue   3 : k=   -6.98653103 + (-0.0e+00) i, mult=1, resid=6.87e-13
+Eigenvalue   4 : k=    6.98653103 + (-0.0e+00) i, mult=1, resid=3.93e-13
+Eigenvalue   5 : k=   -6.98653103 + (-0.0e+00) i, mult=1, resid=9.13e-14
+Eigenvalue   6 : k=   -8.82878014 + (-0.0e+00) i, mult=1, resid=6.73e-15
+Eigenvalue   7 : k=    8.82878014 + (-0.0e+00) i, mult=1, resid=6.64e-15
+Eigenvalue   8 : k=   -9.80436102 + (-0.0e+00) i, mult=1, resid=9.83e-15
+Eigenvalue   9 : k=    9.80436102 + (-0.0e+00) i, mult=1, resid=1.27e-14
+
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square16.order2.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=d -show=square16O2Ev8.show -orthogonalize=0 -go=og 
+
+
+
+**************************************************
+****** Tues April 15, 2025
+
+CONTINUE ADDING RADIATION BCS FOR COMPLEX PROBLEMS
+
+
+CALL QUADRATIC EIG ROUTINE WITH DIRICHLET BCS
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=r -show=square16O2Ev8.show -orthogonalize=0 -go=og 
+
+TRUE: 
+lam = sqrt( n^2 + m^2 ) * pi 
+
+lowest = sqrt(2)*pi = 4.4429 
+
+Eigenvalue   0 : k=    4.43574941 + (-0.0e+00) i, mult=1, resid=1.28e-14
+Eigenvalue   1 : k=   -4.43574941 + (-0.0e+00) i, mult=1, resid=1.20e-14
+Eigenvalue   2 : k=    6.98653103 + (-0.0e+00) i, mult=1, resid=6.37e-13
+Eigenvalue   3 : k=   -6.98653103 + (-0.0e+00) i, mult=1, resid=6.87e-13
+Eigenvalue   4 : k=    6.98653103 + (-0.0e+00) i, mult=1, resid=3.93e-13
+Eigenvalue   5 : k=   -6.98653103 + (-0.0e+00) i, mult=1, resid=9.13e-14
+Eigenvalue   6 : k=   -8.82878014 + (-0.0e+00) i, mult=1, resid=6.73e-15
+Eigenvalue   7 : k=    8.82878014 + (-0.0e+00) i, mult=1, resid=6.64e-15
+Eigenvalue   8 : k=   -9.80436102 + (-0.0e+00) i, mult=1, resid=9.83e-15
+Eigenvalue   9 : k=    9.80436102 + (-0.0e+00) i, mult=1, resid=1.27e-14
+
+
+
+
+
+TEST:
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2.hdf -eigOption=1 -eps_s=largest_magnitude -numEigenValues=8 -tol=1.0e-12 -bc1=d -show=square16O2Ev8.show -orthogonalize=1 -go=og 
+
+  resid = || A phi - lambda phi ||_max / |lambda| 
+  VECT max-err = max-norm( closest vector in 2 norm to eigenpsace )/( max-norm of phi)  
+  VECT l2-err  =      L2h( closest vector in 2 norm to eigenpsace )/( L2h norm of phi)  
+Eigenvalue   0 : k=   19.67587287 + (-0.0e+00) i, mult=1, resid=3.52e-14
+Eigenvalue   1 : k=   48.81161579 + (-0.0e+00) i, mult=2, resid=5.04e-14
+Eigenvalue   2 : k=   48.81161579 + (-0.0e+00) i, mult=2, resid=3.17e-14
+Eigenvalue   3 : k=   77.94735871 + (-0.0e+00) i, mult=1, resid=2.44e-14
+Eigenvalue   4 : k=   96.12549493 + (-0.0e+00) i, mult=2, resid=4.02e-14
+Eigenvalue   5 : k=   96.12549493 + (-0.0e+00) i, mult=2, resid=1.95e-14
+Eigenvalue   6 : k=  125.26123786 + (-0.0e+00) i, mult=2, resid=2.84e-14
+Eigenvalue   7 : k=  125.26123786 + (-0.0e+00) i, mult=2, resid=2.02e-14
+Eigenvalue   8 : k=  159.79926447 + (-0.0e+00) i, mult=1, resid=1.23e-13
+
+
+**************************************************
+****** Sun April 13, 2025
+
+START ADDING RADIATION BCS FOR COMPLEX PROBLEMS
+
+(1) MOVE dirichlet, neumann etc to Ogev.h
+
+
+TEST:
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order2.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=square64O2Ev512.show -orthogonalize=1 -go=go
+
+  resid = || A phi - lambda phi ||_max / |lambda| 
+  VECT max-err = max-norm( closest vector in 2 norm to eigenpsace )/( max-norm of phi)  
+  VECT l2-err  =      L2h( closest vector in 2 norm to eigenpsace )/( L2h norm of phi)  
+Eigenvalue   0 : k=   19.73524553 + (-0.0e+00) i, mult=1, resid=2.27e-12
+Eigenvalue   1 : k=   49.31434187 + (-0.0e+00) i, mult=2, resid=7.37e-13
+Eigenvalue   2 : k=   49.31434187 + (-0.0e+00) i, mult=2, resid=1.03e-12
+Eigenvalue   3 : k=   78.89343820 + (-0.0e+00) i, mult=1, resid=6.66e-13
+Eigenvalue   4 : k=   98.53365314 + (-0.0e+00) i, mult=2, resid=4.04e-13
+Eigenvalue   5 : k=   98.53365314 + (-0.0e+00) i, mult=2, resid=6.02e-13
+Eigenvalue   6 : k=  128.11274947 + (-0.0e+00) i, mult=2, resid=5.56e-13
+Eigenvalue   7 : k=  128.11274947 + (-0.0e+00) i, mult=2, resid=5.29e-13
+
+
+**************************************************
+****** Mon Jan 6, 2025
+
+SIXTEEN KNIVES:  ++++++++++ ORDER 2: 
+
+G128: to-do ...
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sixteenKnivesGride1284.order2.hdf -numEigenValues=128 -tol=1.0e-14 -bc1=d -show=sixteenKnivesGride1284O2EV128.show -orthogonalize=1 -matlab=0 -go=go
+
+G64 running ...
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sixteenKnivesGride64.order2.hdf -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=sixteenKnivesGride64O2EV512.show -orthogonalize=1 -matlab=0 -go=go
+
+G32 : OK 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sixteenKnivesGride32.order2.hdf -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=sixteenKnivesGride32O2EV512.show -orthogonalize=1 -matlab=0 -go=go
+
+
+
+
+
+SIXTEEN KNIVES:  +++++++ ODRER=4
+
+G128: probably too big
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sixteenKnivesGride32.order4.hdf -numEigenValues=256 -tol=1.0e-14 -bc1=d -show=sixteenKnivesGride32EV256.show -orthogonalize=1 -matlab=0 -go=go
+
+
+G32: 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sixteenKnivesGride32.order4.hdf -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=sixteenKnivesGride32EV1024.show -orthogonalize=1 -matlab=0 -go=go
+
+
+**************************************************
+****** Mon Dec 30, 2024
+
+READ FILE GENERATED BY EigenWave and orthogonalize...
+from /home/henshw/runs/overHoltz/eig
+$genEigs -noplot /home/henshw/runs/eig/eigs.cmd -problem=laplace -eigCase=none -discreteEigenvalues=1 -g=sixteenKnivesGride128.order4.hdf -numEigenValues=1024 -tol=1.0e-14 -bc1=d -evFile=sixteenKnivesGridG128O4Freq300Ev1024.show -show=sixteenKnivesGridG128O4Freq300Ev1024o.show -orthogonalize=1 -matlab=0 -go=read
+
+double-ellipse : G8 ORDER=4 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoomGride8.order4.hdf -numEigenValues=1600 -tol=1.0e-12 -bc1=d -show=darkCornerRoomG8O4EigsEv1600.show -orthogonalize=1 -go=go > darkCornerRoomG8O4EigsEv1600.out
+
+**************************************************
+****** Sun Dec 29, 2024
+
+double-ellipse : G8 ORDER=4 --> never finished ??
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoomGride8.order4.hdf -numEigenValues=2048 -tol=1.0e-12 -bc1=d -show=darkCornerRoomG8O4EigsEv2048.show -orthogonalize=1 -go=go > darkCornerRoomG8O4EigsEv2048.out
+
+
+**************************************************
+****** Sat Dec 28, 2024
+
+G8 ORDER=4
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoomGride8.order4.hdf -numEigenValues=1024 -tol=1.0e-12 -bc1=d -show=darkCornerRoomG8O4EigsEv1024.show -orthogonalize=1 -go=go > darkCornerRoomG8O4EigsEv1024.out
+
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice32.order4.ng3 -numEigenValues=2048 -tol=1.0e-14 -bc1=d -show=diskG32O4Ev2048.show -orthogonalize=1 -go=go > diskG32O4Ev2048.out
+
+REDO: WORKED!!
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice32.order4.ng3 -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=diskG32O4Ev1024.show -orthogonalize=1 -go=go > diskG32O4Ev1024.out
+
+
+G16 O2
+eig2: 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice16.order2 -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=diskG16O2Ev1024.show -orthogonalize=1 -go=go
+
+G8 O4 : use eigCase=none for now 
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice8.order4.ng3 -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=diskG8O4Ev1024.show -orthogonalize=1 -go=go
+
+G8 O4 -- SEG FAULT getting true values: **FIX ME**
+valgrind $genEigs -noplot eigs.cmd -problem=laplace -eigCase=disk -g=sice8.order4.ng3 -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=diskG8O4Ev1024a.show -orthogonalize=1 -go=go
+
+ >>> Ogev::getEigenvaluesCylinder: return eigenvalues and eigenvectors...
+==2442481== Invalid read of size 4
+==2442481==    at 0x146DC0: Ogev::getEigenvaluesCylinder(int, doubleArray&, CompositeGrid&, double, double, double, double, doubleCompositeGridFunction*) (Ogev.C:732)
+==2442481==    by 0x13114B: main (genEigs.C:1070)
+==2442481==  Address 0xc1c1438 is 0 bytes after a block of size 760 alloc'd
+==2442481==    at 0x4848FD5: operator new(unsigned long) (vg_replace_malloc.c:434)
+==2442481==    by 0x153665: __gnu_cxx::new_allocator<int>::allocate(unsigned long, void const*) (new_allocator.h:127)
+==2442481==    by 0x153023: std::allocator_traits<std::allocator<int> >::allocate(std::allocator<int>&, unsigned long) (alloc_traits.h:464)
+==2442481==    by 0x152749: std::_Vector_base<int, std::allocator<int> >::_M_allocate(unsigned long) (stl_vector.h:346)
+==2442481==    by 0x151A40: std::_Vector_base<int, std::allocator<int> >::_M_create_storage(unsigned long) (stl_vector.h:361)
+==2442481==    by 0x14FE90: std::_Vector_base<int, std::allocator<int> >::_Vector_base(unsigned long, std::allocator<int> const&) (stl_vector.h:305)
+==2442481==    by 0x14E5AA: std::vector<int, std::allocator<int> >::vector(unsigned long, std::allocator<int> const&) (stl_vector.h:511)
+==2442481==    by 0x146A9E: Ogev::getEigenvaluesCylinder(int, doubleArray&, CompositeGrid&, double, double, double, double, doubleCompositeGridFunction*) (Ogev.C:701)
+==2442481==    by 0x13114B: main (genEigs.C:1070)
+==2442481== 
+==2442481== Invalid read of size 8
+==2442481==    at 0x146DE2: Ogev::getEigenvaluesCylinder(int, doubleArray&, CompositeGrid&, double, double, double, double, doubleCompositeGridFunction*) (Ogev.C:733)
+==2442481==    by 0x13114B: main (genEigs.C:1070)
+==2442481==  Address 0x18f5de190 is not stack'd, malloc'd or (recently) free'd
+
+BUG -- invalid read ...
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=disk -g=sice4.order4.ng3 -numEigenValues=64 -tol=1.0e-14 -bc1=d -show=diskG4O4Ev64.show -orthogonalize=1 -go=go
+
+**************************************************
+****** Fri Dec 27, 2024
+
+DISK **REDO**
+eig: too much memory while orthogonalizing ?? or getting true values ??? -- do in two stages
+
+STAGE 2:
+genEigs eigs.cmd -problem=laplace -eigCase=disk -g=sice32.order4.ng3 -numEigenValues=1024 -tol=1.0e-14 -bc1=d -evFile=diskG32O4Ev1024.show -show=diskG32O4Ev1024o.show -orthogonalize=1 -matlab=0 -go=read
+
+
+STAGE 1: running...
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice32.order4.ng3 -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=diskG32O4Ev1024.show -orthogonalize=1 -go=go > diskG32O4Ev1024.out
+
+eig2: 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=disk -g=sice16.order4.ng3 -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=diskG16O4Ev1024.show -orthogonalize=1 -go=go
+
+G4 ORDER=4
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoomGride4.order4.hdf -numEigenValues=2056 -tol=1.0e-12 -bc1=d -show=darkCornerRoomG4O4EigsEv2048.show -orthogonalize=1 -go=go > darkCornerRoomG4O4EigsEv2048.out
+
+OK: 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoomGride4.order4.hdf -numEigenValues=1024 -tol=1.0e-12 -bc1=d -show=darkCornerRoomG4O4EigsEv1024.show -orthogonalize=1 -go=go > darkCornerRoomG4O4EigsEv1024.out
+
+
+**************************************************
+****** Thurs Dec 26, 2024
+
+COARSE-TO-FINE : ORDER=4 MAY NEED BETTER INTERPOLATION
+
+
+coarse-to-fine
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=disk -g=sice8.order4.hdf -eigOption=1 -numEigenValues=64 -tol=1.0e-14 -bc1=d -evFile=diskG4O4Ev64.show -show=diskG8O4Ev64cf.show -matlab=0 -orthogonalize=1 -coarseToFine=1 -go=go -interpWidth=5
+
+ie=  0: eig= 5.78319e+00 (rel-err= 5.63e-08), lambdaRQ= 5.78319e+00 (rel-err= 9.97e-08), err-ratio=5.64e-01, true= 5.78319e+00
+ie=  1: eig= 1.46820e+01 (rel-err= 2.93e-07), lambdaRQ= 1.46820e+01 (rel-err= 3.31e-07), err-ratio=8.86e-01, true= 1.46820e+01
+ie=  2: eig= 1.46820e+01 (rel-err= 2.93e-07), lambdaRQ= 1.46820e+01 (rel-err= 3.30e-07), err-ratio=8.88e-01, true= 1.46820e+01
+ie=  3: eig= 2.63746e+01 (rel-err= 1.51e-06), lambdaRQ= 2.63746e+01 (rel-err= 4.30e-07), err-ratio=3.51e+00, true= 2.63746e+01
+ie=  4: eig= 2.63746e+01 (rel-err= 3.80e-07), lambdaRQ= 2.63746e+01 (rel-err= 4.73e-07), err-ratio=8.04e-01, true= 2.63746e+01
+ie=  5: eig= 3.04712e+01 (rel-err= 9.78e-07), lambdaRQ= 3.04713e+01 (rel-err= 1.11e-06), err-ratio=8.79e-01, true= 3.04713e+01
+ie=  6: eig= 4.07064e+01 (rel-err= 2.50e-06), lambdaRQ= 4.07065e+01 (rel-err= 3.64e-07), err-ratio=6.85e+00, true= 4.07065e+01
+ie=  7: eig= 4.07064e+01 (rel-err= 2.50e-06), lambdaRQ= 4.07065e+01 (rel-err= 3.57e-07), err-ratio=6.98e+00, true= 4.07065e+01
+ie=  8: eig= 4.92183e+01 (rel-err= 2.41e-06), lambdaRQ= 4.92185e+01 (rel-err= 1.79e-06), err-ratio=1.35e+00, true= 4.92185e+01
+ie=  9: eig= 4.92183e+01 (rel-err= 2.41e-06), lambdaRQ= 4.92185e+01 (rel-err= 1.79e-06), err-ratio=1.35e+00, true= 4.92185e+01
+ie= 10: eig= 5.75826e+01 (rel-err= 5.50e-06), lambdaRQ= 5.75829e+01 (rel-err= 5.71e-08), err-ratio=9.65e+01, true= 5.75829e+01
+ie= 11: eig= 5.75826e+01 (rel-err= 5.45e-06), lambdaRQ= 5.75829e+01 (rel-err= 5.18e-08), err-ratio=1.05e+02, true= 5.75829e+01
+ie= 12: eig= 7.08493e+01 (rel-err= 9.34e-06), lambdaRQ= 7.08501e+01 (rel-err= 1.89e-06), err-ratio=4.93e+00, true= 7.08500e+01
+ie= 13: eig= 7.08499e+01 (rel-err= 1.57e-06), lambdaRQ= 7.08502e+01 (rel-err= 2.23e-06), err-ratio=7.02e-01, true= 7.08500e+01
+ie= 14: eig= 7.48866e+01 (rel-err= 4.99e-06), lambdaRQ= 7.48872e+01 (rel-err= 2.85e-06), err-ratio=1.75e+00, true= 7.48870e+01
+
+
+fine grid 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice8.order4.hdf -eigOption=1 -numEigenValues=64 -tol=1.0e-14 -bc1=d -show=diskG8O4Ev64.show -orthogonalize=1 -go=go
+
+
+coarse grid 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice4.order4.hdf -eigOption=1 -numEigenValues=64 -tol=1.0e-14 -bc1=d -show=diskG4O4Ev64.show -orthogonalize=1 -go=go
+
+
+**************************************************
+****** Wed Dec 25, 2024
+
+
+CONTINUE ADD OPTION TO READ COARSE EIGS FROM A FILE, CONVERT TO FINE GRID.
+
+
++++++++++++ TEST WITH WAVE HOLTZ:
+
+>>>> DISK
+
+coarse-to-fine
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice8.order2.hdf -eigOption=1 -numEigenValues=64 -tol=1.0e-14 -bc1=d -evFile=diskG4O2Ev64.show -show=diskG8O2Ev64cf.show -matlab=0 -orthogonalize=1 -coarseToFine=1 -go=go -interpWidth=4
+
+fine grid 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice8.order2.hdf -eigOption=1 -numEigenValues=64 -tol=1.0e-14 -bc1=d -show=diskG8O2Ev64.show -orthogonalize=1 -go=go
+
+
+coarse grid 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice4.order2.hdf -eigOption=1 -numEigenValues=64 -tol=1.0e-14 -bc1=d -show=diskG4O2Ev64.show -orthogonalize=1 -go=go
+
+
+>>>>>>>>>>> SQUARE
+Coarse to fine: 
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=square128.order2.hdf -numEigenValues=64 -tol=1.0e-14 -bc1=d -evFile=square64O2Ev64.show -show=square128O2Ev64cf.show -orthogonalize=1 -matlab=0 -coarseToFine=1 -go=go -interpWidth=4
+
+Fine grid: Standard way: 
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=square128.order2.hdf -numEigenValues=64 -tol=1.0e-14 -bc1=d -show=square128O2Ev64.show -orthogonalize=1 -matlab=0 -go=go 
+
+coarse grid 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order2.hdf -eigOption=1 -numEigenValues=64 -tol=1.0e-14 -bc1=d -show=square64O2Ev64.show -orthogonalize=1 -go=go
+
+
+
+++++++++++++++++++++++++++
+
+@@@@@@@@@@@ DISK:
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=disk -g=sice8.order2 -numEigenValues=16 -tol=1.0e-14 -bc1=d -evFile=sice4O2EigsEv216.show -show=sice8O2EigsEv216cf.show -orthogonalize=0 -matlab=0 -coarseToFine=1 -go=og -interpWidth=3 -useAccurateInnerProduct=1
+
+
+interpWidth=3 : looks good 
+
+ @@@@@@@ ENTERING coarseToFine: interpolationWidth=3 useAccurateInnerProduct=0 @@@@@@@@@@ 
+==== Ogev::coarseToFine: compute integration weights...
+Oges::allocateWorkSpace: numberOfNonzeros=123574 fillinRatio=2.000000e+01
+allocateWorkSpace: numberOfEquations=30048, nsp = 2471480, fillinRatio= 20, numberOfNonzeros = 123574
+... computed volume of the domain =  3.14e+00
+Get true eigs for a disk or cyl, numberOfDimensions=2, ra=0, rb=1, za=0, zb=1
+ie=  0: eig= 5.78183e+00 (rel-err= 2.35e-04), lambdaRQ= 5.78336e+00 (rel-err= 3.09e-05), err-ratio=7.61e+00, true= 5.78319e+00
+ie=  1: eig= 1.46732e+01 (rel-err= 5.94e-04), lambdaRQ= 1.46837e+01 (rel-err= 1.20e-04), err-ratio=4.96e+00, true= 1.46820e+01
+ie=  2: eig= 1.46732e+01 (rel-err= 5.94e-04), lambdaRQ= 1.46837e+01 (rel-err= 1.20e-04), err-ratio=4.96e+00, true= 1.46820e+01
+ie=  3: eig= 2.63425e+01 (rel-err= 1.22e-03), lambdaRQ= 2.63774e+01 (rel-err= 1.05e-04), err-ratio=1.16e+01, true= 2.63746e+01
+ie=  4: eig= 2.63506e+01 (rel-err= 9.12e-04), lambdaRQ= 2.63812e+01 (rel-err= 2.48e-04), err-ratio=3.67e+00, true= 2.63746e+01
+ie=  5: eig= 3.04337e+01 (rel-err= 1.23e-03), lambdaRQ= 3.04814e+01 (rel-err= 3.33e-04), err-ratio=3.70e+00, true= 3.04713e+01
+ie=  6: eig= 4.06401e+01 (rel-err= 1.63e-03), lambdaRQ= 4.07145e+01 (rel-err= 1.97e-04), err-ratio=8.25e+00, true= 4.07065e+01
+ie=  7: eig= 4.06401e+01 (rel-err= 1.63e-03), lambdaRQ= 4.07145e+01 (rel-err= 1.98e-04), err-ratio=8.25e+00, true= 4.07065e+01
+ie=  8: eig= 4.91204e+01 (rel-err= 1.99e-03), lambdaRQ= 4.92423e+01 (rel-err= 4.84e-04), err-ratio=4.11e+00, true= 4.92185e+01
+ie=  9: eig= 4.91204e+01 (rel-err= 1.99e-03), lambdaRQ= 4.92423e+01 (rel-err= 4.84e-04), err-ratio=4.11e+00, true= 4.92185e+01
+ie= 10: eig= 5.74511e+01 (rel-err= 2.29e-03), lambdaRQ= 5.75946e+01 (rel-err= 2.02e-04), err-ratio=1.13e+01, true= 5.75829e+01
+ie= 11: eig= 5.74523e+01 (rel-err= 2.27e-03), lambdaRQ= 5.75922e+01 (rel-err= 1.60e-04), err-ratio=1.42e+01, true= 5.75829e+01
+ie= 12: eig= 7.06204e+01 (rel-err= 3.24e-03), lambdaRQ= 7.08765e+01 (rel-err= 3.74e-04), err-ratio=8.66e+00, true= 7.08500e+01
+ie= 13: eig= 7.06756e+01 (rel-err= 2.46e-03), lambdaRQ= 7.09043e+01 (rel-err= 7.66e-04), err-ratio=3.21e+00, true= 7.08500e+01
+ie= 14: eig= 7.46583e+01 (rel-err= 3.05e-03), lambdaRQ= 7.49378e+01 (rel-err= 6.79e-04), err-ratio=4.50e+00, true= 7.48870e+01
+ie= 15: eig= 7.67078e+01 (rel-err= 3.00e-03), lambdaRQ= 7.69487e+01 (rel-err= 1.28e-04), err-ratio=2.36e+01, true= 7.69389e+01
+
+ @@@@@@@ ENTERING coarseToFine: interpolationWidth=3 useAccurateInnerProduct=1 @@@@@@@@@@ 
+==== Ogev::coarseToFine: compute integration weights...
+Oges::allocateWorkSpace: numberOfNonzeros=123574 fillinRatio=2.000000e+01
+allocateWorkSpace: numberOfEquations=30048, nsp = 2471480, fillinRatio= 20, numberOfNonzeros = 123574
+... computed volume of the domain =  3.14e+00
+Get true eigs for a disk or cyl, numberOfDimensions=2, ra=0, rb=1, za=0, zb=1
+ie=  0: eig= 5.78183e+00 (rel-err= 2.35e-04), lambdaRQ= 5.78294e+00 (rel-err= 4.18e-05), err-ratio=5.62e+00, true= 5.78319e+00
+ie=  1: eig= 1.46732e+01 (rel-err= 5.94e-04), lambdaRQ= 1.46805e+01 (rel-err= 1.00e-04), err-ratio=5.93e+00, true= 1.46820e+01
+ie=  2: eig= 1.46732e+01 (rel-err= 5.94e-04), lambdaRQ= 1.46805e+01 (rel-err= 9.74e-05), err-ratio=6.10e+00, true= 1.46820e+01
+ie=  3: eig= 2.63425e+01 (rel-err= 1.22e-03), lambdaRQ= 2.63684e+01 (rel-err= 2.34e-04), err-ratio=5.19e+00, true= 2.63746e+01
+ie=  4: eig= 2.63506e+01 (rel-err= 9.12e-04), lambdaRQ= 2.63710e+01 (rel-err= 1.37e-04), err-ratio=6.65e+00, true= 2.63746e+01
+ie=  5: eig= 3.04337e+01 (rel-err= 1.23e-03), lambdaRQ= 3.04655e+01 (rel-err= 1.90e-04), err-ratio=6.50e+00, true= 3.04713e+01
+ie=  6: eig= 4.06401e+01 (rel-err= 1.63e-03), lambdaRQ= 4.06943e+01 (rel-err= 2.99e-04), err-ratio=5.46e+00, true= 4.07065e+01
+ie=  7: eig= 4.06401e+01 (rel-err= 1.63e-03), lambdaRQ= 4.06941e+01 (rel-err= 3.03e-04), err-ratio=5.37e+00, true= 4.07065e+01
+ie=  8: eig= 4.91204e+01 (rel-err= 1.99e-03), lambdaRQ= 4.92025e+01 (rel-err= 3.24e-04), err-ratio=6.15e+00, true= 4.92185e+01
+ie=  9: eig= 4.91204e+01 (rel-err= 1.99e-03), lambdaRQ= 4.92030e+01 (rel-err= 3.15e-04), err-ratio=6.33e+00, true= 4.92185e+01
+ie= 10: eig= 5.74511e+01 (rel-err= 2.29e-03), lambdaRQ= 5.75580e+01 (rel-err= 4.33e-04), err-ratio=5.28e+00, true= 5.75829e+01
+ie= 11: eig= 5.74523e+01 (rel-err= 2.27e-03), lambdaRQ= 5.75569e+01 (rel-err= 4.53e-04), err-ratio=5.01e+00, true= 5.75829e+01
+ie= 12: eig= 7.06204e+01 (rel-err= 3.24e-03), lambdaRQ= 7.08067e+01 (rel-err= 6.11e-04), err-ratio=5.30e+00, true= 7.08500e+01
+ie= 13: eig= 7.06756e+01 (rel-err= 2.46e-03), lambdaRQ= 7.08246e+01 (rel-err= 3.58e-04), err-ratio=6.87e+00, true= 7.08500e+01
+ie= 14: eig= 7.46583e+01 (rel-err= 3.05e-03), lambdaRQ= 7.48493e+01 (rel-err= 5.03e-04), err-ratio=6.07e+00, true= 7.48870e+01
+ie= 15: eig= 7.67078e+01 (rel-err= 3.00e-03), lambdaRQ= 7.68921e+01 (rel-err= 6.09e-04), err-ratio=4.93e+00, true= 7.69389e+01
+
+
+
+
+ @@@@@@@ ENTERING coarseToFine: interpolationWidth=4 @@@@@@@@@@ 
+==== Ogev::coarseToFine: compute integration weights...
+Oges::allocateWorkSpace: numberOfNonzeros=123574 fillinRatio=2.000000e+01
+allocateWorkSpace: numberOfEquations=30048, nsp = 2471480, fillinRatio= 20, numberOfNonzeros = 123574
+... computed volume of the domain =  3.14e+00
+Get true eigs for a disk or cyl, numberOfDimensions=2, ra=0, rb=1, za=0, zb=1
+ie=  0: eig= 5.78183e+00 (rel-err= 2.35e-04), lambdaRQ= 5.78286e+00 (rel-err= 5.69e-05), true= 5.78319e+00
+ie=  1: eig= 1.46732e+01 (rel-err= 5.94e-04), lambdaRQ= 1.46799e+01 (rel-err= 1.44e-04), true= 1.46820e+01
+ie=  2: eig= 1.46732e+01 (rel-err= 5.94e-04), lambdaRQ= 1.46799e+01 (rel-err= 1.44e-04), true= 1.46820e+01
+ie=  3: eig= 2.63425e+01 (rel-err= 1.22e-03), lambdaRQ= 2.63667e+01 (rel-err= 3.02e-04), true= 2.63746e+01
+ie=  4: eig= 2.63506e+01 (rel-err= 9.12e-04), lambdaRQ= 2.63689e+01 (rel-err= 2.16e-04), true= 2.63746e+01
+ie=  5: eig= 3.04337e+01 (rel-err= 1.23e-03), lambdaRQ= 3.04622e+01 (rel-err= 2.98e-04), true= 3.04713e+01
+ie=  6: eig= 4.06401e+01 (rel-err= 1.63e-03), lambdaRQ= 4.06902e+01 (rel-err= 3.99e-04), true= 4.07065e+01
+ie=  7: eig= 4.06401e+01 (rel-err= 1.63e-03), lambdaRQ= 4.06902e+01 (rel-err= 3.99e-04), true= 4.07065e+01
+ie=  8: eig= 4.91204e+01 (rel-err= 1.99e-03), lambdaRQ= 4.91947e+01 (rel-err= 4.82e-04), true= 4.92185e+01
+ie=  9: eig= 4.91204e+01 (rel-err= 1.99e-03), lambdaRQ= 4.91947e+01 (rel-err= 4.82e-04), true= 4.92185e+01
+ie= 10: eig= 5.74511e+01 (rel-err= 2.29e-03), lambdaRQ= 5.75504e+01 (rel-err= 5.64e-04), true= 5.75829e+01
+ie= 11: eig= 5.74523e+01 (rel-err= 2.27e-03), lambdaRQ= 5.75504e+01 (rel-err= 5.64e-04), true= 5.75829e+01
+ie= 12: eig= 7.06204e+01 (rel-err= 3.24e-03), lambdaRQ= 7.07929e+01 (rel-err= 8.06e-04), true= 7.08500e+01
+ie= 13: eig= 7.06756e+01 (rel-err= 2.46e-03), lambdaRQ= 7.08089e+01 (rel-err= 5.80e-04), true= 7.08500e+01
+ie= 14: eig= 7.46583e+01 (rel-err= 3.05e-03), lambdaRQ= 7.48321e+01 (rel-err= 7.34e-04), true= 7.48870e+01
+ie= 15: eig= 7.67078e+01 (rel-err= 3.00e-03), lambdaRQ= 7.68810e+01 (rel-err= 7.53e-04), true= 7.69389e+01
+
+
+
+
+
+
+coarse grid:
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=disk -g=sice4.order2 -numEigenValues=16 -tol=1.0e-14 -bc1=d -show=sice4O2EigsEv216.show -orthogonalize=1 -go=go
+
+ >>> Ogev::getEigenvaluesCylinder: return eigenvalues and eigenvectors...
+  resid = || A phi - lambda phi ||_max / |lambda| 
+  VECT max-err = max-norm( closest vector in 2 norm to eigenpsace )/( max-norm of phi)  
+  VECT l2-err  =      L2h( closest vector in 2 norm to eigenpsace )/( L2h norm of phi)  
+Eigenvalue   0 : k=    5.78182784 + (-0.0e+00) i, eig=   0, true=    5.78318596, rel-err=2.35e-04, multe=1 mult=1 VECT: max-err=9.83e-06, l2-err=6.16e-06, resid=1.90e-12
+Eigenvalue   1 : k=   14.67324466 + (-0.0e+00) i, eig=   1, true=   14.68197064, rel-err=5.94e-04, multe=2 mult=2 VECT: max-err=4.88e-05, l2-err=3.61e-05, resid=8.77e-13
+Eigenvalue   2 : k=   14.67324466 + (-0.0e+00) i, eig=   1, true=   14.68197064, rel-err=5.94e-04, multe=2 mult=2 VECT: max-err=4.88e-05, l2-err=3.61e-05, resid=1.50e-12
+Eigenvalue   3 : k=   26.34254255 + (-0.0e+00) i, eig=   3, true=   26.37461643, rel-err=1.22e-03, multe=2 mult=2 VECT: max-err=6.29e-05, l2-err=2.07e-05, resid=3.33e-13
+Eigenvalue   4 : k=   26.35056506 + (-0.0e+00) i, eig=   3, true=   26.37461643, rel-err=9.12e-04, multe=2 mult=2 VECT: max-err=1.22e-04, l2-err=6.07e-05, resid=6.14e-13
+Eigenvalue   5 : k=   30.43370267 + (-0.0e+00) i, eig=   5, true=   30.47126234, rel-err=1.23e-03, multe=1 mult=1 VECT: max-err=1.54e-04, l2-err=2.05e-04, resid=5.30e-13
+Eigenvalue   6 : k=   40.64014860 + (-0.0e+00) i, eig=   6, true=   40.70646582, rel-err=1.63e-03, multe=2 mult=2 VECT: max-err=1.34e-03, l2-err=1.09e-03, resid=3.37e-13
+Eigenvalue   7 : k=   40.64014860 + (-0.0e+00) i, eig=   6, true=   40.70646582, rel-err=1.63e-03, multe=2 mult=2 VECT: max-err=1.34e-03, l2-err=1.09e-03, resid=4.30e-13
+Eigenvalue   8 : k=   49.12042926 + (-0.0e+00) i, eig=   8, true=   49.21845632, rel-err=1.99e-03, multe=2 mult=2 VECT: max-err=1.42e-03, l2-err=1.53e-03, resid=3.23e-13
+Eigenvalue   9 : k=   49.12042926 + (-0.0e+00) i, eig=   8, true=   49.21845632, rel-err=1.99e-03, multe=2 mult=2 VECT: max-err=1.42e-03, l2-err=1.53e-03, resid=3.33e-13
+Eigenvalue  10 : k=   57.45114830 + (-0.0e+00) i, eig=  10, true=   57.58294090, rel-err=2.29e-03, multe=2 mult=2 VECT: max-err=1.52e-03, l2-err=1.49e-03, resid=3.10e-13
+Eigenvalue  11 : k=   57.45234523 + (-0.0e+00) i, eig=  10, true=   57.58294090, rel-err=2.27e-03, multe=2 mult=2 VECT: max-err=1.77e-04, l2-err=5.29e-05, resid=1.94e-13
+Eigenvalue  12 : k=   70.62036977 + (-0.0e+00) i, eig=  12, true=   70.84999892, rel-err=3.24e-03, multe=2 mult=1 VECT: max-err=6.18e-04, l2-err=6.99e-04, resid=1.70e-13 *mult differ*
+Eigenvalue  13 : k=   70.67562662 + (-0.0e+00) i, eig=  12, true=   70.84999892, rel-err=2.46e-03, multe=2 mult=1 VECT: max-err=7.52e-04, l2-err=8.10e-04, resid=2.28e-13 *mult differ*
+Eigenvalue  14 : k=   74.65832762 + (-0.0e+00) i, eig=  14, true=   74.88700679, rel-err=3.05e-03, multe=1 mult=1 VECT: max-err=1.39e-03, l2-err=2.32e-03, resid=2.64e-13
+Eigenvalue  15 : k=   76.70780328 + (-0.0e+00) i, eig=  15, true=   76.93892833, rel-err=3.00e-03, multe=2 mult=1 VECT: max-err=1.49e-03, l2-err=1.42e-03, resid=1.41e-13 *mult differ*
+ max-rel-err=3.24e-03, max-evect-err=1.52e-03
+ ==== SUMMARY: max-residual = 1.90e-12
+
+
+@@@@ ANNULUS: FIX ME 
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=annulus -g=annulus4.order2.hdf -numEigenValues=16 -tol=1.0e-12 -bc1=d -orthogonalize=1 -show=annulusG4O2Ev16.show
+
+
+
+
+
+READ FILE GENERATED BY EigenWave and orthogonalize...
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=square128.order2.hdf -numEigenValues=16 -tol=1.0e-14 -bc1=d -evFile=square64O2Ev16.show -show=square128O2Ev16cf.show -orthogonalize=0 -matlab=0 -coarseToFine=1 -go=go -interpWidth=5
+
+@@@@@@@ ENTERING coarseToFine: interpolationWidth=5 useAccurateInnerProduct=0 @@@@@@@@@@ 
+==== Ogev::coarseToFine: compute integration weights...
+Oges::allocateWorkSpace: numberOfNonzeros=84273 fillinRatio=2.000000e+01
+allocateWorkSpace: numberOfEquations=17689, nsp = 1685460, fillinRatio= 20, numberOfNonzeros = 84273
+... computed volume of the domain =  1.00e+00
+ie=  0: eig= 7.88934e+01 (rel-err= 6.02e-04), lambdaRQ= 7.89410e+01 (rel-err= 5.98e-12), err-ratio=1.01e+08, true= 7.89410e+01
+ie=  1: eig= 9.85337e+01 (rel-err= 1.23e-03), lambdaRQ= 9.86554e+01 (rel-err= 1.36e-10), err-ratio=9.07e+06, true= 9.86554e+01
+ie=  2: eig= 9.85337e+01 (rel-err= 1.23e-03), lambdaRQ= 9.86554e+01 (rel-err= 1.36e-10), err-ratio=9.07e+06, true= 9.86554e+01
+ie=  3: eig= 1.28113e+02 (rel-err= 1.12e-03), lambdaRQ= 1.28257e+02 (rel-err= 1.07e-10), err-ratio=1.05e+07, true= 1.28257e+02
+ie=  4: eig= 1.28113e+02 (rel-err= 1.12e-03), lambdaRQ= 1.28257e+02 (rel-err= 1.07e-10), err-ratio=1.05e+07, true= 1.28257e+02
+ie=  5: eig= 1.67275e+02 (rel-err= 2.27e-03), lambdaRQ= 1.67656e+02 (rel-err= 1.39e-09), err-ratio=1.63e+06, true= 1.67656e+02
+ie=  6: eig= 1.67275e+02 (rel-err= 2.27e-03), lambdaRQ= 1.67656e+02 (rel-err= 1.39e-09), err-ratio=1.63e+06, true= 1.67656e+02
+ie=  7: eig= 1.77332e+02 (rel-err= 1.35e-03), lambdaRQ= 1.77573e+02 (rel-err= 1.51e-10), err-ratio=8.96e+06, true= 1.77573e+02
+ie=  8: eig= 1.96854e+02 (rel-err= 2.05e-03), lambdaRQ= 1.97257e+02 (rel-err= 1.19e-09), err-ratio=1.73e+06, true= 1.97257e+02
+ie=  9: eig= 1.96854e+02 (rel-err= 2.05e-03), lambdaRQ= 1.97257e+02 (rel-err= 1.19e-09), err-ratio=1.73e+06, true= 1.97257e+02
+ie= 10: eig= 2.46073e+02 (rel-err= 2.03e-03), lambdaRQ= 2.46573e+02 (rel-err= 1.00e-09), err-ratio=2.02e+06, true= 2.46573e+02
+ie= 11: eig= 2.46073e+02 (rel-err= 2.03e-03), lambdaRQ= 2.46573e+02 (rel-err= 1.00e-09), err-ratio=2.02e+06, true= 2.46573e+02
+ie= 12: eig= 2.55372e+02 (rel-err= 3.62e-03), lambdaRQ= 2.56300e+02 (rel-err= 8.28e-09), err-ratio=4.37e+05, true= 2.56300e+02
+ie= 13: eig= 2.55372e+02 (rel-err= 3.62e-03), lambdaRQ= 2.56300e+02 (rel-err= 8.28e-09), err-ratio=4.37e+05, true= 2.56300e+02
+ie= 14: eig= 2.84951e+02 (rel-err= 3.32e-03), lambdaRQ= 2.85901e+02 (rel-err= 7.42e-09), err-ratio=4.48e+05, true= 2.85901e+02
+ie= 15: eig= 2.84951e+02 (rel-err= 3.32e-03), lambdaRQ= 2.85901e+02 (rel-err= 7.42e-09), err-ratio=4.48e+05, true= 2.85901e+02
+ie= 16: eig= 3.14814e+02 (rel-err= 2.41e-03), lambdaRQ= 3.15574e+02 (rel-err= 1.48e-09), err-ratio=1.63e+06, true= 3.15574e+02
+ie= 17: eig= 3.34170e+02 (rel-err= 3.12e-03), lambdaRQ= 3.35217e+02 (rel-err= 6.37e-09), err-ratio=4.90e+05, true= 3.35217e+02
+
+>> IW=4
+ie=  0: eig= 7.88934e+01 (rel-err= 6.02e-04), lambdaRQ= 7.89410e+01 (rel-err= 1.97e-09), true(discrete)= 7.89410e+01
+ie=  1: eig= 9.85337e+01 (rel-err= 1.23e-03), lambdaRQ= 9.86554e+01 (rel-err= 2.02e-08), true(discrete)= 9.86554e+01
+ie=  2: eig= 9.85337e+01 (rel-err= 1.23e-03), lambdaRQ= 9.86554e+01 (rel-err= 2.02e-08), true(discrete)= 9.86554e+01
+ie=  3: eig= 1.28113e+02 (rel-err= 1.12e-03), lambdaRQ= 1.28257e+02 (rel-err= 1.61e-08), true(discrete)= 1.28257e+02
+ie=  4: eig= 1.28113e+02 (rel-err= 1.12e-03), lambdaRQ= 1.28257e+02 (rel-err= 1.61e-08), true(discrete)= 1.28257e+02
+ie=  5: eig= 1.67275e+02 (rel-err= 2.27e-03), lambdaRQ= 1.67656e+02 (rel-err= 1.18e-07), true(discrete)= 1.67656e+02
+ie=  6: eig= 1.67275e+02 (rel-err= 2.27e-03), lambdaRQ= 1.67656e+02 (rel-err= 1.18e-07), true(discrete)= 1.67656e+02
+ie=  7: eig= 1.77332e+02 (rel-err= 1.35e-03), lambdaRQ= 1.77573e+02 (rel-err= 2.24e-08), true(discrete)= 1.77573e+02
+ie=  8: eig= 1.96854e+02 (rel-err= 2.05e-03), lambdaRQ= 1.97257e+02 (rel-err= 1.01e-07), true(discrete)= 1.97257e+02
+ie=  9: eig= 1.96854e+02 (rel-err= 2.05e-03), lambdaRQ= 1.97257e+02 (rel-err= 1.01e-07), true(discrete)= 1.97257e+02
+ie= 10: eig= 2.46073e+02 (rel-err= 2.03e-03), lambdaRQ= 2.46573e+02 (rel-err= 8.86e-08), true(discrete)= 2.46573e+02
+ie= 11: eig= 2.46073e+02 (rel-err= 2.03e-03), lambdaRQ= 2.46573e+02 (rel-err= 8.86e-08), true(discrete)= 2.46573e+02
+ie= 12: eig= 2.55372e+02 (rel-err= 3.62e-03), lambdaRQ= 2.56300e+02 (rel-err= 4.62e-07), true(discrete)= 2.56300e+02
+ie= 13: eig= 2.55372e+02 (rel-err= 3.62e-03), lambdaRQ= 2.56300e+02 (rel-err= 4.62e-07), true(discrete)= 2.56300e+02
+ie= 14: eig= 2.84951e+02 (rel-err= 3.32e-03), lambdaRQ= 2.85901e+02 (rel-err= 4.14e-07), true(discrete)= 2.85901e+02
+ie= 15: eig= 2.84951e+02 (rel-err= 3.32e-03), lambdaRQ= 2.85901e+02 (rel-err= 4.14e-07), true(discrete)= 2.85901e+02
+ie= 16: eig= 3.14814e+02 (rel-err= 2.41e-03), lambdaRQ= 3.15574e+02 (rel-err= 1.26e-07), true(discrete)= 3.15574e+02
+ie= 17: eig= 3.34170e+02 (rel-err= 3.12e-03), lambdaRQ= 3.35217e+02 (rel-err= 3.59e-07), true(discrete)= 3.35217e+02
+
+
+>> Default IW=3
+ie=  0: eig= 7.88934e+01 (rel-err= 6.02e-04), lambdaRQ= 7.89411e+01 (rel-err= 1.45e-06), true(discrete)= 7.89410e+01
+ie=  1: eig= 9.85337e+01 (rel-err= 1.23e-03), lambdaRQ= 9.86561e+01 (rel-err= 6.59e-06), true(discrete)= 9.86554e+01
+ie=  2: eig= 9.85337e+01 (rel-err= 1.23e-03), lambdaRQ= 9.86561e+01 (rel-err= 6.59e-06), true(discrete)= 9.86554e+01
+ie=  3: eig= 1.28113e+02 (rel-err= 1.12e-03), lambdaRQ= 1.28258e+02 (rel-err= 5.51e-06), true(discrete)= 1.28257e+02
+ie=  4: eig= 1.28113e+02 (rel-err= 1.12e-03), lambdaRQ= 1.28258e+02 (rel-err= 5.51e-06), true(discrete)= 1.28257e+02
+ie=  5: eig= 1.67275e+02 (rel-err= 2.27e-03), lambdaRQ= 1.67660e+02 (rel-err= 2.17e-05), true(discrete)= 1.67656e+02
+ie=  6: eig= 1.67275e+02 (rel-err= 2.27e-03), lambdaRQ= 1.67660e+02 (rel-err= 2.17e-05), true(discrete)= 1.67656e+02
+ie=  7: eig= 1.77332e+02 (rel-err= 1.35e-03), lambdaRQ= 1.77574e+02 (rel-err= 7.31e-06), true(discrete)= 1.77573e+02
+ie=  8: eig= 1.96854e+02 (rel-err= 2.05e-03), lambdaRQ= 1.97261e+02 (rel-err= 1.87e-05), true(discrete)= 1.97257e+02
+ie=  9: eig= 1.96854e+02 (rel-err= 2.05e-03), lambdaRQ= 1.97261e+02 (rel-err= 1.87e-05), true(discrete)= 1.97257e+02
+ie= 10: eig= 2.46073e+02 (rel-err= 2.03e-03), lambdaRQ= 2.46577e+02 (rel-err= 1.74e-05), true(discrete)= 2.46573e+02
+ie= 11: eig= 2.46073e+02 (rel-err= 2.03e-03), lambdaRQ= 2.46577e+02 (rel-err= 1.74e-05), true(discrete)= 2.46573e+02
+ie= 12: eig= 2.55372e+02 (rel-err= 3.62e-03), lambdaRQ= 2.56313e+02 (rel-err= 5.38e-05), true(discrete)= 2.56300e+02
+ie= 13: eig= 2.55372e+02 (rel-err= 3.62e-03), lambdaRQ= 2.56313e+02 (rel-err= 5.38e-05), true(discrete)= 2.56300e+02
+ie= 14: eig= 2.84951e+02 (rel-err= 3.32e-03), lambdaRQ= 2.85915e+02 (rel-err= 4.84e-05), true(discrete)= 2.85901e+02
+ie= 15: eig= 2.84951e+02 (rel-err= 3.32e-03), lambdaRQ= 2.85915e+02 (rel-err= 4.84e-05), true(discrete)= 2.85901e+02
+ie= 16: eig= 3.14814e+02 (rel-err= 2.41e-03), lambdaRQ= 3.15581e+02 (rel-err= 2.30e-05), true(discrete)= 3.15574e+02
+ie= 17: eig= 3.34170e+02 (rel-err= 3.12e-03), lambdaRQ= 3.35231e+02 (rel-err= 4.30e-05), true(discrete)= 3.35217e+02
+
+
+
+***************************************************
+****** Tues Dec 24, 2024
+
+
+START ADD OPTION TO READ COARSE EIGS FROM A FILE, CONVERT TO FINE GRID.
+
+READ FILE GENERATED BY EigenWave and orthogonalize...
+genEigs eigs.cmd -problem=laplace -eigCase=none -discreteEigenvalues=1 -g=square128.order2.hdf -numEigenValues=16 -tol=1.0e-14 -bc1=d -evFile=square64O2Ev16.show -show=square128O2Ev16o.show -orthogonalize=0 -matlab=0 -go=coarseToFine
+
+TEST CASE : COARSE GRID: 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order2.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=16 -tol=1.0e-14 -bc1=d -show=square64O2Ev516.show -orthogonalize=1 -go=go
+
+
+***************************************************
+****** Thurs Dec 19, 2024
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order2.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=square128O2Ev512.show -orthogonalize=1 -go=go
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order2.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=square64O2Ev512.show -orthogonalize=1 -go=go
+
+
+
+***************************************************
+****** Thurs Dec 19, 2024
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice16.order4 -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=sice16O4EigsEv1024.show -orthogonalize=1 -go=go
+
+
+***************************************************
+****** Tues Dec 17, 2024
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order4.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=square64O4Ev512.show -orthogonalize=1 -go=go
+
+***************************************************
+****** Mon Dec 16, 2024
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice8.order4 -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=sice8O4EigsEv512.show -orthogonalize=1 -go=go
+
+
+***************************************************
+****** Sun Nov 24, 2024
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order2.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=128 -tol=1.0e-14 -bc1=d -show=square64O2Ev128.show -orthogonalize=1 -go=go
+
+
+***************************************************
+****** Sun Nov 24, 2024
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square1024.order4.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=square1024O4Ev1024.show -orthogonalize=1 -go=go
+
+
+eig2:
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square512.order4.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=square512O4Ev1024.show -orthogonalize=1 -go=go
+
+
+eig2:
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order4.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=square256O4Ev512.show -orthogonalize=1 -go=go
+
+eig2:
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order4.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=square128O4Ev512.show -orthogonalize=1 -go=go
+
+
+***************************************************
+****** Mon Oct 14, 2024
+
+G2: running...
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoom3dGride2.order2.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=512 -tol=1.0e-14 -bc1=d -st_ksp_type gmres -st_pc_type ilu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -show=darkCornerRoomG2O2Ev512.show -orthogonalize=1 -go=go
+
+
+OK:  
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoom3dGride1.order2.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=256 -tol=1.0e-14 -bc1=d -st_ksp_type gmres -st_pc_type ilu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -show=darkCornerRoomG1O2Ev256.show -orthogonalize=1 -go=go
+
+direct solve -- too much memory
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoom3dGride1.order2.hdf -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=256 -tol=1.0e-14 -bc1=d -show=darkCornerRoomG1O2Ev256.show -orthogonalize=1 -go=go
+
+***************************************************
+****** Fri Sept 27, 2024
+
+
+sice4O4EigsEv256.show
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice4.order4 -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=256 -tol=1.0e-14 -bc1=d -show=sice4O4EigsEv256.show -orthogonalize=1 -go=go
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice4.order2 -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=256 -tol=1.0e-14 -bc1=d -show=sice4O2EigsEv256.show -orthogonalize=1 -go=go
+
+
+***************************************************
+****** Fri Sept 27, 2024
+
+BOX4 
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=box4.order4 -numEigenValues=256 -tol=1.0e-14 -bc1=d -show=box4O4EigsEv256.show -orthogonalize=1 -go=go
+
+Eigenvalue   0 : k=   29.60881233 + (-0.0e+00) i, eig=   0, true=   29.60880069, rel-err=3.93e-07, multe=1 mult=1 VECT: max-err=2.94e-07, l2-err=3.26e-07, resid=2.10e-11
+Eigenvalue   1 : k=   59.21760105 + (-0.0e+00) i, eig=   1, true=   59.21735160, rel-err=4.21e-06, multe=3 mult=3 VECT: max-err=4.83e-06, l2-err=5.24e-06, resid=6.56e-12
+Eigenvalue   2 : k=   59.21760105 + (-0.0e+00) i, eig=   1, true=   59.21735160, rel-err=4.21e-06, multe=3 mult=3 VECT: max-err=5.38e-06, l2-err=5.24e-06, resid=1.05e-11
+Eigenvalue   3 : k=   59.21760105 + (-0.0e+00) i, eig=   1, true=   59.21735160, rel-err=4.21e-06, multe=3 mult=3 VECT: max-err=5.37e-06, l2-err=5.24e-06, resid=1.03e-11
+Eigenvalue   4 : k=   88.82638977 + (-0.0e+00) i, eig=   4, true=   88.82590251, rel-err=5.49e-06, multe=3 mult=3 VECT: max-err=6.77e-06, l2-err=7.41e-06, resid=7.03e-12
+
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=box2.order4 -numEigenValues=256 -tol=1.0e-14 -bc1=d -show=box2O4EigsEv256.show -orthogonalize=1 -go=go
+
+Eigenvalue   0 : k=   29.60897589 + (-0.0e+00) i, eig=   0, true=   29.60861335, rel-err=1.22e-05, multe=1 mult=1 VECT: max-err=9.03e-06, l2-err=9.35e-06, resid=2.04e-12
+Eigenvalue   1 : k=   59.22042909 + (-0.0e+00) i, eig=   1, true=   59.21325781, rel-err=1.21e-04, multe=3 mult=3 VECT: max-err=1.18e-04, l2-err=1.35e-04, resid=7.41e-13
+Eigenvalue   2 : k=   59.22042909 + (-0.0e+00) i, eig=   1, true=   59.21325781, rel-err=1.21e-04, multe=3 mult=3 VECT: max-err=1.60e-04, l2-err=1.35e-04, resid=8.62e-13
+Eigenvalue   3 : k=   59.22042909 + (-0.0e+00) i, eig=   1, true=   59.21325781, rel-err=1.21e-04, multe=3 mult=3 VECT: max-err=1.40e-04, l2-err=1.35e-04, resid=1.48e-12
+Eigenvalue   4 : k=   88.83188229 + (-0.0e+00) i, eig=   5, true=   88.81790227, rel-err=1.57e-04, multe=3 mult=3 VECT: max-err=1.78e-04, l2-err=1.91e-04, resid=4.86e-13
+
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=box2.order2 -numEigenValues=256 -tol=1.0e-14 -bc1=d -show=box2O2EigsEv256.show -orthogonalize=1 -go=go
+
+Eigenvalue   0 : k=   29.54798257 + (-0.0e+00) i, eig=   0, true=   29.54798257, rel-err=1.56e-15, multe=1 mult=1 VECT: max-err=1.77e-14, l2-err=1.57e-14, resid=6.68e-13
+Eigenvalue   1 : k=   58.85344201 + (-0.0e+00) i, eig=   1, true=   58.85344201, rel-err=1.33e-15, multe=3 mult=3 VECT: max-err=1.59e-14, l2-err=1.28e-14, resid=2.46e-13
+Eigenvalue   2 : k=   58.85344201 + (-0.0e+00) i, eig=   2, true=   58.85344201, rel-err=6.04e-16, multe=3 mult=3 VECT: max-err=1.54e-14, l2-err=1.31e-14, resid=3.03e-13
+Eigenvalue   3 : k=   58.85344201 + (-0.0e+00) i, eig=   2, true=   58.85344201, rel-err=2.29e-15, multe=3 mult=3 VECT: max-err=1.15e-14, l2-err=1.03e-14, resid=3.09e-13
+Eigenvalue   4 : k=   88.15890145 + (-0.0e+00) i, eig=   4, true=   88.15890145, rel-err=2.90e-15, multe=3 mult=3 VECT: max-err=1.63e-14, l2-err=1.52e-14, resid=2.47e-13
+Eigenvalue   5 : k=   88.15890145 + (-0.0e+00) i, eig=   4, true=   88.15890145, rel-err=1.93e-15, multe=3 mult=3 VECT: max-err=1.65e-14, l2-err=1.24e-14, resid=1.61e-13
+Eigenvalue   6 : k=   88.15890145 + (-0.0e+00) i, eig=   4, true=   88.15890145, rel-err=4.03e-15, multe=3 mult=3 VECT: max-err=1.64e-14, l2-err=1.47e-14, resid=1.79e-13
+
+***************************************************
+****** Mon Sept 23, 2024
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=square128.order2 -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=square128O2EigsEv512.show -orthogonalize=1 -go=go
+
+
+***************************************************
+****** Mon Sept 23, 2024
+
+multiple knives 
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sixteenKnivesGride64.order4.hdf -numEigenValues=1024 -tol=1.0e-14 -bc1=d -show=sixteenKnivesGride64EV1024.show -orthogonalize=1 -matlab=0 -go=go
+
+
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=twelveKnivesGride64.order4.hdf -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=twelveKnivesGride64EV512.show -orthogonalize=1 -matlab=0 -go=go
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=twelveKnivesGride32.order4.hdf -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=twelveKnivesGride32EV512.show -orthogonalize=1 -matlab=0 -go=go
+
+
+
+***************************************************
+****** Mon Sept 16, 2024
+
+
+ADD OPTION TO READ EIGS FROM A FILE AND ORTHOGONALIZE:
+
+READ FILE GENERATED BY EigenWave and orthogonalize...
+genEigs eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=square64.order2 -numEigenValues=16 -tol=1.0e-14 -bc1=d -evFile=square64O2Ev16.show -show=square64O2Ev16o.show -orthogonalize=1 -matlab=0 -go=read
+
+ *********** ORTHOGONALIZE: SUMMARY: ************ 
+       Used epsOrthog= 1.00e-08 (tolerance on inner product to detect orthogonality), 
+       Used eigTol   = 2.44e-04 (relative-tol for judging eigenvalues to be the same multiple eig)
+ ***
+ >>>> genEigs:: After orthogonalize, compute residuals ||  A - lambda u ||/lambda ....
+ ie=   1  eig=  7.8893e+01, mult=1, max-norm resdiual ||  A - lambda u ||/lambda = 6.19e-12
+ ie=   2  eig=  9.8534e+01, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 7.27e-13
+ ie=   2  eig=  9.8534e+01, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 5.48e-13
+ ie=   2  eig=  1.2811e+02, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 4.28e-13
+ ie=   2  eig=  1.2811e+02, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 4.80e-13
+ ie=   2  eig=  1.6727e+02, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 1.86e-12
+ ie=   2  eig=  1.6727e+02, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 1.49e-12
+ ie=   1  eig=  1.7733e+02, mult=1, max-norm resdiual ||  A - lambda u ||/lambda = 2.28e-12
+ ie=   2  eig=  1.9685e+02, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 3.97e-13
+ ie=   2  eig=  1.9685e+02, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 2.34e-13
+ ie=   2  eig=  2.4607e+02, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 2.47e-13
+ ie=   2  eig=  2.4607e+02, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 1.96e-13
+ ie=   2  eig=  2.5537e+02, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 1.30e-13
+ ie=   2  eig=  2.5537e+02, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 2.47e-13
+ ie=   2  eig=  2.8495e+02, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 1.71e-13
+ ie=   2  eig=  2.8495e+02, mult=2, max-norm resdiual ||  A - lambda u ||/lambda = 2.19e-13
+ ie=   1  eig=  3.1481e+02, mult=1, max-norm resdiual ||  A - lambda u ||/lambda = 1.90e-12
+ ie=   1  eig=  3.3417e+02, mult=1, max-norm resdiual ||  A - lambda u ||/lambda = 1.50e-13
+
+
+
+
+genEigs eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=square64.order4.ng3 -numEigenValues=256 -tol=1.0e-14 -bc1=d -evFile=square64O4EigsEv256.show -show=square64O4EigsEv256II.show -orthogonalize=1 -go=halt
+
+***************************************************
+****** Sun Sept 15, 2024
+
+FOR CGWAVE CHECKS WE NEED
+ boxG1O2EigsEv64.show  diskG4O2Ev128.show  square32O4EigsEv64.show  square64EigsEv20.show
+
+ 
+
+sice4O2EigsEv256.show
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice4.order4 -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=256 -tol=1.0e-14 -bc1=d -show=sice4O4EigsEv256.show -go=go
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice4.order2 -eigOption=1 -eigOption=1 -eps_s=largest_magnitude -numEigenValues=256 -tol=1.0e-14 -bc1=d -show=sice4O2EigsEv256.show -go=go
+
+
+square128O4EigsEv512.show 
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=square128.order4.ng3 -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=square128O4EigsEv512.show -orthogonalize=1 -go=go
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -discreteEigenvalues=1 -g=square64.order4.ng3 -numEigenValues=256 -tol=1.0e-14 -bc1=d -show=square64O4EigsEv256.show -orthogonalize=1 -go=go
+
 ***************************************************
 ****** Fri Sept 13, 2024
 
