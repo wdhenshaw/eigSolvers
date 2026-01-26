@@ -16,29 +16,92 @@ all: $(all);
 
 include ${Overture}/make.options
 
-usePETSc := on
-# usePETSc := off
+# check for SLEPc 
+ifeq ($(SLEPC_DIR),)
+  useSLEPc := off
+else
+  useSLEPc := on
+endif
+
+#check for PETSc
+ifeq ($(PETSC_DIR),)
+  usePETSc := off
+  # we cannot use SLEPc if there is no PETSc
+  useSLEPc := off
+else
+  usePETSc := on
+endif
+
 ifeq ($(usePETSc),on)
-	usePETSc   = on
-	petscSolver = obj/solvePETSc.o
+  usePETSc   = on
+  petscSolver = solvePETSc.o 
 
-	OGES_PETSC = buildEquationSolvers.o PETScEquationSolver.o
-	PETSC_INCLUDE = -I$(PETSC_DIR)/include  -I$(PETSC_DIR)/$(PETSC_ARCH)/include -DOVERTURE_USE_PETSC -I$(PETSC_LIB)/include -I$(PETSC_DIR)/include/petsc/mpiuni
-	# PETSC_INCLUDE = -I$(PETSC_DIR)/include  -I$(PETSC_DIR)/$(PETSC_ARCH)/include -DOVERTURE_USE_PETSC -I$(PETSC_LIB)/include -I$(PETSC_DIR)/include/mpiuni
-	PETSC_LIBS = -Wl,-rpath,$(PETSC_LIB) -L$(PETSC_LIB) -lpetsc
+  ifeq ($(OV_PARALLEL),parallel) 
+    OGES_PETSC = buildEquationSolvers.o PETScSolver.o
+  else
+    OGES_PETSC = buildEquationSolvers.o PETScEquationSolver.o
+  endif
 
-  SLEPC_INCLUDE = -I$(SLEPC_DIR) -I$(SLEPC_DIR)/$(PETSC_ARCH)/include -I$(SLEPC_DIR)/include 
+  # PETSC_INCLUDE = -I$(PETSC_DIR)/include  -I$(PETSC_DIR)/$(PETSC_ARCH)/include -DOVERTURE_USE_PETSC -I$(PETSC_LIB)/include -I$(PETSC_DIR)/include/mpiuni
+  PETSC_INCLUDE = -DCGWAVE_USE_PETSC
+  ifeq ($(useSLEPc),on) 
+    petscSolver += obj/solveSLEPc.o
+    PETSC_INCLUDE += -DCGWAVE_USE_SLEPC
+  else
+    petscSolver += obj/solveSLEPcNull.o
+  endif
+  PETSC_INCLUDE += -I$(PETSC_DIR)/include  -I$(PETSC_DIR)/$(PETSC_ARCH)/include -DOVERTURE_USE_PETSC -I$(PETSC_LIB)/include 
+  ifeq ($(OV_PARALLEL),parallel) 
+  else
+    # serial: 
+    PETSC_INCLUDE += -I$(PETSC_DIR)/include/petsc/mpiuni
+  endif
+  PETSC_LIBS = -Wl,-rpath,$(PETSC_LIB) -L$(PETSC_LIB) -lpetsc
 
-  SLEPC_LIBS = $(LIB_ARPACK) -Wl,-rpath,$(SLEPC_DIR)/$(PETSC_ARCH)/lib -L$(SLEPC_DIR)/$(PETSC_ARCH)/lib -lslepc
+  ifeq ($(useSLEPc),on) 
+    SLEPC_INCLUDE = -I$(SLEPC_DIR) -I$(SLEPC_DIR)/$(PETSC_ARCH)/include -I$(SLEPC_DIR)/include 
+
+    SLEPC_LIBS = $(LIB_ARPACK) -Wl,-rpath,$(SLEPC_DIR)/$(PETSC_ARCH)/lib -L$(SLEPC_DIR)/$(PETSC_ARCH)/lib -lslepc
+  else
+    SLEPC_INCLUDE =
+    SLEPC_LIBS = 
+  endif
 
 else
-	usePETSc   = off
-	petscSolver = obj/solvePETScNull.o
+  usePETSc   = off
+  petscSolver = obj/solvePETScNull.o obj/solveSLEPcNull.o
 
-	OGES_PETSC = 
-	PETSC_INCLUDE = 
-	PETSC_LIBS = 
+  OGES_PETSC = 
+  PETSC_INCLUDE = 
+  PETSC_LIBS = 
+
+  SLEPC_INCLUDE =
+  SLEPC_LIBS =
 endif
+
+
+
+# ifeq ($(usePETSc),on)
+# 	usePETSc   = on
+# 	petscSolver = obj/solvePETSc.o
+# 
+# 	OGES_PETSC = buildEquationSolvers.o PETScEquationSolver.o
+# 	PETSC_INCLUDE = -I$(PETSC_DIR)/include  -I$(PETSC_DIR)/$(PETSC_ARCH)/include -DOVERTURE_USE_PETSC -I$(PETSC_LIB)/include -I$(PETSC_DIR)/include/petsc/mpiuni
+# 	# PETSC_INCLUDE = -I$(PETSC_DIR)/include  -I$(PETSC_DIR)/$(PETSC_ARCH)/include -DOVERTURE_USE_PETSC -I$(PETSC_LIB)/include -I$(PETSC_DIR)/include/mpiuni
+# 	PETSC_LIBS = -Wl,-rpath,$(PETSC_LIB) -L$(PETSC_LIB) -lpetsc
+# 
+#   SLEPC_INCLUDE = -I$(SLEPC_DIR) -I$(SLEPC_DIR)/$(PETSC_ARCH)/include -I$(SLEPC_DIR)/include 
+# 
+#   SLEPC_LIBS = $(LIB_ARPACK) -Wl,-rpath,$(SLEPC_DIR)/$(PETSC_ARCH)/lib -L$(SLEPC_DIR)/$(PETSC_ARCH)/lib -lslepc
+# 
+# else
+# 	usePETSc   = off
+# 	petscSolver = obj/solvePETScNull.o
+# 
+# 	OGES_PETSC = 
+# 	PETSC_INCLUDE = 
+# 	PETSC_LIBS = 
+# endif
 
 
 # optimization flag:
@@ -58,6 +121,11 @@ CCFLAGS += $(OV_CXX_FLAGS) -I. -I$(Overture)/include -I$(APlusPlus)/include -I$(
 # CCFLAGS += -I/home/henshw/software/slepc-3.4.4 -I/home/henshw/software/slepc-3.4.4/linux-gnu-opt/include -I/home/henshw/software/slepc-3.4.4/include 
 
 CFLAGS = $(OV_CC_FLAGS) -I. -I$(Overture)/include -I$(APlusPlus)/include
+
+ifeq ($(OV_PARALLEL),parallel) 
+  CCFLAGS  += $(OV_PARALLEL_INCLUDE)
+  CCFLAGSO += $(OV_PARALLEL_INCLUDE)
+endif
 
 # Fortran flags, not optimzed unless COMPILE set to opt
 FFLAGS  = $(OV_FORTRAN_FLAGS) $(OV_AUTO_DOUBLE_FLAGS) 
@@ -171,12 +239,15 @@ VPATH = src:obj
 Oges = $(Overture)/Oges
 linkFiles:
 	ln -sf $(Oges)/PETScEquationSolver.C src/
-	ln -sf $(Oges)/PETScSolver.C src/
 	ln -sf $(Oges)/buildEquationSolvers.C src/
 
 # This is needed with PETSc
 buildEquationSolvers.o : $(Oges)/buildEquationSolvers.C; $(CXX) $(CCFLAGS) -DOVERTURE_USE_PETSC -c $(Oges)/buildEquationSolvers.C
 PETScEquationSolver.o : $(Oges)/PETScEquationSolver.C; $(CXX) $(CCFLAGS) -DOVERTURE_USE_PETSC -c $(Oges)/PETScEquationSolver.C
+
+src/PETScSolver.C: 
+	cp $(Oges)/PETScSolver.bC src/
+	src/PETScSolver.bC; cd src; $(BPP) PETScSolver.bC  
 
 OBJC = obj/genEigs.o obj/Ogev.o obj/computeEigenvalues.o obj/fillMatrixLaplacian.o \
 			 obj/fillMatrixIncompressibleElasticity.o obj/fillInterpolationCoefficients.o obj/orthogonalize.o obj/residual.o \
@@ -345,12 +416,8 @@ $(FNOBJO) : obj/%.o : %.f90
 # 	$(FC) $(FFLAGSO) -ffree-line-length-none -finit-real=snan -o $@ -c $<	
 
 clean:  
-	rm -f obj/*.o bin/genEigs bin/eveSolver
+	rm -f *.o obj/*.o bin/genEigs bin/eveSolver
 
 
 .PRECIOUS: 
-
-
-
-
 

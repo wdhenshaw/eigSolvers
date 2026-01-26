@@ -69,12 +69,12 @@ buildGlobalIndexing(CompositeGrid & cg )
 ///   nab(side,axis,p,grid) : bounds of grid on processor p.
 // ===========================================================================================
 {
-    debug = 7; // *****
+  // debug = 7; // *****
 
 
     bool & globalIndexingIsComputed = dbase.get<bool>("globalIndexingIsComputed");
 
-    printF("\n ++++ Ogev::buildGlobalIndexing : globalIndexingIsComputed=%d\n",(int)globalIndexingIsComputed);
+    printF("\n ++++ Ogev::buildGlobalIndexing : globalIndexingIsComputed=%d, numberOfProcessors=%d ++++\n",(int)globalIndexingIsComputed,numberOfProcessors);
   
     if( globalIndexingIsComputed )
         return 0;
@@ -152,8 +152,29 @@ buildGlobalIndexing(CompositeGrid & cg )
 }
 
 
+// =============================================================================================================
+/// Count a non-zero entry
+// =============================================================================================================
+
+// // =============================================================================================================
+// // Macro: Set or count a non-zero entry
+// // =============================================================================================================
+// #beginMacro matSetValueOrCount( A,IROW,ICOL,VAL,TYPE, OPTION )
+//   #If OPTION eq FILL
+//     ierr = MatSetValue(A,IROW,ICOL, VAL, TYPE);CHKERRQ(ierr); 
+//   #Else 
+//     countNonZero( IROW,p )
+//   #End  
+// #endMacro  
+
+// ====================================================================================
+// Macro: fill or count the interpolation equations
+// OPTION : FILL
+//          COUNT 
+// ====================================================================================
+
 int Ogev::
-fillInterpolationCoefficients( Mat & A, realCompositeGridFunction & uu )
+fillInterpolationCoefficients( Mat & A, realCompositeGridFunction & uu, int countMatrixEntries /*  = 0 */ )
 //===================================================================
 // /Description:
 //   Fill the matrix with the interpolation coefficients
@@ -162,7 +183,10 @@ fillInterpolationCoefficients( Mat & A, realCompositeGridFunction & uu )
 {
     
     CompositeGrid & cg = *uu.getCompositeGrid();
-    const int myid=Communication_Manager::My_Process_Number;
+    const int myid= max(0,Communication_Manager::My_Process_Number);
+
+    FILE *& debugFile  = dbase.get<FILE*>("debugFile");
+    FILE *& pDebugFile = dbase.get<FILE*>("pDebugFile");  
 
     if( debug & 4 )
     {
@@ -202,182 +226,509 @@ fillInterpolationCoefficients( Mat & A, realCompositeGridFunction & uu )
         
     int iv[3], &i1=iv[0], &i2=iv[1], &i3=iv[2]; 
     int ivd[3], &i1d=ivd[0], &i2d=ivd[1], &i3d=ivd[2];  // for donor position
+    int igLocal;
 
     realSerialArray coeff;
     
     int ierr;
-    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+
+    if( countMatrixEntries )
     {
-        MappedGrid & mg = cg[grid];
-        const realArray & ug = uu[grid];
-
-        int ni=cg.numberOfInterpolationPoints(grid);
-        if( ni==0 ) continue;
-                
-        intArray & interpoleeLocation = cg.interpoleeLocation[grid];
-        intSerialArray il; 
-        
-    // *wdh* 091129 -- fix to use local interpolation arrays if they are there.
-        if( ( grid<cg.numberOfBaseGrids() && 
-                    cg->localInterpolationDataState==CompositeGridData::localInterpolationDataForAMR ) || 
-                    cg->localInterpolationDataState==CompositeGridData::noLocalInterpolationData )
-        {
-
-      // use the interpolation data in the parallel arrays
-            getLocalArrayWithGhostBoundaries(cg.interpoleeLocation[grid],il);
-        }
-        else
-        {
-      // use the interpolation data in the serial arrays (for now these are refinement grids)
-            il.reference(cg->interpoleeLocationLocal[grid]);
-        }
-
-        int n1a = il.getBase(0) +interpoleeLocation.getGhostBoundaryWidth(0), 
-                n1b = il.getBound(0)-interpoleeLocation.getGhostBoundaryWidth(0);
-
-        ni = n1b-n1a+1;  // number of interpolation points on this processor
-        
-        if( ni==0 ) continue;
-        
-
-        Range R(n1a,n1b);
-
-        coeff.redim(R,width(axis1,grid),width(axis2,grid),width(axis3,grid));
-
-        intSerialArray ip; 
-        intSerialArray interpoleeGrid; 
-        intSerialArray viw; 
-        realSerialArray ci; 
-
-        if( ( grid<cg.numberOfBaseGrids() && 
-                    cg->localInterpolationDataState==CompositeGridData::localInterpolationDataForAMR ) || 
-                    cg->localInterpolationDataState==CompositeGridData::noLocalInterpolationData )
-        {
-
-      // use the interpolation data in the parallel arrays
-            getLocalArrayWithGhostBoundaries(cg.interpolationPoint[grid],ip);
-            getLocalArrayWithGhostBoundaries(cg.interpoleeGrid[grid],interpoleeGrid);
-            getLocalArrayWithGhostBoundaries(cg.variableInterpolationWidth[grid],viw);
-            getLocalArrayWithGhostBoundaries(cg.interpolationCoordinates[grid],ci);
-
-        }
-        else
-        {
-      // use the interpolation data in the serial arrays (for now these are refinement grids)
-      // printf("PETScSolver::USE LOCAL INTERP ARRAYS\n");
-            
-            ip.reference( cg->interpolationPointLocal[grid]);
-            il.reference( cg->interpoleeLocationLocal[grid]);
-            interpoleeGrid.reference( cg->interpoleeGridLocal[grid]);
-            viw.reference( cg->variableInterpolationWidthLocal[grid]);
-            ci.reference(cg->interpolationCoordinatesLocal[grid]);
-        }
-            
-    // int debug = 0; // Oges::debug;
-        if( debug & 4 )
-        {
-            printf("Ogev::fillInterp: myid=%i: grid=%i [n1a,n1b]=[%i,%i] numberOfComponents=%i interp-width=%i\n",myid,grid,n1a,n1b,
-                          numberOfComponents,width(axis1,grid));
-      // for( int i=n1a; i<=n1b; i++ )
-      // {
-      //        printf(" grid=%i i=%i ip=(%i,%i) il=(%i,%i) viw=%i\n",grid,i,ip(i,0),ip(i,1),il(i,0),il(i,1),viw(i));
-      // }
-        }
-
-        int ipar[7]={numberOfDimensions,
-                                  grid,
-                                  ni,
-                                  mg.isCellCentered(0),
-                                  (int)Interpolant::precomputeAllCoefficients,
-                                  maxWidth,
-                                  0}; //  This last position is saved for a return value of useVariableWidthInterpolation
-
-        realSerialArray & cc = coeff;
-
-    // ************ warning -- watch out for indexing of local arrays -- base and bound : n1a,..,n1b    
-    //   use interpoleeGrid(n1a,0)
-        RealArray pr(R),ps(R),pt(R);
-        initExplicitInterp(cc.getLength(0),cc.getLength(1),cc.getLength(2),il.getLength(0),
-                                              ipar[0], 
-                                              *cc.getDataPointer(),
-                                              ci(n1a,0),pr(n1a),ps(n1a),pt(n1a),gridSpacing(0,0),indexStart(0,0),
-                                              viw(n1a),il(n1a,0),interpoleeGrid(n1a,0));
-                
-        int useVariableWidthInterpolation=ipar[6]; 
-
-    // printf("Ogev::useVariableWidthInterpolation=%i\n",useVariableWidthInterpolation);
-
-    // cc.display("coeff after initExplicitInterp");
-
-        const Real epsForInterpCoeff=REAL_EPSILON*100.; // neglect interpolation coeff smaller than this
-
-        assert( width(0,grid)==width(1,grid) );
-
-        i3=0; i3d=0;
-        int n=0;
-        for( int i=n1a; i<=n1b; i++ )
-        {
-            i1=ip(i,0);
-            i2=ip(i,1);
-            if( numberOfDimensions==3 ) i3=ip(i,2);
-            
-            const int gridi = interpoleeGrid(i);
-            const int iw = useVariableWidthInterpolation ? viw(i) : width(0,grid);  // *wdh* 100113 -- added support for VIW
-            const int iw3 = numberOfDimensions==2 ? 1 : iw;
-
-            #ifdef USE_PPP
-                int p= ug.Array_Descriptor.findProcNum( iv );  // processor number
-            #else
-                int p=0; 
-            #endif
-            for( int n=0; n<numberOfComponents; n++ )
+        const int & numberOfEquationsThisProcessor = dbase.get<int>("numberOfEquationsThisProcessor");   
+        int *&d_nnz = dbase.get<int*>("d_nnz"); //  d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+        int *&o_nnz = dbase.get<int*>("o_nnz"); //  o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries        
+            for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
             {
-
-        // fill in value -1 for grid,(i1,i2,i3)
-                const int ig=getGlobalIndex( n, iv, grid, p );  // get the global index
-                Real v=-1.; 
-                ierr = MatSetValues(A,1,&ig,1,&ig,&v,INSERT_VALUES);CHKERRQ(ierr);
-
-        // if( debug & 1 ) printf("interp: grid=%i p=%i i=%i ip=(%i,%i,%i) n=%i coeff[m1,m2]:\n",grid,p,i,i1,i2,i3,n);
-
-
-                for( int m3=0; m3<iw3; m3++ )
+                MappedGrid & mg = cg[grid];
+                const realArray & ug = uu[grid];
+                int ni=cg.numberOfInterpolationPoints(grid);
+                if( ni==0 ) continue;
+                intArray & interpoleeLocation = cg.interpoleeLocation[grid];
+                intSerialArray il; 
+        // *wdh* 091129 -- fix to use local interpolation arrays if they are there.
+                if( ( grid<cg.numberOfBaseGrids() && 
+                            cg->localInterpolationDataState==CompositeGridData::localInterpolationDataForAMR ) || 
+                            cg->localInterpolationDataState==CompositeGridData::noLocalInterpolationData )
                 {
-                    if( numberOfDimensions==3 ) i3d=il(i,2)+m3;
-                    for( int m2=0; m2<iw; m2++ )
+          // use the interpolation data in the parallel arrays
+                    getLocalArrayWithGhostBoundaries(cg.interpoleeLocation[grid],il);
+                }
+                else
+                {
+          // use the interpolation data in the serial arrays (for now these are refinement grids)
+                    il.reference(cg->interpoleeLocationLocal[grid]);
+                }
+                int n1a = il.getBase(0) +interpoleeLocation.getGhostBoundaryWidth(0), 
+                        n1b = il.getBound(0)-interpoleeLocation.getGhostBoundaryWidth(0);
+                ni = n1b-n1a+1;  // number of interpolation points on this processor
+                if( ni==0 ) continue;
+                Range R(n1a,n1b);
+                coeff.redim(R,width(axis1,grid),width(axis2,grid),width(axis3,grid));
+                intSerialArray ip; 
+                intSerialArray interpoleeGrid; 
+                intSerialArray viw; 
+                realSerialArray ci; 
+                if( ( grid<cg.numberOfBaseGrids() && 
+                            cg->localInterpolationDataState==CompositeGridData::localInterpolationDataForAMR ) || 
+                            cg->localInterpolationDataState==CompositeGridData::noLocalInterpolationData )
+                {
+          // use the interpolation data in the parallel arrays
+                    getLocalArrayWithGhostBoundaries(cg.interpolationPoint[grid],ip);
+                    getLocalArrayWithGhostBoundaries(cg.interpoleeGrid[grid],interpoleeGrid);
+                    getLocalArrayWithGhostBoundaries(cg.variableInterpolationWidth[grid],viw);
+                    getLocalArrayWithGhostBoundaries(cg.interpolationCoordinates[grid],ci);
+                }
+                else
+                {
+          // use the interpolation data in the serial arrays (for now these are refinement grids)
+          // printf("PETScSolver::USE LOCAL INTERP ARRAYS\n");
+                    ip.reference( cg->interpolationPointLocal[grid]);
+                    il.reference( cg->interpoleeLocationLocal[grid]);
+                    interpoleeGrid.reference( cg->interpoleeGridLocal[grid]);
+                    viw.reference( cg->variableInterpolationWidthLocal[grid]);
+                    ci.reference(cg->interpolationCoordinatesLocal[grid]);
+                }
+        // int debug = 0; // Oges::debug;
+                if( debug & 4 )
+                {
+                    printf("Ogev::fillInterp: myid=%i: grid=%i [n1a,n1b]=[%i,%i] numberOfComponents=%i interp-width=%i\n",myid,grid,n1a,n1b,
+                                  numberOfComponents,width(axis1,grid));
+          // for( int i=n1a; i<=n1b; i++ )
+          // {
+          //        printf(" grid=%i i=%i ip=(%i,%i) il=(%i,%i) viw=%i\n",grid,i,ip(i,0),ip(i,1),il(i,0),il(i,1),viw(i));
+          // }
+                }
+                int ipar[7]={numberOfDimensions,
+                                          grid,
+                                          ni,
+                                          mg.isCellCentered(0),
+                                          (int)Interpolant::precomputeAllCoefficients,
+                                          maxWidth,
+                                          0}; //  This last position is saved for a return value of useVariableWidthInterpolation
+                realSerialArray & cc = coeff;
+        // ************ warning -- watch out for indexing of local arrays -- base and bound : n1a,..,n1b    
+        //   use interpoleeGrid(n1a,0)
+                RealArray pr(R),ps(R),pt(R);
+                initExplicitInterp(cc.getLength(0),cc.getLength(1),cc.getLength(2),il.getLength(0),
+                                                      ipar[0], 
+                                                      *cc.getDataPointer(),
+                                                      ci(n1a,0),pr(n1a),ps(n1a),pt(n1a),gridSpacing(0,0),indexStart(0,0),
+                                                      viw(n1a),il(n1a,0),interpoleeGrid(n1a,0));
+                int useVariableWidthInterpolation=ipar[6]; 
+        // printf("Ogev::useVariableWidthInterpolation=%i\n",useVariableWidthInterpolation);
+        // cc.display("coeff after initExplicitInterp");
+                const Real epsForInterpCoeff=REAL_EPSILON*100.; // neglect interpolation coeff smaller than this
+                assert( width(0,grid)==width(1,grid) );
+                i3=0; i3d=0;
+                int n=0;
+                for( int i=n1a; i<=n1b; i++ )
+                {
+                    i1=ip(i,0);
+                    i2=ip(i,1);
+                    if( numberOfDimensions==3 ) i3=ip(i,2);
+                    const int gridi = interpoleeGrid(i);
+                    const int iw = useVariableWidthInterpolation ? viw(i) : width(0,grid);  // *wdh* 100113 -- added support for VIW
+                    const int iw3 = numberOfDimensions==2 ? 1 : iw;
+                    #ifdef USE_PPP
+                        int p= ug.Array_Descriptor.findProcNum( iv );  // processor number
+                    #else
+                        int p=0; 
+                    #endif
+                    const int ipProcessor = p;  // interp pt is on this processor
+          // if( p!=myid )
+          // {
+          //   printf("fillInterp: WARNING inter pt i=%d is on p=%d, but myid=%d\n",i,p,myid);
+          // }
+                    for( int n=0; n<numberOfComponents; n++ )
                     {
-                        i2d=il(i,1)+m2;
-                        for( int m1=0; m1<iw; m1++ )
-                        {
-                            i1d=il(i,0)+m1;
-                
-                            #ifdef USE_PPP        
-                                int p= uu[gridi].Array_Descriptor.findProcNum( ivd );  // processor number
-                            #else
-                                int p=0;
-                            #endif
-                            int jg=getGlobalIndex( n, ivd, gridi, p );  // get the global index
-
-              // fill in value  grid, (i1,i2,i3) coeff(i,m1,m2,m3)
-                            v=coeff(i,m1,m2,m3);
-
-                            if( fabs(v)>epsForInterpCoeff )
+            // fill in value -1 for grid,(i1,i2,i3)
+                        const int ig=getGlobalIndex( n, iv, grid, p );  // get the global index
+                        Real v=-1.; 
+                            if( ipProcessor == myid )
                             {
-                // if( debug & 1 ) printf(" (ig,jg)=(%i,%i) [m1=%i,m2=%i,m3=%i](gridi=%i,p=%i)=%4.2f \n",ig,jg,m1,m2,m3,gridi,p,v);
-                                ierr = MatSetValues(A,1,&ig,1,&jg,&v,INSERT_VALUES);CHKERRQ(ierr);
-
+                                    igLocal = ig -noffset(myid,0)*numberOfComponents;
+                                    if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                    {
+                                        printf("fillInterp:countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d\n",
+                                                ig,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0));
+                                        OV_ABORT("error");
+                                    }
+                                    if( p==myid )
+                                        d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                    else
+                                        o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
                             }
-                        
+            // #If COUNT eq FILL
+            //   if( debug & 1 ) 
+            //   {
+            //     fprintf(pDebugFile,"interp: grid=%i p=%i i=%i ip=(%i,%i,%i) n=%i \n",grid,p,i,i1,i2,i3,n);
+            //     if( grid==1 && i1==20 && i2==-1 && i3==-1 )
+            //       printf("\n $$$$ interpolation point (i1,i2,i3)=(%3d,%3d,%3d) grid=%3d, myid=%d, p=%d  $$$$\n\n",i1,i2,i3,grid,myid,p);
+            //   }
+            // #End
+                        for( int m3=0; m3<iw3; m3++ )
+                        {
+                            if( numberOfDimensions==3 ) i3d=il(i,2)+m3;
+                            for( int m2=0; m2<iw; m2++ )
+                            {
+                                i2d=il(i,1)+m2;
+                                for( int m1=0; m1<iw; m1++ )
+                                {
+                                    i1d=il(i,0)+m1;
+                                    #ifdef USE_PPP        
+                                        int p= uu[gridi].Array_Descriptor.findProcNum( ivd );  // processor number
+                                    #else
+                                        int p=0;
+                                    #endif
+                                    int jg=getGlobalIndex( n, ivd, gridi, p );  // get the global index
+                  // fill in value  grid, (i1,i2,i3) coeff(i,m1,m2,m3)
+                                    v=coeff(i,m1,m2,m3);
+                                    if( fabs(v)>epsForInterpCoeff )
+                                    {
+                    // if( debug & 1 ) printf(" (ig,jg)=(%i,%i) [m1=%i,m2=%i,m3=%i](gridi=%i,p=%i)=%4.2f \n",ig,jg,m1,m2,m3,gridi,p,v);
+                                            if( ipProcessor == myid )
+                                            {
+                                                    igLocal = ig -noffset(myid,0)*numberOfComponents;
+                                                    if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                    {
+                                                        printf("fillInterp:countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d\n",
+                                                                ig,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0));
+                                                        OV_ABORT("error");
+                                                    }
+                                                    if( p==myid )
+                                                        d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                    else
+                                                        o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                                            }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
-
+            } // end for grid 
     }
+    else
+    {
+            for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+            {
+                MappedGrid & mg = cg[grid];
+                const realArray & ug = uu[grid];
+                int ni=cg.numberOfInterpolationPoints(grid);
+                if( ni==0 ) continue;
+                intArray & interpoleeLocation = cg.interpoleeLocation[grid];
+                intSerialArray il; 
+        // *wdh* 091129 -- fix to use local interpolation arrays if they are there.
+                if( ( grid<cg.numberOfBaseGrids() && 
+                            cg->localInterpolationDataState==CompositeGridData::localInterpolationDataForAMR ) || 
+                            cg->localInterpolationDataState==CompositeGridData::noLocalInterpolationData )
+                {
+          // use the interpolation data in the parallel arrays
+                    getLocalArrayWithGhostBoundaries(cg.interpoleeLocation[grid],il);
+                }
+                else
+                {
+          // use the interpolation data in the serial arrays (for now these are refinement grids)
+                    il.reference(cg->interpoleeLocationLocal[grid]);
+                }
+                int n1a = il.getBase(0) +interpoleeLocation.getGhostBoundaryWidth(0), 
+                        n1b = il.getBound(0)-interpoleeLocation.getGhostBoundaryWidth(0);
+                ni = n1b-n1a+1;  // number of interpolation points on this processor
+                if( ni==0 ) continue;
+                Range R(n1a,n1b);
+                coeff.redim(R,width(axis1,grid),width(axis2,grid),width(axis3,grid));
+                intSerialArray ip; 
+                intSerialArray interpoleeGrid; 
+                intSerialArray viw; 
+                realSerialArray ci; 
+                if( ( grid<cg.numberOfBaseGrids() && 
+                            cg->localInterpolationDataState==CompositeGridData::localInterpolationDataForAMR ) || 
+                            cg->localInterpolationDataState==CompositeGridData::noLocalInterpolationData )
+                {
+          // use the interpolation data in the parallel arrays
+                    getLocalArrayWithGhostBoundaries(cg.interpolationPoint[grid],ip);
+                    getLocalArrayWithGhostBoundaries(cg.interpoleeGrid[grid],interpoleeGrid);
+                    getLocalArrayWithGhostBoundaries(cg.variableInterpolationWidth[grid],viw);
+                    getLocalArrayWithGhostBoundaries(cg.interpolationCoordinates[grid],ci);
+                }
+                else
+                {
+          // use the interpolation data in the serial arrays (for now these are refinement grids)
+          // printf("PETScSolver::USE LOCAL INTERP ARRAYS\n");
+                    ip.reference( cg->interpolationPointLocal[grid]);
+                    il.reference( cg->interpoleeLocationLocal[grid]);
+                    interpoleeGrid.reference( cg->interpoleeGridLocal[grid]);
+                    viw.reference( cg->variableInterpolationWidthLocal[grid]);
+                    ci.reference(cg->interpolationCoordinatesLocal[grid]);
+                }
+        // int debug = 0; // Oges::debug;
+                if( debug & 4 )
+                {
+                    printf("Ogev::fillInterp: myid=%i: grid=%i [n1a,n1b]=[%i,%i] numberOfComponents=%i interp-width=%i\n",myid,grid,n1a,n1b,
+                                  numberOfComponents,width(axis1,grid));
+          // for( int i=n1a; i<=n1b; i++ )
+          // {
+          //        printf(" grid=%i i=%i ip=(%i,%i) il=(%i,%i) viw=%i\n",grid,i,ip(i,0),ip(i,1),il(i,0),il(i,1),viw(i));
+          // }
+                }
+                int ipar[7]={numberOfDimensions,
+                                          grid,
+                                          ni,
+                                          mg.isCellCentered(0),
+                                          (int)Interpolant::precomputeAllCoefficients,
+                                          maxWidth,
+                                          0}; //  This last position is saved for a return value of useVariableWidthInterpolation
+                realSerialArray & cc = coeff;
+        // ************ warning -- watch out for indexing of local arrays -- base and bound : n1a,..,n1b    
+        //   use interpoleeGrid(n1a,0)
+                RealArray pr(R),ps(R),pt(R);
+                initExplicitInterp(cc.getLength(0),cc.getLength(1),cc.getLength(2),il.getLength(0),
+                                                      ipar[0], 
+                                                      *cc.getDataPointer(),
+                                                      ci(n1a,0),pr(n1a),ps(n1a),pt(n1a),gridSpacing(0,0),indexStart(0,0),
+                                                      viw(n1a),il(n1a,0),interpoleeGrid(n1a,0));
+                int useVariableWidthInterpolation=ipar[6]; 
+        // printf("Ogev::useVariableWidthInterpolation=%i\n",useVariableWidthInterpolation);
+        // cc.display("coeff after initExplicitInterp");
+                const Real epsForInterpCoeff=REAL_EPSILON*100.; // neglect interpolation coeff smaller than this
+                assert( width(0,grid)==width(1,grid) );
+                i3=0; i3d=0;
+                int n=0;
+                for( int i=n1a; i<=n1b; i++ )
+                {
+                    i1=ip(i,0);
+                    i2=ip(i,1);
+                    if( numberOfDimensions==3 ) i3=ip(i,2);
+                    const int gridi = interpoleeGrid(i);
+                    const int iw = useVariableWidthInterpolation ? viw(i) : width(0,grid);  // *wdh* 100113 -- added support for VIW
+                    const int iw3 = numberOfDimensions==2 ? 1 : iw;
+                    #ifdef USE_PPP
+                        int p= ug.Array_Descriptor.findProcNum( iv );  // processor number
+                    #else
+                        int p=0; 
+                    #endif
+                    const int ipProcessor = p;  // interp pt is on this processor
+          // if( p!=myid )
+          // {
+          //   printf("fillInterp: WARNING inter pt i=%d is on p=%d, but myid=%d\n",i,p,myid);
+          // }
+                    for( int n=0; n<numberOfComponents; n++ )
+                    {
+            // fill in value -1 for grid,(i1,i2,i3)
+                        const int ig=getGlobalIndex( n, iv, grid, p );  // get the global index
+                        Real v=-1.; 
+                            ierr = MatSetValues(A,1,&ig,1,&ig,&v,INSERT_VALUES);CHKERRQ(ierr);
+            // #If FILL eq FILL
+            //   if( debug & 1 ) 
+            //   {
+            //     fprintf(pDebugFile,"interp: grid=%i p=%i i=%i ip=(%i,%i,%i) n=%i \n",grid,p,i,i1,i2,i3,n);
+            //     if( grid==1 && i1==20 && i2==-1 && i3==-1 )
+            //       printf("\n $$$$ interpolation point (i1,i2,i3)=(%3d,%3d,%3d) grid=%3d, myid=%d, p=%d  $$$$\n\n",i1,i2,i3,grid,myid,p);
+            //   }
+            // #End
+                        for( int m3=0; m3<iw3; m3++ )
+                        {
+                            if( numberOfDimensions==3 ) i3d=il(i,2)+m3;
+                            for( int m2=0; m2<iw; m2++ )
+                            {
+                                i2d=il(i,1)+m2;
+                                for( int m1=0; m1<iw; m1++ )
+                                {
+                                    i1d=il(i,0)+m1;
+                                    #ifdef USE_PPP        
+                                        int p= uu[gridi].Array_Descriptor.findProcNum( ivd );  // processor number
+                                    #else
+                                        int p=0;
+                                    #endif
+                                    int jg=getGlobalIndex( n, ivd, gridi, p );  // get the global index
+                  // fill in value  grid, (i1,i2,i3) coeff(i,m1,m2,m3)
+                                    v=coeff(i,m1,m2,m3);
+                                    if( fabs(v)>epsForInterpCoeff )
+                                    {
+                    // if( debug & 1 ) printf(" (ig,jg)=(%i,%i) [m1=%i,m2=%i,m3=%i](gridi=%i,p=%i)=%4.2f \n",ig,jg,m1,m2,m3,gridi,p,v);
+                                            ierr = MatSetValues(A,1,&ig,1,&jg,&v,INSERT_VALUES);CHKERRQ(ierr);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } // end for grid 
+    }
+
+  // for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+  // {
+  //   MappedGrid & mg = cg[grid];
+  //   const realArray & ug = uu[grid];
+
+  //   int ni=cg.numberOfInterpolationPoints(grid);
+  //   if( ni==0 ) continue;
+                
+  //   intArray & interpoleeLocation = cg.interpoleeLocation[grid];
+  //   intSerialArray il; 
+        
+  //   // *wdh* 091129 -- fix to use local interpolation arrays if they are there.
+  //   if( ( grid<cg.numberOfBaseGrids() && 
+  //         cg->localInterpolationDataState==CompositeGridData::localInterpolationDataForAMR ) || 
+  //         cg->localInterpolationDataState==CompositeGridData::noLocalInterpolationData )
+  //   {
+
+  //     // use the interpolation data in the parallel arrays
+  //     getLocalArrayWithGhostBoundaries(cg.interpoleeLocation[grid],il);
+  //   }
+  //   else
+  //   {
+  //     // use the interpolation data in the serial arrays (for now these are refinement grids)
+  //     il.reference(cg->interpoleeLocationLocal[grid]);
+  //   }
+
+  //   int n1a = il.getBase(0) +interpoleeLocation.getGhostBoundaryWidth(0), 
+  //       n1b = il.getBound(0)-interpoleeLocation.getGhostBoundaryWidth(0);
+
+  //   ni = n1b-n1a+1;  // number of interpolation points on this processor
+        
+  //   if( ni==0 ) continue;
+        
+
+  //   Range R(n1a,n1b);
+
+  //   coeff.redim(R,width(axis1,grid),width(axis2,grid),width(axis3,grid));
+
+  //   intSerialArray ip; 
+  //   intSerialArray interpoleeGrid; 
+  //   intSerialArray viw; 
+  //   realSerialArray ci; 
+
+  //   if( ( grid<cg.numberOfBaseGrids() && 
+  //         cg->localInterpolationDataState==CompositeGridData::localInterpolationDataForAMR ) || 
+  //         cg->localInterpolationDataState==CompositeGridData::noLocalInterpolationData )
+  //   {
+
+  //     // use the interpolation data in the parallel arrays
+  //     getLocalArrayWithGhostBoundaries(cg.interpolationPoint[grid],ip);
+  //     getLocalArrayWithGhostBoundaries(cg.interpoleeGrid[grid],interpoleeGrid);
+  //     getLocalArrayWithGhostBoundaries(cg.variableInterpolationWidth[grid],viw);
+  //     getLocalArrayWithGhostBoundaries(cg.interpolationCoordinates[grid],ci);
+
+  //   }
+  //   else
+  //   {
+  //     // use the interpolation data in the serial arrays (for now these are refinement grids)
+  //     // printf("PETScSolver::USE LOCAL INTERP ARRAYS\n");
+            
+  //     ip.reference( cg->interpolationPointLocal[grid]);
+  //     il.reference( cg->interpoleeLocationLocal[grid]);
+  //     interpoleeGrid.reference( cg->interpoleeGridLocal[grid]);
+  //     viw.reference( cg->variableInterpolationWidthLocal[grid]);
+  //     ci.reference(cg->interpolationCoordinatesLocal[grid]);
+  //   }
+            
+  //   // int debug = 0; // Oges::debug;
+  //   if( debug & 4 )
+  //   {
+  //     printf("Ogev::fillInterp: myid=%i: grid=%i [n1a,n1b]=[%i,%i] numberOfComponents=%i interp-width=%i\n",myid,grid,n1a,n1b,
+  //            numberOfComponents,width(axis1,grid));
+  //     // for( int i=n1a; i<=n1b; i++ )
+  //     // {
+  //     //        printf(" grid=%i i=%i ip=(%i,%i) il=(%i,%i) viw=%i\n",grid,i,ip(i,0),ip(i,1),il(i,0),il(i,1),viw(i));
+  //     // }
+  //   }
+
+  //   int ipar[7]={numberOfDimensions,
+  //                grid,
+  //                ni,
+  //                mg.isCellCentered(0),
+  //                (int)Interpolant::precomputeAllCoefficients,
+  //                maxWidth,
+  //                0}; //  This last position is saved for a return value of useVariableWidthInterpolation
+
+  //   realSerialArray & cc = coeff;
+
+  //   // ************ warning -- watch out for indexing of local arrays -- base and bound : n1a,..,n1b    
+  //   //   use interpoleeGrid(n1a,0)
+  //   RealArray pr(R),ps(R),pt(R);
+  //   initExplicitInterp(cc.getLength(0),cc.getLength(1),cc.getLength(2),il.getLength(0),
+  //                      ipar[0], 
+  //                      *cc.getDataPointer(),
+  //                      ci(n1a,0),pr(n1a),ps(n1a),pt(n1a),gridSpacing(0,0),indexStart(0,0),
+  //                      viw(n1a),il(n1a,0),interpoleeGrid(n1a,0));
+                
+  //   int useVariableWidthInterpolation=ipar[6]; 
+
+  //   // printf("Ogev::useVariableWidthInterpolation=%i\n",useVariableWidthInterpolation);
+
+  //   // cc.display("coeff after initExplicitInterp");
+
+  //   const Real epsForInterpCoeff=REAL_EPSILON*100.; // neglect interpolation coeff smaller than this
+
+  //   assert( width(0,grid)==width(1,grid) );
+
+  //   i3=0; i3d=0;
+  //   int n=0;
+  //   for( int i=n1a; i<=n1b; i++ )
+  //   {
+  //     i1=ip(i,0);
+  //     i2=ip(i,1);
+  //     if( numberOfDimensions==3 ) i3=ip(i,2);
+            
+  //     const int gridi = interpoleeGrid(i);
+  //     const int iw = useVariableWidthInterpolation ? viw(i) : width(0,grid);  // *wdh* 100113 -- added support for VIW
+  //     const int iw3 = numberOfDimensions==2 ? 1 : iw;
+
+  //     #ifdef USE_PPP
+  //       int p= ug.Array_Descriptor.findProcNum( iv );  // processor number
+  //     #else
+  //       int p=0; 
+  //     #endif
+  //     for( int n=0; n<numberOfComponents; n++ )
+  //     {
+
+  //       // fill in value -1 for grid,(i1,i2,i3)
+  //       const int ig=getGlobalIndex( n, iv, grid, p );  // get the global index
+  //       Real v=-1.; 
+  //       ierr = MatSetValues(A,1,&ig,1,&ig,&v,INSERT_VALUES);CHKERRQ(ierr);
+
+  //       // if( debug & 1 ) printf("interp: grid=%i p=%i i=%i ip=(%i,%i,%i) n=%i coeff[m1,m2]:\n",grid,p,i,i1,i2,i3,n);
+
+
+  //       for( int m3=0; m3<iw3; m3++ )
+  //       {
+  //         if( numberOfDimensions==3 ) i3d=il(i,2)+m3;
+  //         for( int m2=0; m2<iw; m2++ )
+  //         {
+  //           i2d=il(i,1)+m2;
+  //           for( int m1=0; m1<iw; m1++ )
+  //           {
+  //             i1d=il(i,0)+m1;
+                
+  //             #ifdef USE_PPP        
+  //               int p= uu[gridi].Array_Descriptor.findProcNum( ivd );  // processor number
+  //             #else
+  //               int p=0;
+  //             #endif
+  //             int jg=getGlobalIndex( n, ivd, gridi, p );  // get the global index
+
+  //             // fill in value  grid, (i1,i2,i3) coeff(i,m1,m2,m3)
+  //             v=coeff(i,m1,m2,m3);
+
+  //             if( fabs(v)>epsForInterpCoeff )
+  //             {
+  //               // if( debug & 1 ) printf(" (ig,jg)=(%i,%i) [m1=%i,m2=%i,m3=%i](gridi=%i,p=%i)=%4.2f \n",ig,jg,m1,m2,m3,gridi,p,v);
+  //               ierr = MatSetValues(A,1,&ig,1,&jg,&v,INSERT_VALUES);CHKERRQ(ierr);
+
+  //             }
+                        
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+
+  // } // end for grid 
+
     Real time=getCPU()-time0;
     time0=getCPU();
-    if( debug & 1 ) printF("*** fillInterpolationCoefficients: cpu time = %8.2e\n",time);
+    if( debug & 1 ) printF("*** fillInterpolationCoefficients: cpu time = %8.2e (np=%d, countMatrixEntries=%d)\n",time,numberOfProcessors,countMatrixEntries);
 
         
     return 0;

@@ -198,6 +198,8 @@ int main(int argc,char **argv)
 
     Overture::start(argc,argv);  // initialize Overture
 
+    const int np = max(1,Communication_Manager::Number_Of_Processors);
+
   // This macro will initialize the PETSc solver if OVERTURE_USE_PETSC is defined.
     INIT_PETSC_SOLVER();
 
@@ -720,7 +722,7 @@ int main(int argc,char **argv)
             else if( commandFileName=="" )
             {
                 commandFileName=arg;    
-                printf("genEigs: reading commands from file [%s]\n",(const char*)commandFileName);
+                printF("genEigs: reading commands from file [%s]\n",(const char*)commandFileName);
             }
         }
     }
@@ -1065,6 +1067,8 @@ int main(int argc,char **argv)
             }
             printF("... done compute residuals\n");
 
+            aString & linearSolverName = ogev.dbase.get<aString>("linearSolverName"); // name of PETSc solver
+            const Real & cpuTotal      = ogev.dbase.get<Real>("cpuTotal");
 
             tableFileName = tableFileName + ".tex";
 
@@ -1072,13 +1076,15 @@ int main(int argc,char **argv)
             FILE *outFile = fopen((const char*)tableFileName,"w" );     // Save some tex output here 
 
             printF("\n======================== GenEigs problem=%s =======================\n",(const char*)problem);
-            printF(" grid=%s\n"
+            printF(" grid=%s, np=%d\n"
                           " orderOfAccuracy=%d, numberOfComponents=%d numGhost=%d shift=%g \n",
-                        (const char*)nameOfGridFile,orderOfAccuracy,numberOfComponents,numGhost,ogev.getShift());
+                        (const char*)nameOfGridFile,np,orderOfAccuracy,numberOfComponents,numGhost,ogev.getShift());
             printF(" useAccurateInnerProduct=%d, discreteEigenvalues=%d\n",useAccurateInnerProduct,discreteEigenvalues);
             printF(" includePressure=%d, useWideStencils=%d, eigCase=%s\n",includePressure,useWideStencils,(const char*)eigCase);
             fPrintF(outFile,"%% grid=%s\n",(const char*)nameOfGridFile);
             fPrintF(outFile,"%% orderOfAccuracy=%d, \n",orderOfAccuracy);
+            printF("      total cpu = %9.2e (s) (includes build matrix)\n",cpuTotal);
+            printF(" cpu/eigenvalue = %9.2e (s)\n",cpuTotal/numEigenValues);      
             for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
             {
                 MappedGrid & mg = cg[grid];
@@ -1111,7 +1117,8 @@ int main(int argc,char **argv)
                                 grid,(const char*)mg.getName());          
                 }        
             }
-            printF(" eigenSolver=[%s]\n",(const char*)eigenSolver);
+            printF(" eigenSolver=[%s], linearSolver=%s\n",(const char*)eigenSolver, (const char*)linearSolverName);
+
             printF("===================================================================\n");
 
       // --- In some cases we know the true eigenvalues ----
@@ -1245,6 +1252,7 @@ int main(int argc,char **argv)
             printF("  resid = || A phi - lambda phi ||_max / |lambda| \n");
             printF("  VECT max-err = max-norm( closest vector in 2 norm to eigenpsace )/( max-norm of phi)  \n");
             printF("  VECT l2-err  =      L2h( closest vector in 2 norm to eigenpsace )/( L2h norm of phi)  \n");
+            printF("  lma = sqrt(k), me=exact multiplicity, m=computed multiplicity\n");
             for( int i=0; i<numEigenVectors; i++ )
             {
         // printF("Eigenvalue %d : k=%18.14e + %18.14e I",i,eig(0,i),eig(1,i));
@@ -1254,7 +1262,11 @@ int main(int argc,char **argv)
                     fPrintF(outFile,"  %4d  &  %9.3f + (%+6.1e) i  ",i,eig(0,i),eig(1,i));
                     if( fabs(eig(1,i))<1e-10*fabs(eig(0,i)) )
                     {
-                        printF(" lam=sqrt(k)=%14.8f",sqrt(eig(0,i)));
+                        printF(" lam=%14.8f",sqrt(eig(0,i)));
+                    }
+                    else
+                    {
+                        printF("                   ");
                     }
 
                 }
@@ -1290,7 +1302,7 @@ int main(int argc,char **argv)
                     if( eigTrue!=0. ){ eigSquareRootErr(i) /= sqrt(eigTrue); }
 
           // printF(", true=%14.8f, err=%8.2e, rel-err=%8.2e",eigTrue,absErr,relErr);
-                    printF(", eig=%4d, true=%14.8f, rel-err=%8.2e",eigIndex,eigTrue,relErr);
+                    printF(" eig=%4d, true=%14.8f, rel-err=%8.2e",eigIndex,eigTrue,relErr);
                     fPrintF(outFile,"&    %8.2e      ",relErr);
 
                     if( eigenVectorsAreKnown )
@@ -1319,7 +1331,10 @@ int main(int argc,char **argv)
                                             OV_GET_SERIAL_ARRAY(Real,evTrue[grid],uuLocal);
                                             OV_GET_SERIAL_ARRAY(Real,u[grid],vvLocal);
                                             OV_GET_SERIAL_ARRAY(Real,w[grid],wLocal);
-                                            wLocal(I1,I2,I3) = uuLocal(I1,I2,I3,ii)*vvLocal(I1,I2,I3,i);
+                                            int includeParallelGhost=0;
+                                            bool ok=ParallelUtility::getLocalArrayBounds(evTrue[grid],uuLocal,I1,I2,I3,includeParallelGhost);
+                                            if( ok )
+                                                wLocal(I1,I2,I3) = uuLocal(I1,I2,I3,ii)*vvLocal(I1,I2,I3,i);
                                         }
                                         b(i1) = integrate.volumeIntegral(w);
                                     }
@@ -1376,6 +1391,8 @@ int main(int argc,char **argv)
                                                     }
                                                     Iv[axis] = Range(iab[0],iab[1]);
                                                 }
+                                            int includeParallelGhost=0;
+                                            bool ok=ParallelUtility::getLocalArrayBounds(evTrue[grid],uuLocal,I1,I2,I3,includeParallelGhost);
                                             FOR_3D(ii1,ii2,ii3,I1,I2,I3)
                                             {
                         // wLocal(ii1,ii2,ii3) = uuLocal(ii1,ii2,ii3,ii)*vvLocal(ii1,ii2,ii3,i); // ** TEMP***
@@ -1397,7 +1414,10 @@ int main(int argc,char **argv)
                                                 OV_GET_SERIAL_ARRAY(Real,evTrue[grid],uuLocal);
                                                 OV_GET_SERIAL_ARRAY(Real,evTrue[grid],vvLocal);
                                                 OV_GET_SERIAL_ARRAY(Real,w[grid],wLocal);
-                                                wLocal(I1,I2,I3) = uuLocal(I1,I2,I3,ii)*vvLocal(I1,I2,I3,jj);
+                                                int includeParallelGhost=0;
+                                                bool ok=ParallelUtility::getLocalArrayBounds(evTrue[grid],uuLocal,I1,I2,I3,includeParallelGhost);
+                                                if( ok )
+                                                    wLocal(I1,I2,I3) = uuLocal(I1,I2,I3,ii)*vvLocal(I1,I2,I3,jj);
                                             }
                                             a(i1,i2) = integrate.volumeIntegral(w);
                                         }
@@ -1454,6 +1474,8 @@ int main(int argc,char **argv)
                                                         }
                                                         Iv[axis] = Range(iab[0],iab[1]);
                                                     }
+                                                int includeParallelGhost=0;
+                                                bool ok=ParallelUtility::getLocalArrayBounds(evTrue[grid],uuLocal,I1,I2,I3,includeParallelGhost);
                                                 FOR_3D(ii1,ii2,ii3,I1,I2,I3)
                                                 {
                           // wLocal(ii1,ii2,ii3) = uuLocal(ii1,ii2,ii3,ii)*vvLocal(ii1,ii2,ii3,jj); // ** TEMP***
@@ -1500,9 +1522,12 @@ int main(int argc,char **argv)
                             for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
                             {
                 // general case 
-                                w[grid] = u[grid](all,all,all,i); 
+                                OV_GET_SERIAL_ARRAY(Real,u[grid],uLocal);
+                                OV_GET_SERIAL_ARRAY(Real,w[grid],wLocal);
+                                OV_GET_SERIAL_ARRAY(Real,evTrue[grid],evTrueLocal);
+                                wLocal = uLocal(all,all,all,i); 
                                 for( int ii=0; ii<mult; ii++ )
-                                    w[grid] -= alpha(ii)*evTrue[grid](all,all,all,ie+ii);
+                                    wLocal -= alpha(ii)*evTrueLocal(all,all,all,ie+ii);
                             }     
                             const Real phiMax = maxNorm( u, i );
                             const Real phiL2 =   l2Norm( u, i );
@@ -1510,7 +1535,7 @@ int main(int argc,char **argv)
                             const Real errL2  =  l2Norm( w )/phiL2;
 
             // printF("i=%3d: max-err=%8.2e, l2-err=%8.2e\n",i,errMax,errL2);
-                        printF(", multe=%d mult=%d VECT: max-err=%8.2e, l2-err=%8.2e, res=%8.2e resbc=%8.2e",
+                        printF(", me=%d mult=%d VECT: max-err=%8.2e, l2-err=%8.2e, res=%8.2e resbc=%8.2e",
                             multiplicityTrue(ie),eigMultiplicity(i),errMax,errL2,resMax(i),resbcMax(i));
                         
                         if( errMax > .05 ) printF(" @EV@");
@@ -1535,7 +1560,7 @@ int main(int argc,char **argv)
                 }
                 else // eigenvalues not known
                 {
-                    printF(", mult=%d, resid=%8.2e resbc=%8.2e\n",eigMultiplicity(i),resMax(i),resbcMax(i));
+                    printF(" m=%d res=%8.2e resbc=%8.2e\n",eigMultiplicity(i),resMax(i),resbcMax(i));
                     fPrintF(outFile," &   %d     &    %8.2e   ",eigMultiplicity(i),resMax(i));
                 }
                 fPrintF(outFile,"\\\\\n");
@@ -1641,7 +1666,10 @@ int main(int argc,char **argv)
                     OV_GET_SERIAL_ARRAY(real,q[grid],qLocal);
                     OV_GET_SERIAL_ARRAY(Real,u[grid],uLocal);
                     getIndex(cg[grid].dimension(),I1,I2,I3);
-                    qLocal(I1,I2,I3)=uLocal(I1,I2,I3,ie);
+                    int includeParallelGhost=1;
+                    bool ok=ParallelUtility::getLocalArrayBounds(q[grid],qLocal,I1,I2,I3,includeParallelGhost);
+                    if( ok )
+                        qLocal(I1,I2,I3)=uLocal(I1,I2,I3,ie);
                 }
 
                 if( ie>0 )
@@ -2205,6 +2233,10 @@ int main(int argc,char **argv)
 
                 OV_GET_SERIAL_ARRAY(Real,res[grid],resLocal);
 
+                #ifdef USE_PPP
+                    OV_ABORT("finish me for parallel");
+                #else
+
                 resLocal(I1,I2,I3,0) = mu*( uvg.xx(I1,I2,I3,0)(I1,I2,I3,0) + uvg.yy(I1,I2,I3,0)(I1,I2,I3,0) ) 
                                                                         - pg.x(I1,I2,I3,0)(I1,I2,I3,0) + lambda*uvg(I1,I2,I3,0);
                 resMax = max(fabs(resLocal(I1,I2,I3,0)));
@@ -2232,7 +2264,8 @@ int main(int argc,char **argv)
                         printF("grid=%d: side=%d axis=%d residual(u2.x+u1.y) =%9.3e (saved in ghost)\n",grid,side,axis,resMax); 
 
                     }
-                }      
+                }   
+                #endif   
 
             }     
             Real resL2u1 = l2Norm(res,0);

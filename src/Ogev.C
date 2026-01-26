@@ -18,6 +18,8 @@
 
 #include <numeric>      // std::iota
 
+#include <dirent.h> # for openDir
+
 // put last to avoid conflicts with "real"
 #include <slepceps.h>
 
@@ -52,6 +54,33 @@ extern "C"
 //===========================================================================
 Ogev::Ogev()
 {
+    int & np = dbase.put<int>("np"); // number of processors 
+    np = max(1,Communication_Manager::numberOfProcessors());
+
+    int & myid = dbase.put<int>("myid"); // my processor number
+    myid = max(0,Communication_Manager::My_Process_Number);
+
+
+    FILE *& debugFile  = dbase.put<FILE*>("debugFile");
+    FILE *& pDebugFile = dbase.put<FILE*>("pDebugFile");
+
+    DIR* debugDir = opendir("debug");
+    if( debugDir==NULL )
+    {
+        printF("CgWave:ERROR: no debug directory was found. 'mkdir debug' to create a directory to hold the debug files.\n");
+        OV_ABORT("error");
+    }
+
+    aString buff;
+    #ifndef USE_PPP
+        debugFile   = fopen("debug/ogev.debug","w" );        // Here is the serial debug file
+        pDebugFile= debugFile;
+    #else
+        debugFile  = fopen(sPrintF(buff,"debug/ogevNP%i.debug",np),"w" );  // Here is the debug file
+        pDebugFile = fopen(sPrintF(buff,"debug/ogevNP%ip%i.debug",np,myid),"w");
+    #endif
+
+
     dbase.put<bool>("globalIndexingIsComputed") = false;
     dbase.put<bool>("processorIsActive")        = true;
 
@@ -81,6 +110,15 @@ Ogev::Ogev()
 
     dbase.put<aString>("eigenSolver") = "KrylovSchur"; // default eigensolver
 
+    dbase.put<aString>("linearSolverName") = "LU"; // name of linear solver in PETSc used by SLEPc
+
+    dbase.put<Real>("cpuTotal") =0.; // total CPU to compute eigs
+
+    dbase.put<int*>("d_nnz")=NULL; //  d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+    dbase.put<int*>("o_nnz")=NULL; //  o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries   
+
+    dbase.put<int>("numberOfEquationsThisProcessor")=0;
+
 }
 
 //===========================================================================
@@ -90,6 +128,10 @@ Ogev::Ogev()
 //===========================================================================
 Ogev::~Ogev()
 {
+    fclose(dbase.get<FILE*>("debugFile"));
+    if( Communication_Manager::numberOfProcessors()>1 )
+        fclose(dbase.get<FILE*>("pDebugFile"));
+            
     delete [] pnab;
     delete [] pnoffset;
 }
@@ -580,48 +622,53 @@ getEigenvaluesBox( int numEigs, RealArray & eigs, CompositeGrid & cg ,
                       
             mg.update(MappedGrid::THEvertex | MappedGrid::THEcenter );
             OV_GET_SERIAL_ARRAY(Real,mg.vertex(),xLocal);
+            OV_GET_SERIAL_ARRAY(Real,eva[grid],evLocal);
             getIndex(mg.dimension(),I1,I2,I3);
-
-            for( int i=0; i<min(eigCount,numEigs); i++ )
+            int includeParallelGhost=1;
+            bool ok=ParallelUtility::getLocalArrayBounds(eva[grid],evLocal,I1,I2,I3,includeParallelGhost);  
+            if( ok )
             {
-                const int i0 = myIndex[i]; // sorted indicies
-
-                for( int axis=0; axis<numberOfDimensions; axis++ )
+                for( int i=0; i<min(eigCount,numEigs); i++ )
                 {
-          // const Real length = axis==0 ? lx : axis==1 ? ly : lz; 
-                    const Real length = lv[axis];
-                    if( bc(0,axis)==dirichlet && bc(1,axis)==dirichlet )
+                    const int i0 = myIndex[i]; // sorted indicies
+
+                    for( int axis=0; axis<numberOfDimensions; axis++ )
                     {
-                        const Real freq = modeNumber(axis,i0)*Pi/length;        
-                        eva[grid](I1,I2,I3,i) *= sin(freq*(xLocal(I1,I2,I3,axis)-xab[0][axis]));
-                    }
-                    else if( bc(0,axis)==neumann && bc(1,axis)==neumann )
-                    {
-                        const Real freq = (modeNumber(axis,i0)-1)*Pi/length;   
-                        eva[grid](I1,I2,I3,i) *= cos(freq*(xLocal(I1,I2,I3,axis)-xab[0][axis]));            
-                    }
-                    else if( bc(0,axis)==dirichlet && bc(1,axis)==neumann )
-                    {
-                        const Real freq = 0.5*(2*modeNumber(axis,i0)-1)*Pi/length;   
-                        eva[grid](I1,I2,I3,i) *= sin(freq*(xLocal(I1,I2,I3,axis)-xab[0][axis]));            
-                    }
-                    else if( bc(0,axis)==neumann && bc(1,axis)==dirichlet )
-                    {
-                        const Real freq = 0.5*(2*modeNumber(axis,i0)-1)*Pi/length;   
-                        eva[grid](I1,I2,I3,i) *= cos(freq*(xLocal(I1,I2,I3,axis)-xab[0][axis]));            
-                    }                    
-                    else if( bc(0,axis)<0 && bc(1,axis)<0 )
-                    {
-            // periodic -- could be sin or cos 
-                        const Real freq = (modeNumber(axis,i0)-1)*2.*Pi/length;  
-                        if( phaseNumber(axis,i0)==0 )
-                            eva[grid](I1,I2,I3,i) *= sin(freq*(xLocal(I1,I2,I3,axis)-xab[0][axis]));    
+            // const Real length = axis==0 ? lx : axis==1 ? ly : lz; 
+                        const Real length = lv[axis];
+                        if( bc(0,axis)==dirichlet && bc(1,axis)==dirichlet )
+                        {
+                            const Real freq = modeNumber(axis,i0)*Pi/length;        
+                            evLocal(I1,I2,I3,i) *= sin(freq*(xLocal(I1,I2,I3,axis)-xab[0][axis]));
+                        }
+                        else if( bc(0,axis)==neumann && bc(1,axis)==neumann )
+                        {
+                            const Real freq = (modeNumber(axis,i0)-1)*Pi/length;   
+                            evLocal(I1,I2,I3,i) *= cos(freq*(xLocal(I1,I2,I3,axis)-xab[0][axis]));            
+                        }
+                        else if( bc(0,axis)==dirichlet && bc(1,axis)==neumann )
+                        {
+                            const Real freq = 0.5*(2*modeNumber(axis,i0)-1)*Pi/length;   
+                            evLocal(I1,I2,I3,i) *= sin(freq*(xLocal(I1,I2,I3,axis)-xab[0][axis]));            
+                        }
+                        else if( bc(0,axis)==neumann && bc(1,axis)==dirichlet )
+                        {
+                            const Real freq = 0.5*(2*modeNumber(axis,i0)-1)*Pi/length;   
+                            evLocal(I1,I2,I3,i) *= cos(freq*(xLocal(I1,I2,I3,axis)-xab[0][axis]));            
+                        }                    
+                        else if( bc(0,axis)<0 && bc(1,axis)<0 )
+                        {
+              // periodic -- could be sin or cos 
+                            const Real freq = (modeNumber(axis,i0)-1)*2.*Pi/length;  
+                            if( phaseNumber(axis,i0)==0 )
+                                evLocal(I1,I2,I3,i) *= sin(freq*(xLocal(I1,I2,I3,axis)-xab[0][axis]));    
+                            else
+                                evLocal(I1,I2,I3,i) *= cos(freq*(xLocal(I1,I2,I3,axis)-xab[0][axis]));         
+                        }          
                         else
-                            eva[grid](I1,I2,I3,i) *= cos(freq*(xLocal(I1,I2,I3,axis)-xab[0][axis]));         
-                    }          
-                    else
-                    {
-                        OV_ABORT("Ogev::getEigenvaluesBox: fill eigenvectors: FINISH ME FOR other BCs");
+                        {
+                            OV_ABORT("Ogev::getEigenvaluesBox: fill eigenvectors: FINISH ME FOR other BCs");
+                        }
                     }
                 }
             }
@@ -820,39 +867,44 @@ getEigenvaluesCylinder( int numEigs, RealArray & eigs, CompositeGrid & cg,
                           
                 mg.update(MappedGrid::THEvertex | MappedGrid::THEcenter );
                 OV_GET_SERIAL_ARRAY(Real,mg.vertex(),xLocal);
+
+                OV_GET_SERIAL_ARRAY(Real,eva[grid],evLocal);
                 getIndex(mg.dimension(),I1,I2,I3);
-
-                for( int i=0; i<numEigs; i++ )
-                {
-                    if( i<eigCount )
+                int includeParallelGhost=1;
+                bool ok=ParallelUtility::getLocalArrayBounds(eva[grid],evLocal,I1,I2,I3,includeParallelGhost);     
+                if( ok )
+                {           
+                    for( int i=0; i<numEigs; i++ )
                     {
-                        const int i0 = myIndex[i]; // sorted indicies
-                        const int n       = modeNumber(0,i0);
-                        const int m       = modeNumber(1,i0);
-                        const int l       = modeNumber(2,i0);
-                        const int eigMult = modeNumber(3,i0); // multiplicity number: 1 or 2
-                        const Real lamz = l*Pi/Lz; 
-                        const Real lambda = sqrt(eigs(i) - lamz*lamz ); 
-
-                        FOR_3D(i1,i2,i3,I1,I2,I3)
+                        if( i<eigCount )
                         {
-                            const Real xd = xLocal(i1,i2,i3,0), yd = xLocal(i1,i2,i3,1);
-                            const Real theta = atan2(yd,xd);
-                            const Real r = sqrt( xd*xd + yd*yd );
-                            const Real zFact = numberOfDimensions==2 ? 1.0 : sin(lamz*(xLocal(i1,i2,i3,2)-za));             
-                            if( eigMult==1 )
-                                eva[grid](i1,i2,i3,i) = jn(n,lambda*r)*cos(n*theta)*zFact; 
-                            else        
-                                eva[grid](i1,i2,i3,i) = jn(n,lambda*r)*sin(n*theta)*zFact; 
+                            const int i0 = myIndex[i]; // sorted indicies
+                            const int n       = modeNumber(0,i0);
+                            const int m       = modeNumber(1,i0);
+                            const int l       = modeNumber(2,i0);
+                            const int eigMult = modeNumber(3,i0); // multiplicity number: 1 or 2
+                            const Real lamz = l*Pi/Lz; 
+                            const Real lambda = sqrt(eigs(i) - lamz*lamz ); 
 
-                        } 
+                            FOR_3D(i1,i2,i3,I1,I2,I3)
+                            {
+                                const Real xd = xLocal(i1,i2,i3,0), yd = xLocal(i1,i2,i3,1);
+                                const Real theta = atan2(yd,xd);
+                                const Real r = sqrt( xd*xd + yd*yd );
+                                const Real zFact = numberOfDimensions==2 ? 1.0 : sin(lamz*(xLocal(i1,i2,i3,2)-za));             
+                                if( eigMult==1 )
+                                    evLocal(i1,i2,i3,i) = jn(n,lambda*r)*cos(n*theta)*zFact; 
+                                else        
+                                    evLocal(i1,i2,i3,i) = jn(n,lambda*r)*sin(n*theta)*zFact; 
+
+                            } 
+                        }
+                        else
+                        {
+                            evLocal=0.; // just fill with zero if we do not have enough true eigenvectors 
+
+                        }
                     }
-                    else
-                    {
-                        eva[grid]=0.; // just fill with zero if we do not have enough true eigenvectors 
-
-                    }
-
                 }
             }
 
@@ -1019,127 +1071,131 @@ getEigenvaluesSphere( int numEigs, RealArray & eigs, CompositeGrid & cg,
                 OV_GET_SERIAL_ARRAY(Real,eva[grid],evLocal);
 
                 getIndex(mg.dimension(),I1,I2,I3);
+                int includeParallelGhost=1;
+                bool ok=ParallelUtility::getLocalArrayBounds(eva[grid],evLocal,I1,I2,I3,includeParallelGhost);     
+                if( ok )
+                {    
+                    for( int i=0; i<numEigs; i++ )
+                    {
+                        const int i0 = myIndex[i]; // sorted indicies
 
-                for( int i=0; i<numEigs; i++ )
-                {
-                    const int i0 = myIndex[i]; // sorted indicies
+                        const int mPhi    = modeNumber(0,i0);  
+                        const int mr      = modeNumber(1,i0);
+                        const int mTheta  = modeNumber(2,i0);    // *** CAN WE MOVE THE loop over mTheta inside the loop below ?
+                        const int mThetaAbs = abs(mTheta); 
 
-                    const int mPhi    = modeNumber(0,i0);  
-                    const int mr      = modeNumber(1,i0);
-                    const int mTheta  = modeNumber(2,i0);    // *** CAN WE MOVE THE loop over mTheta inside the loop below ?
-                    const int mThetaAbs = abs(mTheta); 
+                        const Real lambda = sqrt(eigs(i));  // note: eigs are sorted, use "i" as the index 
 
-                    const Real lambda = sqrt(eigs(i));  // note: eigs are sorted, use "i" as the index 
+                        const int nb = mPhi+1; // nterm+1  ! eval J0, J1, ... J(nb)  --           
 
-                    const int nb = mPhi+1; // nterm+1  ! eval J0, J1, ... J(nb)  --           
-
-                    FOR_3D(i1,i2,i3,I1,I2,I3)
-                    { 
-              
-                        Real xd = xLocal(i1,i2,i3,0), yd = xLocal(i1,i2,i3,1), zd = xLocal(i1,i2,i3,2);
-                        if( abs(xd)<epsx && abs(yd)<epsx )
-                        {
-                            xd=epsx;  //  avoid atan2(0,0)
-                            yd=epsx;
-                        }
-                        const Real theta = atan2(yd,xd);
-                        Real r = sqrt( xd*xd + yd*yd + zd*zd );
-
-            // const Real cosphi = (abs(r)<tol) ? (zd/tol) : (zd/r);
-                        const Real cosphi = fabs(r)<phiTol ? 1.0 : zd/r;
-
-                        Real Pnk; 
-                            if( mPhi == 0 )
+                        FOR_3D(i1,i2,i3,I1,I2,I3)
+                        { 
+                  
+                            Real xd = xLocal(i1,i2,i3,0), yd = xLocal(i1,i2,i3,1), zd = xLocal(i1,i2,i3,2);
+                            if( abs(xd)<epsx && abs(yd)<epsx )
                             {
-                                Pnk = 1.;
-                            }  
-                            else if( mPhi == 1 )
-                            {
-                                if( mThetaAbs==0 )
-                                    Pnk = cosphi;
-                                else
-                                    Pnk = -sqrt(1.-cosphi*cosphi);
+                                xd=epsx;  //  avoid atan2(0,0)
+                                yd=epsx;
                             }
-                            else if( mPhi == 2 )
-                            {
-                                if( mThetaAbs==0 )
-                                    Pnk = .5*( 3.0*cosphi*cosphi - 1.0 );
-                                else if( mThetaAbs==1 )
-                                    Pnk = - 3.0*cosphi*sqrt(1. - cosphi*cosphi);
-                                else
-                                    Pnk = 3.0*( 1.-cosphi*cosphi ); 
-                            }
-                            else if( mPhi == 3 )
-                            {
-                                if( mThetaAbs==0 )
-                                    Pnk = .5*cosphi*( 5.0*cosphi*cosphi - 3.0 );
-                                else if( mThetaAbs==1 )
-                                    Pnk = 1.5*(1. - 5.*cosphi*cosphi)*sqrt(1 - cosphi*cosphi);
-                                else if( mThetaAbs==2 )
-                                    Pnk = 15.0*cosphi*(1.0-cosphi*cosphi);
-                                else
-                                    Pnk = -15.*pow( 1.0 -cosphi*cosphi, 1.5 );
-                            }
-                            else if( mPhi == 4 )
-                            {
-                                if( mThetaAbs==0 )
-                                    Pnk = (1./8.)*( 3. + (cosphi*cosphi)*( -30. + (cosphi*cosphi)*35. ) );
-                                else if( mThetaAbs==1 )
-                                    Pnk = 2.5*cosphi*( 3.- 7.*cosphi*cosphi)*sqrt(1.0 -cosphi*cosphi);
-                                else if( mThetaAbs==2 )
-                                    Pnk = (15./2.)*( 7.*cosphi*cosphi-1. )*(1.-cosphi*cosphi);
-                                else if( mThetaAbs==3 )
-                                    Pnk = -105.*cosphi * pow( 1.0 -cosphi*cosphi, 1.5 );
-                                else
-                                    Pnk = 105.*SQR( 1. - cosphi*cosphi );
-                            }
-                            else
-                            {
-                                printF("associatedLegendreFunctions ERROR: mPhi=%d, mThetaAbs=%d not supported.\n",mPhi,mThetaAbs);
-                                OV_ABORT("ERROR");
-                            }
+                            const Real theta = atan2(yd,xd);
+                            Real r = sqrt( xd*xd + yd*yd + zd*zd );
 
-                        Real kr=lambda*r;  // argument of the Bessel function
+              // const Real cosphi = (abs(r)<tol) ? (zd/tol) : (zd/r);
+                            const Real cosphi = fabs(r)<phiTol ? 1.0 : zd/r;
 
-                        if( fabs(r)<rTol )
-                        {
-              // Use Small r approximations for the spherical Bessel: 
+                            Real Pnk; 
                                 if( mPhi == 0 )
                                 {
-                                    sphericalBessel = 1.0 - (1.0/6.0)*(kr*kr) + (1.0/120.0)*(kr*kr*kr*kr);
-                                }
+                                    Pnk = 1.;
+                                }  
                                 else if( mPhi == 1 )
                                 {
-                                    sphericalBessel = (1.0/3.0)*kr - (1.0/30.0)*(kr*kr*kr) + (1.0/840.0)*(kr*kr*kr*kr*kr);
+                                    if( mThetaAbs==0 )
+                                        Pnk = cosphi;
+                                    else
+                                        Pnk = -sqrt(1.-cosphi*cosphi);
                                 }
                                 else if( mPhi == 2 )
                                 {
-                                    sphericalBessel = (1.0/15.0)*(kr*kr) - (1.0/210.0)*(kr*kr*kr*kr);
+                                    if( mThetaAbs==0 )
+                                        Pnk = .5*( 3.0*cosphi*cosphi - 1.0 );
+                                    else if( mThetaAbs==1 )
+                                        Pnk = - 3.0*cosphi*sqrt(1. - cosphi*cosphi);
+                                    else
+                                        Pnk = 3.0*( 1.-cosphi*cosphi ); 
                                 }
                                 else if( mPhi == 3 )
                                 {
-                                    sphericalBessel = (1.0/105.0)*(kr*kr*kr) - (1.0/1890.0)*(kr*kr*kr*kr*kr);
+                                    if( mThetaAbs==0 )
+                                        Pnk = .5*cosphi*( 5.0*cosphi*cosphi - 3.0 );
+                                    else if( mThetaAbs==1 )
+                                        Pnk = 1.5*(1. - 5.*cosphi*cosphi)*sqrt(1 - cosphi*cosphi);
+                                    else if( mThetaAbs==2 )
+                                        Pnk = 15.0*cosphi*(1.0-cosphi*cosphi);
+                                    else
+                                        Pnk = -15.*pow( 1.0 -cosphi*cosphi, 1.5 );
+                                }
+                                else if( mPhi == 4 )
+                                {
+                                    if( mThetaAbs==0 )
+                                        Pnk = (1./8.)*( 3. + (cosphi*cosphi)*( -30. + (cosphi*cosphi)*35. ) );
+                                    else if( mThetaAbs==1 )
+                                        Pnk = 2.5*cosphi*( 3.- 7.*cosphi*cosphi)*sqrt(1.0 -cosphi*cosphi);
+                                    else if( mThetaAbs==2 )
+                                        Pnk = (15./2.)*( 7.*cosphi*cosphi-1. )*(1.-cosphi*cosphi);
+                                    else if( mThetaAbs==3 )
+                                        Pnk = -105.*cosphi * pow( 1.0 -cosphi*cosphi, 1.5 );
+                                    else
+                                        Pnk = 105.*SQR( 1. - cosphi*cosphi );
                                 }
                                 else
                                 {
-                                    printF("sphericalBesselFunctions ERROR: mPhi > 4 is not defined\n");
+                                    printF("associatedLegendreFunctions ERROR: mPhi=%d, mThetaAbs=%d not supported.\n",mPhi,mThetaAbs);
                                     OV_ABORT("ERROR");
                                 }
-                        }
-                        else
-                        {
-              // Note: To get J_(mPhi+1/2, kr)  we want we have to evaluate previous J_( m, kr ) m=0,1,...,mPhi-1
-                            rjbesl(kr, alpha, nb, jnka[0], ncalc); // this computes jn_0, jn_1, ..., jn_{nb-1}
-                            sphericalBessel = sqrt(Pi/(2.0*r))*jnka[mPhi]; 
-                        }
-                        Real cosSineTheta = mTheta<=0 ? cos(mTheta*theta) : sin(mTheta*theta);
 
-                        evLocal(i1,i2,i3,i) = sphericalBessel*cosSineTheta*Pnk;
+                            Real kr=lambda*r;  // argument of the Bessel function
 
-                    } // end for 3d 
+                            if( fabs(r)<rTol )
+                            {
+                // Use Small r approximations for the spherical Bessel: 
+                                    if( mPhi == 0 )
+                                    {
+                                        sphericalBessel = 1.0 - (1.0/6.0)*(kr*kr) + (1.0/120.0)*(kr*kr*kr*kr);
+                                    }
+                                    else if( mPhi == 1 )
+                                    {
+                                        sphericalBessel = (1.0/3.0)*kr - (1.0/30.0)*(kr*kr*kr) + (1.0/840.0)*(kr*kr*kr*kr*kr);
+                                    }
+                                    else if( mPhi == 2 )
+                                    {
+                                        sphericalBessel = (1.0/15.0)*(kr*kr) - (1.0/210.0)*(kr*kr*kr*kr);
+                                    }
+                                    else if( mPhi == 3 )
+                                    {
+                                        sphericalBessel = (1.0/105.0)*(kr*kr*kr) - (1.0/1890.0)*(kr*kr*kr*kr*kr);
+                                    }
+                                    else
+                                    {
+                                        printF("sphericalBesselFunctions ERROR: mPhi > 4 is not defined\n");
+                                        OV_ABORT("ERROR");
+                                    }
+                            }
+                            else
+                            {
+                // Note: To get J_(mPhi+1/2, kr)  we want we have to evaluate previous J_( m, kr ) m=0,1,...,mPhi-1
+                                rjbesl(kr, alpha, nb, jnka[0], ncalc); // this computes jn_0, jn_1, ..., jn_{nb-1}
+                                sphericalBessel = sqrt(Pi/(2.0*r))*jnka[mPhi]; 
+                            }
+                            Real cosSineTheta = mTheta<=0 ? cos(mTheta*theta) : sin(mTheta*theta);
+
+                            evLocal(i1,i2,i3,i) = sphericalBessel*cosSineTheta*Pnk;
+
+                        } // end for 3d 
 
 
-                } // end for i 
+                    } // end for i 
+                }
             } // end for grid 
 
         } // end save eigs and eigenvectors 

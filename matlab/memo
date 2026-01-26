@@ -1,6 +1,12 @@
 cd /Users/henshaw/Dropbox/research/eigSolvers/matlab
 
 
+showMatrix.m
+
+load matrix.dat or importdata('matrix.dat').
+
+
+
 *******************************************
 ******** Sun Sept 29, 2024
 

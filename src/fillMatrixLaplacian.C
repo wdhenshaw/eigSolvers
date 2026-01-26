@@ -12,6 +12,7 @@
 #include "SparseRep.h" 
 #include "Oges.h"
 #include "ParallelUtility.h"
+#include "ParallelGridUtility.h"
 #include "gridFunctionNorms.h"
 // #include "CgSolverUtil.h"
 
@@ -38,6 +39,110 @@
 // ============================================================================
 // Compute the global matrix index ig from the grid-function index (i1,i2,i3,n)
 // ===========================================================================
+
+
+// ============================================================================
+// Compute the global matrix index ig from the grid-function index (i1,i2,i3,n)
+// -- also return the processor p holding the point
+// ===========================================================================
+
+
+void Ogev::
+equationToIndex( const int eqnNo0, int & n, int & i1, int & i2, int & i3, int & grid, int numberOfComponentGrids )
+{
+    assert( pnab!=NULL ); // remove assert for performance after testing
+
+  // const int numberOfComponentGrids=cg.numberOfComponentGrids();
+
+    int eqnBase=0;
+    const int eqnNumber = eqnNo0-eqnBase;
+
+  // -- find the processor and grid that contains this equation ---
+  // *FIX ME* we could do a binary search on "k" if we reordered the entries in noffset to be 
+  //           k= grid + ng*( p-1) , k=0,1,2,3...
+    int p=-1;
+    grid=-1;
+    bool found=false;
+    for( int proc=0; proc<numberOfProcessors && !found; proc++ )
+    {
+        for( int g=0; g<numberOfComponentGrids; g++ )
+        {
+    
+            if( eqnNumber < noffset(proc,g) )
+            {
+                found=true;
+                break;
+            }
+            p=proc;
+            grid=g;
+        }
+    }
+    assert( p>=0 && grid >=0 );
+
+  // printf("eqnToIndex: eqnNumber=%d: p=%d, grid=%d\n",eqnNumber,p,grid);
+
+  // eqn= n + numberOfComponents*(
+  //    (iv[0]-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+  //     iv[1]-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+  //     iv[2]-nab(0,axis3,p,grid))) + noffset(p,grid) ); 
+
+
+    int eqn=eqnNumber-noffset(p,grid);
+    n = eqn % numberOfComponents;
+    eqn /= numberOfComponents;
+
+    i1=(eqn % ndab(0,p,grid))+nab(0,axis1,p,grid);
+    eqn /= ndab(0,p,grid);
+    
+    i2=(eqn % ndab(1,p,grid))+nab(0,axis2,p,grid);
+    eqn/=ndab(1,p,grid);
+    
+    i3=(eqn % ndab(2,p,grid))+nab(0,axis3,p,grid);
+
+    if( true )
+    {
+    // **** DOUBLE CHECK THE ANSWER FOR NOW *****
+        int diff = (n + numberOfComponents*(
+                                    (i1-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                      i2-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                      i3-nab(0,axis3,p,grid))) + noffset(p,grid) )) -eqnNumber;
+        assert( diff==0 );
+    }
+        
+  // n=0;
+  // i1=i2=i3=grid=0;
+  // printF("PETScSolver::equationToIndex:ERROR: finish me.\n");
+  // // OV_ABORT("error");
+}
+
+// =============================================================================================================
+/// Count a non-zero entry
+// =============================================================================================================
+
+// =============================================================================================================
+// Macro: Set or count a non-zero entry
+// =============================================================================================================
+
+// =============================================================================================================
+// Macro: Fill in the matrix entries OR count the number of non-zeros per point (on processor and off processor)
+// Input:
+//   OPTION : FILL  : fill in the entries
+//            COUNT : count the number of non-zeros per point (on processor and off processor)
+// =============================================================================================================
+
+
+// int PETScSolver::
+// getGlobalIndex( int n, int *iv, int grid, int p ) const
+// // ===============================================================================
+// /// \brief: Return the global index (equation number) given the point, grid and processor
+// /// \note: These equation numbers are base=0.
+// // ===============================================================================
+// {
+//   return  n + numberOfComponents*(
+//          (iv[0]-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+//           iv[1]-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+//           iv[2]-nab(0,axis3,p,grid))) + noffset(p,grid) );
+// }
 
 // =================================================================================
 // Compute the local grid-function index (i1,i2,i3,n) from the global matrix index ig
@@ -73,6 +178,14 @@
 //  Macro: Fill coefficients for ghost points at a VERTEX in 3D 
 // ======================================================================================
 
+
+// =============================================================================================================
+// Macro: Fill in the matrix entries OR count the number of non-zeros per point (on processor and off processor)
+// Input:
+//   OPTION : FILL  : fill in the entries
+//            COUNT : count the number of non-zeros per point (on processor and off processor)
+// =============================================================================================================  
+
 // ==================================================================================
 // Fill in the PETSc matrices A and B 
 //          minus-Laplacian 
@@ -84,6 +197,11 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
                                           Mat & A, Mat & B, int numGhost, bool useNew, 
                                           Real tol, int eigOption, IntegerArray & bc, int saveMatlab, Real lambdaShift )
 {
+
+    const int myid=max(0,Communication_Manager::My_Process_Number);
+
+    FILE *& debugFile  = dbase.get<FILE*>("debugFile");
+    FILE *& pDebugFile = dbase.get<FILE*>("pDebugFile");  
 
     CompositeGrid & cg = *ucg.getCompositeGrid();
 
@@ -126,54 +244,24 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
         OV_ABORT("ERROR");
       }
 
-  // ---- Count the total number of grid points -----
-  // const int numberOfComponents=1; 
-  // int totalNumberOfGridPoints=0; 
-
-  // // gridOffset(grid) = total number of points on previous grids
-  // int *pGridOffset = new int [cg.numberOfComponentGrids()+1];
-  // #define gridOffset(grid) pGridOffset[grid]
-
-  // int *pnd1 = new int [cg.numberOfComponentGrids()];
-  // #define nd1(grid) pnd1[grid]
-  // int *pnd2 = new int [cg.numberOfComponentGrids()];
-  // #define nd2(grid) pnd2[grid]  
-  // int *pnd3 = new int [cg.numberOfComponentGrids()];
-  // #define nd3(grid) pnd3[grid]  
+  // ---- This routine assumes that buildGlobalIndexing has already been called ---
+  // This will define the variables in the global indexing macros
+  // and the class variables:
+  //     numberOfGridPoints
+  //     numberOfGridPointsThisProcessor
+  //    
 
 
-
-  // gridOffset(0)=0; 
-  // for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
-  // {
-  //   MappedGrid & mg = cg[grid];
-  //   const IntegerArray & gid = mg.gridIndexRange();
-  //   const int nd1a = gid(1,0)-gid(0,0)+1 + 2*numGhost;
-  //   const int nd2a = gid(1,1)-gid(0,1)+1 + 2*numGhost;
-  //   const int nd3a = numberOfDimensions == 2 ? 1 : gid(1,2)-gid(0,2)+1 + 2*numGhost;
-  //   const int n1a = gid(0,0)-numGhost;
-  //   const int n2a = gid(0,1)-numGhost;
-  //   const int n1b = gid(1,0)+numGhost;
-  //   const int n2b = gid(1,1)+numGhost;  
-
-  //   const int numPointsThisGrid = nd1a*nd2a*nd3a*numberOfComponents; 
-  //   totalNumberOfGridPoints += numPointsThisGrid; // total number of grid points  
-  //   gridOffset(grid+1) = gridOffset(grid) + numPointsThisGrid; 
-
-  //   nd1(grid) = nd1a;  
-  //   nd2(grid) = nd2a;  
-  //   nd3(grid) = nd3a;  
-
-
-  // }
+  
     printF("#### fillMatrixLaplacian: numberOfComponentGrids=%d, numberOfGridPoints=%d\n",
                   cg.numberOfComponentGrids(),numberOfGridPoints);
 
 
     const int N = numberOfGridPoints;
-    const int n=0; // component number   
-    const int p=0; // processor number 
-    int ige;  
+    const int n=0;    // component number   
+    int p=0; // processor number 
+    int ige, igLocal;  
+    Real cpu1=0.;
 
 
     Index Iv[3], &I1=Iv[0], &I2=Iv[1], &I3=Iv[2];
@@ -182,6 +270,8 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
     int isv[3], &is1=isv[0], &is2=isv[1], &is3=isv[2];
     int iv[3], &i1=iv[0], &i2=iv[1], &i3=iv[2];
     int jv[3], &j1=jv[0], &j2=jv[1], &j3=jv[2];
+    int kv[3], &k1=kv[0], &k2=kv[1], &k3=kv[2];
+    int ibv[3], &ib1=ibv[0], &ib2=ibv[1], &ib3=ibv[2];
 
     int m1,m2,m3;
 
@@ -195,6 +285,29 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
     const int stencilSize = numberOfDimensions==2 ? width*width : width*width*width;  
     Range M0 = stencilSize;              
 
+    bool checkFill = true; // true = check that we have filled in all the equations
+    IntegerArray *fillArray=NULL;
+    if( checkFill )
+    {
+    // fillArray[grid](i1,i2,i3) = global index (when filled in)
+        fillArray = new IntegerArray [cg.numberOfComponentGrids()];
+        for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+        {
+            MappedGrid & mg = cg[grid];
+            OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
+            const IntegerArray & dim = mg.dimension();
+            getIndex(dim,I1,I2,I3);
+
+            bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,I1,I2,I3);
+            if( ok )
+            {
+                fillArray[grid].redim(I1,I2,I3);
+                fillArray[grid]=-1;
+            }
+            
+        }
+    }
+
 
   // ===============================================
   // ================ MATRIX A =====================
@@ -204,26 +317,1914 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
   // --- ESTIMATE SPACE NEEDED ----
     const int numberOfEquations = numberOfGridPoints*numberOfComponents;
 
-  // nzzAlloc[i] = estimated number of non-zeros per row i 
-    int *nzzAlloc = new int [numberOfEquations]; assert( nzzAlloc != NULL );
-    for( int i=0; i<numberOfEquations; i++ )
-    {
-        nzzAlloc[i]=1; // default 
-    }
+    #ifndef USE_PPP
 
-    int ig0, ig; // holds global index numbers
-    if( true )
-    {
+    // ---- START SERIAL ESTIMATE SPACE ------
+
+    // nzzAlloc[i] = estimated number of non-zeros per row i 
+        int *nzzAlloc =  nzzAlloc = new int [numberOfEquations]; assert( nzzAlloc != NULL );
+        for( int i=0; i<numberOfEquations; i++ )
+        {
+            nzzAlloc[i]=1; // default 
+        }
+
+        int ig0, ig; // holds global index numbers
+        if( true )
+        {
+            for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+            {
+                MappedGrid & mg = cg[grid];
+                const IntegerArray & gid = mg.gridIndexRange();
+        // const IntegerArray & dim = mg.dimension();
+        // const IntegerArray & bc = mg.boundaryCondition();
+
+                mg.update(MappedGrid::THEmask );
+                OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
+
+        // ---- Find the index range for the interior equations ----
+          //int extra=-1;
+          //getIndex(gid,I1,I2,I3,extra,extra,0);
+                    Iv[2]=Range(0,0); 
+                    for( int axis=0; axis<numberOfDimensions; axis++ )
+                    {
+            // int n1=Iv[axis].getBase(), n2=Iv[axis].getBound();
+                        int n1=gid(0,axis)+1, n2=gid(1,axis)-1; // default interior points 
+                        if( mg.boundaryCondition(0,axis)<=0 || mg.boundaryCondition(0,axis)==neumann )
+                            n1 = gid(0,axis); // include left boundary in interior,  if bc = periodic, interp or neuman 
+                        if( mg.boundaryCondition(1,axis)==0 || mg.boundaryCondition(1,axis)==neumann )
+                            n2 = gid(1,axis); // include right boundary in interior,  if bc = periodic, interp or neuman 
+                        Iv[axis] = Range(n1,n2);
+                    }
+        // ---- interior points ----
+                FOR_3D(i1,i2,i3,I1,I2,I3) 
+                {
+                    {                                  
+            // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+            // assert( ig0>=0 && ig0<N );
+            // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+            // assert( ig0==ige );
+            // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                        #ifdef USE_PPP
+                            int kv[3]={i1,i2,i3};
+                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                        #else
+                            int p=0; 
+                        #endif                                  
+            // inline Ogev::getGlobalIndex
+                        ig0 = (n) + numberOfComponents*(
+                                      ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                        (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                        (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                    }
+
+                    if( maskLocal(i1,i2,i3)>0 )
+                    {
+            // assert( ig0>=0 && ig0<numberOfEquations );
+                        nzzAlloc[ig0]=stencilSize;
+                    }
+                    else if( maskLocal(i1,i2,i3)<0 ) 
+                    {
+            // assert( ig0>=0 && ig0<numberOfEquations );
+                        nzzAlloc[ig0]=stencilSize+1;          
+                    }
+                }
+        // ---  boundaries and ghost ----
+                ForBoundary(side,axis)
+                {
+                    const int is = 1 - 2*side; 
+                    for( int ghost=0; ghost<=numGhost; ghost++ )
+                    {
+                        int extra = numGhost;
+                        getBoundaryIndex(gid,side,axis,Ig1,Ig2,Ig3,extra);
+                        Igv[axis] = gid(side,axis) - is*ghost;
+                        FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+                        {
+                            {                                  
+                // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                // assert( ig0>=0 && ig0<N );
+                // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                // assert( ig0==ige );
+                // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                                #ifdef USE_PPP
+                                    int kv[3]={i1,i2,i3};
+                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                #else
+                                    int p=0; 
+                                #endif                                  
+                // inline Ogev::getGlobalIndex
+                                ig0 = (n) + numberOfComponents*(
+                                              ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                            }
+                            if( maskLocal(i1,i2,i3)>0 )
+                            {
+                // assert( ig0>=0 && ig0<numberOfEquations );
+                                nzzAlloc[ig0]=stencilSize;              
+                // nzzAlloc[ig0]=stencilSize+1;  // do this for now : could improve for extrapolation
+                            }
+                            else if( maskLocal(i1,i2,i3)<0 ) 
+                            {
+                                nzzAlloc[ig0]=stencilSize+1; // interpolation point 
+                            }   
+                        }
+                    }
+                }
+
+            } // end for grid 
+
+        }
+    // PETSc NOW recommends: 
+    // It is recommended that one use the MatCreate(), MatSetType() and/or MatSetFromOptions(), MatXXXXSetPreallocation() paradigm 
+    // instead of this routine directly. [MatXXXXSetPreallocation() is, for example, MatSeqAIJSetPreallocation]
+
+        const int numberOfNonZerosPerRow = stencilSize; // number of non-zeros per row (IGNORED if nzzAlloc is given)
+
+        ierr = MatCreateSeqAIJ(PETSC_COMM_WORLD,numberOfEquations,numberOfEquations,numberOfNonZerosPerRow,nzzAlloc,&A); CHKERRQ(ierr);
+    #else
+
+    // ----- START PARALLEL ESTIMATE SPACE -----
+
+        int & numberOfEquationsThisProcessor = dbase.get<int>("numberOfEquationsThisProcessor"); 
+        numberOfEquationsThisProcessor = numberOfGridPointsThisProcessor*numberOfComponents;
+    // d_nz = number of ON processor non-zero entries (same value for all rows)
+    // o_nz = number of OFF processor non-zero entries 
+        int d_nz = stencilSize+1;   
+        int o_nz = stencilSize/2;  // what should this be ??
+
+    // # ierr = MatCreate(PETSC_COMM_WORLD,&A);CHKERRQ(ierr);
+    // # ierr = MatSetSizes(A,PETSC_DECIDE,PETSC_DECIDE,N,N);CHKERRQ(ierr);
+
+    // --- do NOT specify exactly how many entries per row ---
+        int *&d_nnz = dbase.get<int*>("d_nnz"); //  d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+        int *&o_nnz = dbase.get<int*>("o_nnz"); //  o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries   
+
+    // int *d_nnz=NULL; // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+    // int *o_nnz=NULL; // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries   
+
+        if( true )
+        {
+      // --- Carefully count the number non-zeros entries for each point ---
+            printF("\n $$$$$$$ First count number of on-processor and off-processor non-zeros in the matrix $$$$$\n");
+
+            d_nnz= new int[max(1,numberOfEquationsThisProcessor)]; // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+            o_nnz= new int[max(1,numberOfEquationsThisProcessor)]; // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries   
+            for( int i=0; i<numberOfEquationsThisProcessor; i++ )
+            {
+                d_nnz[i]=0;
+                o_nnz[i]=0;
+            }
+
+      // count the nonzero entries -- on processor and off processor
+        // --------------- START LOOP OVER GRIDS ------------------
+                IntegerArray indexRangeLocal,dimensionLocal, bcLocal;
+                const int parallelGhostBC=-100; // label for parallel ghost boundaries 
+                for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                {
+                    MappedGrid & mg = cg[grid];
+                    const IntegerArray & gid = mg.gridIndexRange();
+                    const IntegerArray & dim = mg.dimension();
+                    const IntegerArray & bc = mg.boundaryCondition();
+          // ParallelGridUtility::getLocalBoundaryConditions(  mg, bcLocal,parallelGhostBC ); // *********************
+                    realArray & ug = ucg[grid]; // use in findProcNum
+                    ParallelGridUtility::getLocalIndexBoundsAndBoundaryConditions( ucg[grid], 
+                                                                                                                        indexRangeLocal, 
+                                                                                                                        dimensionLocal, 
+                                                                                                                        bcLocal,
+                                                                                                                        parallelGhostBC );
+                    mg.update(MappedGrid::THEmask );
+                    OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
+                    MappedGridOperators & mgop = cgop[grid];    
+          // *** WHERE ARE THESE USED: ???
+                    const int nd1a = gid(1,0)-gid(0,0)+1 + 2*numGhost;
+                    const int nd2a = gid(1,1)-gid(0,1)+1 + 2*numGhost;
+                    const int n1a = gid(0,0)-numGhost;
+                    const int n2a = gid(0,1)-numGhost;
+                    const int n1b = gid(1,0)+numGhost;
+                    const int n2b = gid(1,1)+numGhost;
+                    Real cpu0 = getCPU();
+                    printF("  fillMatrixLaplacian grid=%d (%s) ...\n",grid,(const char*)mg.getName()); fflush(0);
+                    if( debug>0 )
+                        fprintf(pDebugFile,"  fillMatrixLaplacian grid=%d (%s) ...\n",grid,(const char*)mg.getName());
+          // int numberOfComponents=1; 
+          // const int N = nd1a*nd2a*numberOfComponents; // total number of grid points
+          // SHOULD SET MANY VALUES AT ONCE FOR EFFICIENCY
+          // #include "petscmat.h" 
+          // PetscErrorCode MatSetValues(Mat mat,PetscInt m,const PetscInt idxm[],PetscInt n,const PetscInt idxn[],const PetscScalar v[],InsertMode addv)
+          // Not Collective
+          // Input Parameters
+          // mat - the matrix
+          // v - a logically two-dimensional array of values
+          // m, idxm - the number of rows and their global indices
+          // n, idxn - the number of columns and their global indices
+          // addv  - either ADD_VALUES or INSERT_VALUES, where ADD_VALUES adds values to any existing entries, and INSERT_VALUES replaces existing entries with new values
+          // Notes    
+                    int ig0,ig;  
+                    bool isRectangular = mg.isRectangular();
+          // isRectangular = false; // ************************ TEMP *********************
+          // ---- Find the index range for the interior equations ----
+            //int extra=-1;
+            //getIndex(gid,I1,I2,I3,extra,extra,0);
+                        Iv[2]=Range(0,0); 
+                        for( int axis=0; axis<numberOfDimensions; axis++ )
+                        {
+              // int n1=Iv[axis].getBase(), n2=Iv[axis].getBound();
+                            int n1=gid(0,axis)+1, n2=gid(1,axis)-1; // default interior points 
+                            if( mg.boundaryCondition(0,axis)<=0 || mg.boundaryCondition(0,axis)==neumann )
+                                n1 = gid(0,axis); // include left boundary in interior,  if bc = periodic, interp or neuman 
+                            if( mg.boundaryCondition(1,axis)==0 || mg.boundaryCondition(1,axis)==neumann )
+                                n2 = gid(1,axis); // include right boundary in interior,  if bc = periodic, interp or neuman 
+                            Iv[axis] = Range(n1,n2);
+                        }
+                    bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,I1,I2,I3);
+                    if( ok && isRectangular )
+                    {
+            // ------- RECTANGULAR GRID ------
+                        Real dx[3]={1.,1.,1.};
+                        mg.getDeltaX(dx);
+            // These are really  coeff of -Delta
+                            Real dx2i = 1./(dx[0]*dx[0]);
+                            Real dy2i = 1./(dx[1]*dx[1]);
+                            Real diag = 2.*dx2i + 2.*dy2i; 
+                            const int hw = orderOfAccuracy/2; // stencil half with
+                            const int hw3 = numberOfDimensions==3 ? hw : 0;
+                            RealArray lapCoeff;
+                            Range S(-hw,hw); // stencil
+                            if( numberOfDimensions==2 )
+                            {
+                                lapCoeff.redim(S,S);
+                                lapCoeff=0.;
+                                if( orderOfAccuracy==2 )
+                                {
+                  // ----  -Delta : order=2 ----
+                                    lapCoeff(0,0)  =  2./SQR(dx[0]) + 2./SQR(dx[1]);
+                                    lapCoeff(-1,0) = -1./SQR(dx[0]);
+                                    lapCoeff(+1,0) = -1./SQR(dx[0]);
+                                    lapCoeff(0,-1) = -1./SQR(dx[1]);
+                                    lapCoeff(0,+1) = -1./SQR(dx[1]);    
+                                }
+                                else if( orderOfAccuracy==4 )
+                                {
+                  // ----  -Delta : order=4 ----
+                                    lapCoeff(0,0)  =  30./(12.*SQR(dx[0])) + 30./(12.*SQR(dx[1]));
+                                    lapCoeff(-2,0) =   1./(12.*SQR(dx[0]));
+                                    lapCoeff(-1,0) = -16./(12.*SQR(dx[0]));
+                                    lapCoeff(+1,0) = -16./(12.*SQR(dx[0]));
+                                    lapCoeff(+2,0) =   1./(12.*SQR(dx[0]));
+                                    lapCoeff(0,-2) =   1./(12.*SQR(dx[1]));
+                                    lapCoeff(0,-1) = -16./(12.*SQR(dx[1]));
+                                    lapCoeff(0,+1) = -16./(12.*SQR(dx[1]));   
+                                    lapCoeff(0,+2) =   1./(12.*SQR(dx[1]));   
+                                }
+                                else if( orderOfAccuracy==6 )
+                                {
+                  // ----  -Delta : order=6 ----
+                                    lapCoeff(0,0)  =  490./(180.*SQR(dx[0])) + 490./(180.*SQR(dx[1]));
+                                    lapCoeff(-3,0) =   -2./(180.*SQR(dx[0]));
+                                    lapCoeff(-2,0) =   27./(180.*SQR(dx[0]));
+                                    lapCoeff(-1,0) = -270./(180.*SQR(dx[0]));
+                                    lapCoeff(+1,0) = -270./(180.*SQR(dx[0]));
+                                    lapCoeff(+2,0) =   27./(180.*SQR(dx[0]));
+                                    lapCoeff(+3,0) =   -2./(180.*SQR(dx[0]));
+                                    lapCoeff(0,-3) =   -2./(180.*SQR(dx[1]));
+                                    lapCoeff(0,-2) =   27./(180.*SQR(dx[1]));
+                                    lapCoeff(0,-1) = -270./(180.*SQR(dx[1]));
+                                    lapCoeff(0,+1) = -270./(180.*SQR(dx[1]));   
+                                    lapCoeff(0,+2) =   27./(180.*SQR(dx[1]));   
+                                    lapCoeff(0,+3) =   -2./(180.*SQR(dx[1]));   
+                                }  
+                                else if( orderOfAccuracy==8 )
+                                {
+                  // ----  -Delta : order=8 ----
+                                    lapCoeff(0,0)  =  14350./(5040.*SQR(dx[0])) + 14350./(5040.*SQR(dx[1]));
+                                    lapCoeff(-4,0) =     9./(5040.*SQR(dx[0]));
+                                    lapCoeff(-3,0) =  -128./(5040.*SQR(dx[0]));
+                                    lapCoeff(-2,0) =  1008./(5040.*SQR(dx[0]));
+                                    lapCoeff(-1,0) = -8064./(5040.*SQR(dx[0]));
+                                    lapCoeff(+1,0) = -8064./(5040.*SQR(dx[0]));
+                                    lapCoeff(+2,0) =  1008./(5040.*SQR(dx[0]));
+                                    lapCoeff(+3,0) =  -128./(5040.*SQR(dx[0]));
+                                    lapCoeff(+4,0) =     9./(5040.*SQR(dx[0]));
+                                    lapCoeff(0,-4) =     9./(5040.*SQR(dx[1]));
+                                    lapCoeff(0,-3) =  -128./(5040.*SQR(dx[1]));
+                                    lapCoeff(0,-2) =  1008./(5040.*SQR(dx[1]));
+                                    lapCoeff(0,-1) = -8064./(5040.*SQR(dx[1]));
+                                    lapCoeff(0,+1) = -8064./(5040.*SQR(dx[1]));   
+                                    lapCoeff(0,+2) =  1008./(5040.*SQR(dx[1]));   
+                                    lapCoeff(0,+3) =  -128./(5040.*SQR(dx[1]));   
+                                    lapCoeff(0,+4) =     9./(5040.*SQR(dx[1]));   
+                                }    
+                                else
+                                {
+                                    OV_ABORT("finish me - orderOfAccuracy");
+                                }
+                            }
+                            else
+                            {
+                // -------- THREE DIMENSIONS ------------
+                                lapCoeff.redim(S,S,S);
+                                lapCoeff=0.;
+                                if( orderOfAccuracy==2 )
+                                {
+                  // ----  -Delta : order=2 ----
+                                    lapCoeff( 0,0,0)  =  2./SQR(dx[0]) + 2./SQR(dx[1]) + 2./SQR(dx[2]);
+                                    lapCoeff(-1,0,0) = -1./SQR(dx[0]);
+                                    lapCoeff(+1,0,0) = -1./SQR(dx[0]);
+                                    lapCoeff(0,-1,0) = -1./SQR(dx[1]);
+                                    lapCoeff(0,+1,0) = -1./SQR(dx[1]);
+                                    lapCoeff(0,0,-1) = -1./SQR(dx[2]);
+                                    lapCoeff(0,0,+1) = -1./SQR(dx[2]);           
+                                }  
+                                else if( orderOfAccuracy==4 )
+                                {
+                  // ----  -Delta : order=4 ----
+                                    lapCoeff( 0,0,0) =  30./(12.*SQR(dx[0])) + 30./(12.*SQR(dx[1])) + 30./(12.*SQR(dx[2]));
+                                    lapCoeff(-2,0,0) =   1./(12.*SQR(dx[0]));
+                                    lapCoeff(-1,0,0) = -16./(12.*SQR(dx[0]));
+                                    lapCoeff(+1,0,0) = -16./(12.*SQR(dx[0]));
+                                    lapCoeff(+2,0,0) =   1./(12.*SQR(dx[0]));
+                                    lapCoeff(0,-2,0) =   1./(12.*SQR(dx[1]));
+                                    lapCoeff(0,-1,0) = -16./(12.*SQR(dx[1]));
+                                    lapCoeff(0,+1,0) = -16./(12.*SQR(dx[1]));   
+                                    lapCoeff(0,+2,0) =   1./(12.*SQR(dx[1])); 
+                                    lapCoeff(0,0,-2) =   1./(12.*SQR(dx[2]));
+                                    lapCoeff(0,0,-1) = -16./(12.*SQR(dx[2]));
+                                    lapCoeff(0,0,+1) = -16./(12.*SQR(dx[2]));   
+                                    lapCoeff(0,0,+2) =   1./(12.*SQR(dx[2]));         
+                                }    
+                                else if( orderOfAccuracy==6 )
+                                {
+                  // ----  -Delta : order=6 ----
+                                    lapCoeff( 0,0,0)  =  490./(180.*SQR(dx[0])) + 490./(180.*SQR(dx[1]))+ 490./(180.*SQR(dx[2]));
+                                    lapCoeff(-3,0,0) =   -2./(180.*SQR(dx[0]));
+                                    lapCoeff(-2,0,0) =   27./(180.*SQR(dx[0]));
+                                    lapCoeff(-1,0,0) = -270./(180.*SQR(dx[0]));
+                                    lapCoeff(+1,0,0) = -270./(180.*SQR(dx[0]));
+                                    lapCoeff(+2,0,0) =   27./(180.*SQR(dx[0]));
+                                    lapCoeff(+3,0,0) =   -2./(180.*SQR(dx[0]));
+                                    lapCoeff(0,-3,0) =   -2./(180.*SQR(dx[1]));
+                                    lapCoeff(0,-2,0) =   27./(180.*SQR(dx[1]));
+                                    lapCoeff(0,-1,0) = -270./(180.*SQR(dx[1]));
+                                    lapCoeff(0,+1,0) = -270./(180.*SQR(dx[1]));   
+                                    lapCoeff(0,+2,0) =   27./(180.*SQR(dx[1]));   
+                                    lapCoeff(0,+3,0) =   -2./(180.*SQR(dx[1])); 
+                                    lapCoeff(0,0,-3) =   -2./(180.*SQR(dx[2]));
+                                    lapCoeff(0,0,-2) =   27./(180.*SQR(dx[2]));
+                                    lapCoeff(0,0,-1) = -270./(180.*SQR(dx[2]));
+                                    lapCoeff(0,0,+1) = -270./(180.*SQR(dx[2]));   
+                                    lapCoeff(0,0,+2) =   27./(180.*SQR(dx[2]));   
+                                    lapCoeff(0,0,+3) =   -2./(180.*SQR(dx[2])); 
+                                }    
+                                else
+                                {
+                                    OV_ABORT("lapCoeff: rectangular 3d: finish me - orderOfAccuracy");
+                                }       
+                            }
+            // ---- interior points ----
+                        FOR_3D(i1,i2,i3,I1,I2,I3) 
+                        {
+                            {                                  
+                // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                // assert( ig0>=0 && ig0<N );
+                // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                // assert( ig0==ige );
+                // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                                #ifdef USE_PPP
+                                    int kv[3]={i1,i2,i3};
+                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                #else
+                                    int p=0; 
+                                #endif                                  
+                // inline Ogev::getGlobalIndex
+                                ig0 = (n) + numberOfComponents*(
+                                              ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                            }
+              // ige = getGlobalIndex( n, iv, grid, p ); // new way 
+                            if( maskLocal(i1,i2,i3)>0 )
+                            {
+                // printF("fillMatLap: interior: i1=%d, i2=%d, ig0=%d, ige=%d\n",i1,i2,ig0,ige);
+                // --- loop over stencil ---
+                                for( int iw3=-hw3; iw3<=hw3; iw3++ )
+                                {
+                                    for( int iw2=-hw;  iw2<=hw;  iw2++ )
+                                    {
+                                        for( int iw1=-hw; iw1<=hw; iw1++ )
+                                        {
+                                            if( lapCoeff(iw1,iw2,iw3) != 0. )
+                                            {
+                                                  {                                  
+                           // ig = (i1+iw1)-n1a + nd1a*( (i2+iw2)-n2a + nd2a*(n) );
+                           // assert( ig>=0 && ig<N );
+                           // ige = getGlobalIndex( n, i1+iw1,i2+iw2,i3+iw3, grid, p ); // new way 
+                           // assert( ig==ige );
+                           // ig = getGlobalIndex( n, i1+iw1,i2+iw2,i3+iw3, grid, p ); // new way 
+                                                      #ifdef USE_PPP
+                                                          int kv[3]={i1+iw1,i2+iw2,i3+iw3};
+                                                          int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                      #else
+                                                          int p=0; 
+                                                      #endif                                  
+                           // inline Ogev::getGlobalIndex
+                                                      ig = (n) + numberOfComponents*(
+                                                                    ((i1+iw1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                      (i2+iw2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                      (i3+iw3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                  }
+                         // #If COUNT eq FILL
+                         //   Real coeffLap= lapCoeff(iw1,iw2,iw3);
+                         //   if( iw1==0 && iw2==0 && iw3==0 )
+                         //   {
+                         //    coeffLap = coeffLap - lambdaShift;
+                         //   }
+                         //   ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
+                         // #Else
+                         //   countNonZero(ig0,p)
+                         // #End
+                                                  Real coeffLap= lapCoeff(iw1,iw2,iw3);
+                                                  if( iw1==0 && iw2==0 && iw3==0 )
+                                                  {
+                                                    coeffLap = coeffLap - lambdaShift;
+                                                  }
+                                                              igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                              if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                              {
+                                                                  printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                        ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                  OV_ABORT("error");
+                                                              }
+                                                              if( p==myid )
+                                                                  d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                              else
+                                                                  o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                         // Real coeffLap= lapCoeff(iw1,iw2,iw3);
+                         // if( iw1==0 && iw2==0 && iw3==0 )
+                         // {
+                         //   coeffLap = coeffLap - lambdaShift;
+                         // }
+                         // ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
+                         // // ierr = MatSetValue(A,ig0,ig,lapCoeff(iw1,iw2,iw3),INSERT_VALUES);CHKERRQ(ierr);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            else if( maskLocal(i1,i2,i3)==0 )
+                            {
+                // unused point : set A = I 
+                                            igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                            if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                            {
+                                                printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                      ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                OV_ABORT("error");
+                                            }
+                                            if( p==myid )
+                                                d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                            else
+                                                o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                // #If COUNT eq FILL
+                //   ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+                // #Else
+                //   countNonZero(ig0,p)
+                // #End
+                            }
+                        }
+                    }
+                    else if( ok )
+                    {
+            // ------- CURVILINEAR GRID ------
+            // ---- Fill interior points ----
+                        RealArray lapCoeff(M0,I1,I2,I3);
+                        mgop.assignCoefficients(MappedGridOperators::laplacianOperator,lapCoeff,I1,I2,I3,0,0); // 
+                        FOR_3D(i1,i2,i3,I1,I2,I3) 
+                        {
+                            {                                  
+                // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                // assert( ig0>=0 && ig0<N );
+                // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                // assert( ig0==ige );
+                // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                                #ifdef USE_PPP
+                                    int kv[3]={i1,i2,i3};
+                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                #else
+                                    int p=0; 
+                                #endif                                  
+                // inline Ogev::getGlobalIndex
+                                ig0 = (n) + numberOfComponents*(
+                                              ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                            }
+                            if( maskLocal(i1,i2,i3)>0 )
+                            {        
+                // printF("Interior: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+                // printF("fillMatLap: interior: i1=%d, i2=%d, ig0=%d, ige=%d\n",i1,i2,ig0,ige);
+                // --- loop over stencil ---
+                                ForStencil(m1,m2,m3)         
+                                {
+                                    const int m = M123(m1,m2,m3); 
+                                    Real coeffLap = -lapCoeff(m,i1,i2,i3);  // Note minus 
+                                    if( coeffLap != 0. )
+                                    {
+                                        if( m1==0 && m2==0 && m3==0 )
+                                        {
+                                              coeffLap = coeffLap - lambdaShift; // diagonal shift
+                                        }              
+                                        {                                  
+                      // ig = (i1+m1)-n1a + nd1a*( (i2+m2)-n2a + nd2a*(n) );
+                      // assert( ig>=0 && ig<N );
+                      // ige = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
+                      // assert( ig==ige );
+                      // ig = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
+                                            #ifdef USE_PPP
+                                                int kv[3]={i1+m1,i2+m2,i3+m3};
+                                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                            #else
+                                                int p=0; 
+                                            #endif                                  
+                      // inline Ogev::getGlobalIndex
+                                            ig = (n) + numberOfComponents*(
+                                                          ((i1+m1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                            (i2+m2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                            (i3+m3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                        }
+                                                    igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                    if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                    {
+                                                        printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                              ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                        OV_ABORT("error");
+                                                    }
+                                                    if( p==myid )
+                                                        d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                    else
+                                                        o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                    // #If COUNT eq FILL
+                    //   ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
+                    // #Else
+                    //   countNonZero(ig0,p)
+                    // #End              
+                                    }
+                                }
+                            }
+                            else if( maskLocal(i1,i2,i3)==0 )
+                            {
+                // unused point : set A = I 
+                                            igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                            if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                            {
+                                                printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                      ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                OV_ABORT("error");
+                                            }
+                                            if( p==myid )
+                                                d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                            else
+                                                o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                // #If COUNT eq FILL
+                //   ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+                // #Else
+                //   countNonZero(ig0,p)
+                // #End            
+                            }        
+                        }
+                    } // end curvilinear grid
+                    cpu1 = getCPU()-cpu0;
+                    printF("  ... done interior grid=%d (%s) (cpu=%9.2e)...\n",grid,(const char*)mg.getName(),cpu1); fflush(0); 
+                    if( debug>0 )
+                        fprintf(pDebugFile,"  ... done interior grid=%d (%s) (cpu=%9.2e)...\n",grid,(const char*)mg.getName(),cpu1); fflush(0);
+          // --- fill in boundary points (constraints) ----
+                    ForBoundary(side,axis)
+                    {
+                        if( bcLocal(side,axis) > 0 )
+                        {
+                            getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+                            bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ib1,Ib2,Ib3);
+                            if(ok )
+                            {
+                                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+                                {
+                                    if( maskLocal(i1,i2,i3)>0 )
+                                    {  
+                                        {                                  
+                      // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                      // assert( ig0>=0 && ig0<N );
+                      // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                      // assert( ig0==ige );
+                      // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                                            #ifdef USE_PPP
+                                                int kv[3]={i1,i2,i3};
+                                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                            #else
+                                                int p=0; 
+                                            #endif                                  
+                      // inline Ogev::getGlobalIndex
+                                            ig0 = (n) + numberOfComponents*(
+                                                          ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                            (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                            (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                        }
+                    // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+                                        if( bcLocal(side,axis)==dirichlet )
+                                        {
+                                                        igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                        if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                        {
+                                                            printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                  ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                            OV_ABORT("error");
+                                                        }
+                                                        if( p==myid )
+                                                            d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                        else
+                                                            o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                      // #If COUNT eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr); 
+                      // #Else 
+                      //   countNonZero(ig0,p)
+                      // #End                  
+                                        }
+                                        else if( bcLocal(side,axis)==neumann )
+                                        {
+                      // Nothing to do here 
+                                        }
+                                        else
+                                        {
+                                            printF("fillMatrixLaplacian: grid=%d, side=%d, axis=%d, bc=%d is unknown!\n",grid,side,axis,bcLocal(side,axis));
+                                            ::display(bc,"bc");
+                                            OV_ABORT("fillMatrixLaplacian: unknown bc");
+                                        }
+                                    }
+                                    else if( maskLocal(i1,i2,i3)==0 )
+                                    {
+                    // unused point -- set to identity equation
+                                        {                                  
+                      // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                      // assert( ig0>=0 && ig0<N );
+                      // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                      // assert( ig0==ige );
+                      // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                                            #ifdef USE_PPP
+                                                int kv[3]={i1,i2,i3};
+                                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                            #else
+                                                int p=0; 
+                                            #endif                                  
+                      // inline Ogev::getGlobalIndex
+                                            ig0 = (n) + numberOfComponents*(
+                                                          ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                            (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                            (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                        }
+                                                    igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                    if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                    {
+                                                        printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                              ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                        OV_ABORT("error");
+                                                    }
+                                                    if( p==myid )
+                                                        d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                    else
+                                                        o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                    // #If COUNT eq FILL
+                    //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                    // #Else 
+                    //   countNonZero(ig0,p)
+                    // #End                
+                                    }
+                                } 
+                            }
+                        }
+                    } 
+          // --- periodic boundaries ----
+                    if( debug>0 )
+                        fprintf(pDebugFile,"  -- START periodic boundaries grid=%d (%s) ---\n",grid,(const char*)mg.getName());
+                    ForBoundary(side,axis)
+                    {
+                        if( bc(side,axis) < 0 && bcLocal(side,axis)!=parallelGhostBC )
+                        {
+              // periodic boundary 
+                            if( debug>0 )
+                                fprintf(pDebugFile,"fill periodic BC, grid=%d, (side,axis)=(%d,%d)\n",grid,side,axis);
+                            const int is = 1 - 2*side;
+                            const int ndp = gid(1,axis) - gid(0,axis);   // for periodic image -- use global gid
+                            const int startGhost = side==0 ? 1 : 0;       
+                            for( int ghost=startGhost; ghost<=numGhost; ghost++ )
+                            {
+                                getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3,ghost);
+                                for( int dir=0; dir<3; dir++ )
+                                { 
+                  // Include ghost in tangential directions for non periodic adjacent sides
+                                    if( true )
+                                    { // *new* way Nov 9, 2025 -- fix for parallel
+                                        if( dir!=axis )
+                                        {
+                                            int numGhost0 = bcLocal(0,dir)>=0 ? numGhost : 0;
+                                            int numGhost1 = bcLocal(1,dir)>=0 ? numGhost : 0;
+                                            Igv[dir] = Range( gid(0,dir)-numGhost0, gid(1,dir)+numGhost1 ); 
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if( dir!=axis && bcLocal(0,dir)>=0 )
+                                            Igv[dir] = Range( gid(0,dir)-numGhost, gid(1,dir)+numGhost ); 
+                                    }
+                                }
+                                bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ig1,Ig2,Ig3);
+                                if( ok )
+                                {
+                                    FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+                                    {
+                    // NOTE: some periodic points may have mask<0 but not be interp points *check me* 
+                    //          |  |  |  |  |  
+                    //   :   P--X--+--+--+--X--P  <- lower boundary is interpolation 
+                    //          |  |  |  |  |  
+                    //   :   P--I--I--I--I--B--P  <- ghost points below lower boundary 
+                    //  
+                    // Point B on right side has mask<0 but is not an interpolation point (I) *check me*
+                    // It should be a periodic point 
+                    //            
+                    // if( maskLocal(i1,i2,i3)>0 )
+                                        if( maskLocal(i1,i2,i3) !=0  )    // NOTE
+                                        {          
+                                            {                                  
+                        // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                        // assert( ig0>=0 && ig0<N );
+                        // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                        // assert( ig0==ige );
+                        // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                                                #ifdef USE_PPP
+                                                    int kv[3]={i1,i2,i3};
+                                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                #else
+                                                    int p=0; 
+                                                #endif                                  
+                        // inline Ogev::getGlobalIndex
+                                                ig0 = (n) + numberOfComponents*(
+                                                              ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                            }
+                      // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+                                                        igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                        if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                        {
+                                                            printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                  ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                            OV_ABORT("error");
+                                                        }
+                                                        if( p==myid )
+                                                            d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                        else
+                                                            o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                      // #If COUNT eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                      // #Else 
+                      //   countNonZero(ig0,p)
+                      // #End 
+                                            j1=i1; j2=i2; j3=i3;
+                                            jv[axis] += is*( ndp ); // periodic image 
+                                            {                                  
+                        // ig = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                        // assert( ig>=0 && ig<N );
+                        // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                        // assert( ig==ige );
+                        // ig = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                                #ifdef USE_PPP
+                                                    int kv[3]={j1,j2,j3};
+                                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                #else
+                                                    int p=0; 
+                                                #endif                                  
+                        // inline Ogev::getGlobalIndex
+                                                ig = (n) + numberOfComponents*(
+                                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                            }
+                                                        igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                        if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                        {
+                                                            printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                  ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                            OV_ABORT("error");
+                                                        }
+                                                        if( p==myid )
+                                                            d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                        else
+                                                            o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                      // #If COUNT eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);   
+                      // #Else 
+                      //   countNonZero(ig0,p)
+                      // #End   
+                                        }
+                                        else if( maskLocal(i1,i2,i3)==0 )
+                                        {
+                      // unused point -- set to identity equation
+                                            {                                  
+                        // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                        // assert( ig0>=0 && ig0<N );
+                        // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                        // assert( ig0==ige );
+                        // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                                                #ifdef USE_PPP
+                                                    int kv[3]={i1,i2,i3};
+                                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                #else
+                                                    int p=0; 
+                                                #endif                                  
+                        // inline Ogev::getGlobalIndex
+                                                ig0 = (n) + numberOfComponents*(
+                                                              ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                            }
+                                                        igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                        if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                        {
+                                                            printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                  ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                            OV_ABORT("error");
+                                                        }
+                                                        if( p==myid )
+                                                            d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                        else
+                                                            o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                      // #If COUNT eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr); 
+                      // #Else 
+                      //   countNonZero(ig0,p)
+                      // #End                    
+                                        }
+                                    }
+                                } 
+                            }        
+                        }         
+                    }
+          // --- fill in ghost points (constraints) ----
+                    if( debug>0 )
+                        fprintf(pDebugFile,"  -- START Neumann boundaries grid=%d (%s) ---\n",grid,(const char*)mg.getName()); 
+                    ForBoundary(side,axis)
+                    {
+                        is1=is2=is3=0;  isv[axis]=1-2*side;   // +1 on left and -1 on right     
+                        if( !isRectangular && mg.boundaryCondition(side,axis)==neumann )
+                        {
+              // --- Neumann BC -- curvilinear grid ---
+                            mg.update(MappedGrid::THEvertexBoundaryNormal);
+                            OV_GET_VERTEX_BOUNDARY_NORMAL(mg,side,axis,normal); 
+                            getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+                            bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ib1,Ib2,Ib3);
+                            if( !ok ) continue;
+              // Get coefficient matrices on boundary needed for the normal derivative
+                            realSerialArray xCoeff(M0,Ib1,Ib2,Ib3), yCoeff(M0,Ib1,Ib2,Ib3), zCoeff; 
+                            mgop.assignCoefficients(MappedGridOperators::xDerivative ,xCoeff, Ib1,Ib2,Ib3,0,0);
+                            mgop.assignCoefficients(MappedGridOperators::yDerivative ,yCoeff, Ib1,Ib2,Ib3,0,0);
+                            if( numberOfDimensions==3 )
+                            {
+                                zCoeff.redim(M0,Ib1,Ib2,Ib3);
+                                mgop.assignCoefficients(MappedGridOperators::zDerivative ,zCoeff, Ib1,Ib2,Ib3,0,0);
+                            }  
+                            FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) // loop over points on the boundary
+                            {
+                                int ghost=1; 
+                                int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // first ghost point          
+                                {                                  
+                  // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                  // assert( ig0>=0 && ig0<N );
+                  // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                  // assert( ig0==ige );
+                  // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                    #ifdef USE_PPP
+                                        int kv[3]={j1,j2,j3};
+                                        int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                    #else
+                                        int p=0; 
+                                    #endif                                  
+                  // inline Ogev::getGlobalIndex
+                                    ig0 = (n) + numberOfComponents*(
+                                                  ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                    (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                    (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                }
+                                if( maskLocal(i1,i2,i3)>0 )
+                                {               
+                                    ForStencil(m1,m2,m3)
+                                    {
+                                        const int m  = M123(m1,m2,m3);        // the single-component coeff-index
+                                        Real coeff123 = normal(i1,i2,i3,0)*xCoeff(m,i1,i2,i3) + normal(i1,i2,i3,1)*yCoeff(m,i1,i2,i3);
+                                        if( numberOfDimensions==3 )
+                                            coeff123 += normal(i1,i2,i3,2)*zCoeff(m,i1,i2,i3);
+                                        if( coeff123 != 0. )
+                                        {
+                                            {                                  
+                        // ig = (i1+m1)-n1a + nd1a*( (i2+m2)-n2a + nd2a*(n) );
+                        // assert( ig>=0 && ig<N );
+                        // ige = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
+                        // assert( ig==ige );
+                        // ig = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
+                                                #ifdef USE_PPP
+                                                    int kv[3]={i1+m1,i2+m2,i3+m3};
+                                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                #else
+                                                    int p=0; 
+                                                #endif                                  
+                        // inline Ogev::getGlobalIndex
+                                                ig = (n) + numberOfComponents*(
+                                                              ((i1+m1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                (i2+m2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                (i3+m3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                            }
+                                                        igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                        if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                        {
+                                                            printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                  ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                            OV_ABORT("error");
+                                                        }
+                                                        if( p==myid )
+                                                            d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                        else
+                                                            o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                      // #If COUNT eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig,coeff123,INSERT_VALUES);CHKERRQ(ierr);
+                      // #Else 
+                      //   countNonZero(ig0,p)
+                      // #End                    
+                                        }            
+                                    } // end for stencil 
+                  // Fill additional ghost with extrapolation
+                                    for( int ghost=2; ghost<=numGhost; ghost++ )
+                                    {
+                                        int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+                                        {                                  
+                      // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                      // assert( ig0>=0 && ig0<N );
+                      // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                      // assert( ig0==ige );
+                      // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                            #ifdef USE_PPP
+                                                int kv[3]={j1,j2,j3};
+                                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                            #else
+                                                int p=0; 
+                                            #endif                                  
+                      // inline Ogev::getGlobalIndex
+                                            ig0 = (n) + numberOfComponents*(
+                                                          ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                            (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                            (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                        }
+                    // extrapolate      
+                                        for( int k=0; k<=extrapOrder; k++ )
+                                        {
+                                            {                                  
+                        // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                        // assert( ig>=0 && ig<N );
+                        // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                        // assert( ig==ige );
+                        // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                                                #ifdef USE_PPP
+                                                    int kv[3]={j1+is1*k,j2+is2*k,j3+is3*k};
+                                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                #else
+                                                    int p=0; 
+                                                #endif                                  
+                        // inline Ogev::getGlobalIndex
+                                                ig = (n) + numberOfComponents*(
+                                                              ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                            }
+                                                        igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                        if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                        {
+                                                            printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                  ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                            OV_ABORT("error");
+                                                        }
+                                                        if( p==myid )
+                                                            d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                        else
+                                                            o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                      // #If COUNT eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr); 
+                      // #Else 
+                      //   countNonZero(ig0,p)
+                      // #End                        
+                                        }
+                                    }  
+                                }
+                                else
+                                {
+                  // unused point : set A = I 
+                                                igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                {
+                                                    printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                          ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                    OV_ABORT("error");
+                                                }
+                                                if( p==myid )
+                                                    d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                else
+                                                    o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                  // #If COUNT eq FILL
+                  //   ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);  
+                  // #Else 
+                  //   countNonZero(ig0,p)
+                  // #End                                        
+                                }
+                            } // end FOR_3D
+                        }  // end if curvilinear and rectangular 
+                        if( true )
+                        {
+              // if( mg.boundaryCondition(side,axis) >= 0 )  
+                            if( bcLocal(side,axis) >= 0 )  
+                            {    
+                                getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+                                bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ib1,Ib2,Ib3);
+                // if( !ok ) continue;
+                                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+                                {
+                                    for( int ghost=1; ghost<=numGhost; ghost++ )
+                                    {
+                                        int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+                                        {                                  
+                      // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                      // assert( ig0>=0 && ig0<N );
+                      // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                      // assert( ig0==ige );
+                      // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                            #ifdef USE_PPP
+                                                int kv[3]={j1,j2,j3};
+                                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                            #else
+                                                int p=0; 
+                                            #endif                                  
+                      // inline Ogev::getGlobalIndex
+                                            ig0 = (n) + numberOfComponents*(
+                                                          ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                            (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                            (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                        }
+                    // printF("Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
+                                        if( maskLocal(j1,j2,j3)>0 )  
+                                        {
+                                            if( bcLocal(side,axis)==neumann )   
+                                            {
+                        // Note : curvilinear case is done above 
+                                                if( isRectangular )
+                                                {
+                          // --- even symmetry for Cartesian ----
+                          //   u(-g) -   u(g) = 0 
+                                                                igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                                if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                                {
+                                                                    printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                          ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                    OV_ABORT("error");
+                                                                }
+                                                                if( p==myid )
+                                                                    d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                                else
+                                                                    o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                          // #If COUNT eq FILL
+                          //   ierr = MatSetValue(A,ig0,ig0,1.,INSERT_VALUES);CHKERRQ(ierr);
+                          // #Else 
+                          //   countNonZero(ig0,p)
+                          // #End 
+                                                    j1 = i1 + is1*ghost; j2 = i2 + is2*ghost;  j3 = i3 + is3*ghost;  // point inside 
+                                                    {                                  
+                            // ig = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                            // assert( ig>=0 && ig<N );
+                            // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                            // assert( ig==ige );
+                            // ig = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                                        #ifdef USE_PPP
+                                                            int kv[3]={j1,j2,j3};
+                                                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                        #else
+                                                            int p=0; 
+                                                        #endif                                  
+                            // inline Ogev::getGlobalIndex
+                                                        ig = (n) + numberOfComponents*(
+                                                                      ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                        (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                        (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                    }
+                                                                igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                                if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                                {
+                                                                    printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                          ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                    OV_ABORT("error");
+                                                                }
+                                                                if( p==myid )
+                                                                    d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                                else
+                                                                    o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                          // #If COUNT eq FILL
+                          //   ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);    
+                          // #Else 
+                          //   countNonZero(ig0,p)
+                          // #End                                   
+                                                }
+                                            }   
+                                            else
+                                            { // extrapolate      
+                                                for( int k=0; k<=extrapOrder; k++ )
+                                                {
+                          // getGlobalIndexAndProcMacro( j1+is1*k,j2+is2*k,j3,n, ig); 
+                                                    {                                  
+                            // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                            // assert( ig>=0 && ig<N );
+                            // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                            // assert( ig==ige );
+                            // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                                                        #ifdef USE_PPP
+                                                            int kv[3]={j1+is1*k,j2+is2*k,j3+is3*k};
+                                                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                        #else
+                                                            int p=0; 
+                                                        #endif                                  
+                            // inline Ogev::getGlobalIndex
+                                                        ig = (n) + numberOfComponents*(
+                                                                      ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                        (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                        (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                    }
+                                                                igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                                if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                                {
+                                                                    printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                          ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                    OV_ABORT("error");
+                                                                }
+                                                                if( p==myid )
+                                                                    d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                                else
+                                                                    o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                          // #If COUNT eq FILL 
+                          //   ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr); 
+                          // #Else 
+                          //   countNonZero(ig0,p)
+                          // #End                       
+                                                }
+                                            }
+                                        }
+                                        else if( maskLocal(j1,j2,j3)==0 )
+                                        {
+                      // unused point -- set to identity equation
+                                                        igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                        if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                        {
+                                                            printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                  ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                            OV_ABORT("error");
+                                                        }
+                                                        if( p==myid )
+                                                            d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                        else
+                                                            o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                      // #If COUNT eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                      // #Else 
+                      //   countNonZero(ig0,p)
+                      // #End                  
+                                        }            
+                                    }
+                                }
+                            } 
+                        } // end old way          
+                    }
+          // ------ fill corners ----
+          // assert( numberOfDimensions==2 ); // finish me for 3D 
+                    if( numberOfDimensions==2 )
+                    {
+            // ----------- FILL CORNERS 2D -----
+                        for( int side2=0; side2<=1; side2++ ) 
+                        {
+                            for( int side1=0; side1<=1; side1++ ) 
+                            {
+                                if( bcLocal(side1,0)==parallelGhostBC || bcLocal(side2,1)==parallelGhostBC ) continue;
+                                is1=1-2*side1; is2=1-2*side2; is3=0;
+                                i1 = gid(side1,0); i2=gid(side2,1); i3=0; // corner point 
+                                for( int ghost2=1; ghost2<=numGhost; ghost2++ )
+                                {
+                                    for( int ghost1=1; ghost1<=numGhost; ghost1++ )
+                                    {
+                                        int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3;  // ghost point
+                                        {                                  
+                      // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                      // assert( ig0>=0 && ig0<N );
+                      // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                      // assert( ig0==ige );
+                      // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                            #ifdef USE_PPP
+                                                int kv[3]={j1,j2,j3};
+                                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                            #else
+                                                int p=0; 
+                                            #endif                                  
+                      // inline Ogev::getGlobalIndex
+                                            ig0 = (n) + numberOfComponents*(
+                                                          ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                            (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                            (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                        }
+                                        if( maskLocal(j1,j2,j3)>0 )  
+                                        {
+                      // printF("Corner Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
+                                            if( bcLocal(side1,0)>=0 && bcLocal(side2,1)>=0  )
+                                            { // corner with no periodic faces 
+                                                for( int k=0; k<=extrapOrder; k++ )
+                                                {
+                                                    {                                  
+                            // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                            // assert( ig>=0 && ig<N );
+                            // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3, grid, p ); // new way 
+                            // assert( ig==ige );
+                            // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3, grid, p ); // new way 
+                                                        #ifdef USE_PPP
+                                                            int kv[3]={j1+is1*k,j2+is2*k,j3};
+                                                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                        #else
+                                                            int p=0; 
+                                                        #endif                                  
+                            // inline Ogev::getGlobalIndex
+                                                        ig = (n) + numberOfComponents*(
+                                                                      ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                        (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                        (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                    }
+                                                                igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                                if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                                {
+                                                                    printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                          ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                    OV_ABORT("error");
+                                                                }
+                                                                if( p==myid )
+                                                                    d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                                else
+                                                                    o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                          // #If COUNT eq FILL
+                          //   ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr); 
+                          // #Else 
+                          //   countNonZero(ig0,p)
+                          // #End                          
+                                                }
+                                            }
+                                            else if( bcLocal(side1,0)<0 && bcLocal(side2,1)<0  ) 
+                                            {
+                        // corner between two adjacent periodic sides *check me*
+                                                int j1p = j1 + (1-2*side1)*( gid(1,0)-gid(0,0) ); // periodic image 
+                                                int j2p = j2 + (1-2*side2)*( gid(1,1)-gid(0,1) ); // periodic image 
+                                                int j3p = j3; 
+                                                {                                  
+                          // ig = (j1p)-n1a + nd1a*( (j2p)-n2a + nd2a*(n) );
+                          // assert( ig>=0 && ig<N );
+                          // ige = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                          // assert( ig==ige );
+                          // ig = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                                                    #ifdef USE_PPP
+                                                        int kv[3]={j1p,j2p,j3p};
+                                                        int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                    #else
+                                                        int p=0; 
+                                                    #endif                                  
+                          // inline Ogev::getGlobalIndex
+                                                    ig = (n) + numberOfComponents*(
+                                                                  ((j1p)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                    (j2p)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                    (j3p)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                }
+                                                            igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                            if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                            {
+                                                                printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                      ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                OV_ABORT("error");
+                                                            }
+                                                            if( p==myid )
+                                                                d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                            else
+                                                                o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                        // #If COUNT eq FILL
+                        //   ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);
+                        // #Else 
+                        //   countNonZero(ig0,p)
+                        // #End                                        
+                                            }
+                                        }
+                                        else if( maskLocal(j1,j2,j3)==0 )
+                                        {
+                      // unused point -- set to identity equation
+                                                        igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                        if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                        {
+                                                            printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                  ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                            OV_ABORT("error");
+                                                        }
+                                                        if( p==myid )
+                                                            d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                        else
+                                                            o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                      // #If COUNT eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr); 
+                      // #Else 
+                      //   countNonZero(ig0,p)
+                      // #End                      
+                                        } 
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+            // --------- FILL EDGES AND CORNERS 3D ---------
+            // side1=-1 : means an edge where side2 and side3 meet
+                        int ghostStart1, ghostEnd1, ghostStart2, ghostEnd2, ghostStart3, ghostEnd3;
+                        for( int side3=-1; side3<=1; side3++ ) 
+                        for( int side2=-1; side2<=1; side2++ ) 
+                        for( int side1=-1; side1<=1; side1++ ) 
+                        {
+                            if( (side1==-1 && ( side2>=0 && side3>=0 ) ) ||
+                                    (side2==-1 && ( side3>=0 && side1>=0 ) ) ||
+                                    (side3==-1 && ( side1>=0 && side2>=0 ) ) )
+                            {
+                // Edge where two faces meet
+                  // default: 
+                                    Iv[0]=Range(gid(side1,0),gid(side1,0)); is1=1-2*side1;  ghostStart1=1; ghostEnd1=numGhost;
+                                    Iv[1]=Range(gid(side2,1),gid(side2,1)); is2=1-2*side2;  ghostStart2=1; ghostEnd2=numGhost;
+                                    Iv[2]=Range(gid(side3,2),gid(side3,2)); is3=1-2*side3;  ghostStart3=1; ghostEnd3=numGhost;
+                                    bool ok=true;
+                                    if( side1==-1 )
+                                    { // edge lies along this axis 
+                                        Iv[0]=Range(gid(0,0),gid(1,0));  is1=0; ghostStart1=0; ghostEnd1=0; 
+                                        if( bcLocal(side2,1)==parallelGhostBC || bcLocal(side3,2)==parallelGhostBC ) ok=false;
+                                    }
+                                    if( side2==-1 )
+                                    {
+                                        Iv[1]=Range(gid(0,1),gid(1,1));  is2=0; ghostStart2=0; ghostEnd2=0;
+                                        if( bcLocal(side1,0)==parallelGhostBC || bcLocal(side3,2)==parallelGhostBC ) ok=false;
+                                    }
+                                    if( side3 ==-1 )
+                                    {
+                                        Iv[2]=Range(gid(0,2),gid(1,2));  is3=0; ghostStart3=0; ghostEnd3=0;
+                                        if( bcLocal(side1,0)==parallelGhostBC || bcLocal(side2,1)==parallelGhostBC ) ok=false;
+                                    }  
+                                    ok= ok && ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,I1,I2,I3);
+                                    if( ok )
+                                    {
+                                        for( int i3=I3.getBase(); i3<=I3.getBound(); i3++ )
+                                        for( int i2=I2.getBase(); i2<=I2.getBound(); i2++ )
+                                        for( int i1=I1.getBase(); i1<=I1.getBound(); i1++ )
+                                        {
+                      // #If COUNT == FILL
+                      //   if( grid==1 && side3==-1 )
+                      //     printf("fillEdge3D: myid=%d, grid=%d (i1,i2,i3)=(%3d,%3d,%3d) [side1,side2,side3]=[%d,%d,%d] bcLocal=[%d,%d,%d] bc=[%d,%d,%d] maskLocal(i1,i2,i3)=%d\n",
+                      //       myid,grid,i1,i2,i3,side1,side2,side3,bcLocal(side1,0),bcLocal(side2,1),bcLocal(0,2),bc(side1,0),bc(side2,1),bc(0,2),maskLocal(i1,i2,i3));
+                      // #End
+                                            for( int ghost3=ghostStart3; ghost3<=ghostEnd3; ghost3++ )
+                                            for( int ghost2=ghostStart2; ghost2<=ghostEnd2; ghost2++ )
+                                            for( int ghost1=ghostStart1; ghost1<=ghostEnd1; ghost1++ )
+                                            {
+                                                int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3 - is3*ghost3;  // ghost point
+                        // #If COUNT == FILL
+                        //    if( grid==1 && side3==-1 )
+                        //      printf("fillEdge3D: myid=%d, grid=%d (j1,j2,j3)=(%3d,%3d,%3d) \n",
+                        //        myid,grid,j1,j2,j3);
+                        //  #End
+                                                {                                  
+                          // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                          // assert( ig0>=0 && ig0<N );
+                          // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                          // assert( ig0==ige );
+                          // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                                    #ifdef USE_PPP
+                                                        int kv[3]={j1,j2,j3};
+                                                        int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                    #else
+                                                        int p=0; 
+                                                    #endif                                  
+                          // inline Ogev::getGlobalIndex
+                                                    ig0 = (n) + numberOfComponents*(
+                                                                  ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                    (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                    (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                }
+                        // if( maskLocal(j1,j2,j3)>0 )  
+                                                if( maskLocal(i1,i2,i3)!=0 )   // *wdh* Nov 8, 2025
+                                                {
+                          // printF("Corner Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
+                                                    if( ( side3==-1 && bc(side1,0)>=0 && bc(side2,1)>=0 ) ||
+                                                            ( side1==-1 && bc(side2,1)>=0 && bc(side3,2)>=0 ) ||
+                                                            ( side2==-1 && bc(side3,2)>=0 && bc(side1,0)>=0 )  )
+                                                    { // edge with no periodic faces 
+                            // #If COUNT == FILL
+                            //   if( grid==1 && side3==-1 )
+                            //     printf("fillEdge3D: myid=%d, grid=%d (j1,j2,j3)=(%3d,%3d,%3d)  *EXTRAP ig0=%d\n",
+                            //       myid,grid,j1,j2,j3,ig0);
+                            // #End
+                                                        for( int k=0; k<=extrapOrder; k++ )
+                                                        {
+                                                            {                                  
+                                // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                                // assert( ig>=0 && ig<N );
+                                // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                                // assert( ig==ige );
+                                // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                                                                #ifdef USE_PPP
+                                                                    int kv[3]={j1+is1*k,j2+is2*k,j3+is3*k};
+                                                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                                #else
+                                                                    int p=0; 
+                                                                #endif                                  
+                                // inline Ogev::getGlobalIndex
+                                                                ig = (n) + numberOfComponents*(
+                                                                              ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                                (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                                (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                            }
+                                                                        igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                                        if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                                        {
+                                                                            printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                                  ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                            OV_ABORT("error");
+                                                                        }
+                                                                        if( p==myid )
+                                                                            d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                                        else
+                                                                            o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                              // #If COUNT eq FILL
+                              //   ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);
+                              // #Else
+                              //   countNonZero(ig0,p)
+                              // #End
+                                                        }
+                                                    }
+                                                    else if( ( side3==-1 && ( bc(side1,0)<0 || bc(side2,1)<0 ) ) ||   // *wdh* Nov 8, 2025
+                                                                      ( side1==-1 && ( bc(side2,1)<0 || bc(side3,2)<0 ) ) ||
+                                                                      ( side2==-1 && ( bc(side3,2)<0 || bc(side1,0)<0 ) )  )             
+                          // else if( ( side3==-1 && bc(side1,0)<0 && bc(side2,1)<0 ) ||
+                          //          ( side1==-1 && bc(side2,1)<0 && bc(side3,2)<0 ) ||
+                          //          ( side2==-1 && bc(side3,2)<0 && bc(side1,0)<0 )  )          
+                                                    {
+                            // edge with a periodic BC in one or two directions
+                            // #If COUNT == FILL
+                            //   if( grid==1 && side3==-1 )
+                            //     printf("fillEdge3D: myid=%d, grid=%d (j1,j2,j3)=(%3d,%3d,%3d) [side1,side2,side3]=[%d,%d,%d] bcLocal=[%d,%d,%d] bc=[%d,%d,%d] maskLocal(i1,i2,i3)=%d *SET PERIOIDIC ig0=%d\n",
+                            //       myid,grid,j1,j2,j3,side1,side2,side3,bcLocal(side1,0),bcLocal(side2,1),bcLocal(side3,2),bc(side1,0),bc(side2,1),bc(side3,2),maskLocal(i1,i2,i3),ig0);
+                            // #End
+                                                                    igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                                    if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                                    {
+                                                                        printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                              ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                        OV_ABORT("error");
+                                                                    }
+                                                                    if( p==myid )
+                                                                        d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                                    else
+                                                                        o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                            // #If COUNT eq FILL
+                            //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);
+                            // #Else
+                            //   countNonZero(ig0,p)
+                            // #End                
+                            // periodic image: 
+                                                        const int j1p = bc(side1,0)<0 ? j1 + is1*( gid(1,0)-gid(0,0) ) : j1; // periodic image, if bc<0
+                                                        const int j2p = bc(side2,1)<0 ? j2 + is2*( gid(1,1)-gid(0,1) ) : j2; // periodic image, if bc<0
+                                                        const int j3p = bc(side3,2)<0 ? j3 + is3*( gid(1,2)-gid(0,2) ) : j3; // periodic image, if bc<0
+                                                        {                                  
+                              // ig = (j1p)-n1a + nd1a*( (j2p)-n2a + nd2a*(n) );
+                              // assert( ig>=0 && ig<N );
+                              // ige = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                              // assert( ig==ige );
+                              // ig = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                                                            #ifdef USE_PPP
+                                                                int kv[3]={j1p,j2p,j3p};
+                                                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                            #else
+                                                                int p=0; 
+                                                            #endif                                  
+                              // inline Ogev::getGlobalIndex
+                                                            ig = (n) + numberOfComponents*(
+                                                                          ((j1p)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                            (j2p)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                            (j3p)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                        }
+                                                                    igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                                    if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                                    {
+                                                                        printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                              ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                        OV_ABORT("error");
+                                                                    }
+                                                                    if( p==myid )
+                                                                        d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                                    else
+                                                                        o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                            // #If COUNT eq FILL
+                            //   ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
+                            // #Else
+                            //   countNonZero(ig0,p)
+                            // #End
+                                                    }
+                                                }
+                        // else if( maskLocal(j1,j2,j3)==0 )
+                                                else if( maskLocal(i1,i2,i3)==0 )
+                                                {
+                          // unused point -- set to identity equation
+                                                                igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                                if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                                {
+                                                                    printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                          ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                    OV_ABORT("error");
+                                                                }
+                                                                if( p==myid )
+                                                                    d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                                else
+                                                                    o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                          // #If COUNT eq FILL
+                          //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                          // #Else
+                          //   countNonZero(ig0,p)
+                          // #End            
+                                                } 
+                                            }
+                                        }
+                                    }
+                            }
+                            else if( side1>=0 && side2>=0 && side3>=0 )
+                            {
+                // Vertex where 3 faces meet.
+                  // vertex: 
+                                    i1=gid(side1,0); is1=1-2*side1; 
+                                    i2=gid(side2,1); is2=1-2*side2; 
+                                    i3=gid(side3,2); is3=1-2*side3; 
+                                    bool ok = true;
+                                    if( bcLocal(side1,0)==parallelGhostBC ||
+                                            bcLocal(side2,1)==parallelGhostBC ||
+                                            bcLocal(side3,2)==parallelGhostBC )
+                                        ok=false;
+                  // #If COUNT == FILL
+                  //   if( grid==1 )
+                  //     printf("fillVertex3D: myid=%d, grid=%d (i1,i2,i3)=(%3d,%3d,%3d) [side1,side2,side3]=[%d,%d,%d] bcLocal=[%d,%d,%d] bc=[%d,%d,%d] maskLocal(i1,i2,i3)=%d\n",
+                  //       myid,grid,i1,i2,i3,side1,side2,side3,bcLocal(side1,0),bcLocal(side2,1),bcLocal(side3,2),bc(side1,0),bc(side2,1),bc(side3,2),maskLocal(i1,i2,i3));
+                  // #End
+                                    if( ok )
+                                    {
+                                        for( int ghost3=1; ghost3<=numGhost; ghost3++ )
+                                        for( int ghost2=1; ghost2<=numGhost; ghost2++ )
+                                        for( int ghost1=1; ghost1<=numGhost; ghost1++ )
+                                        {
+                                            int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3 - is3*ghost3;  // ghost point
+                                            {                                  
+                        // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                        // assert( ig0>=0 && ig0<N );
+                        // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                        // assert( ig0==ige );
+                        // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                                #ifdef USE_PPP
+                                                    int kv[3]={j1,j2,j3};
+                                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                #else
+                                                    int p=0; 
+                                                #endif                                  
+                        // inline Ogev::getGlobalIndex
+                                                ig0 = (n) + numberOfComponents*(
+                                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                            }
+                      // #If COUNT == FILL
+                      //   if( grid==1 && j1==20 && j2==-1 & j3==-1 )
+                      //     printf("fillVertex3D: myid=%d, grid=%d (j1,j2,j3)=(%3d,%3d,%3d) [side1,side2,side3]=[%d,%d,%d] bcLocal=[%d,%d,%d] bc=[%d,%d,%d] maskLocal(j1,j2,j3)=%d\n",
+                      //       myid,grid,j1,j2,j3,side1,side2,side3,bcLocal(side1,0),bcLocal(side2,1),bcLocal(side3,2),bc(side1,0),bc(side2,1),bc(side3,2), maskLocal(j1,j2,j3));
+                      // #End      
+                      // if( maskLocal(j1,j2,j3)>0 )  
+                                            if( maskLocal(i1,i2,i3)>0 )   // *wdh* Nov 8, 2025
+                                            {
+                        // printF("VERTEX Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
+                                                if( bc(side1,0)>=0 && bc(side2,1)>=0 && bc(side3,2)>=0 )
+                                                { // vertex with no periodic faces 
+                                                    for( int k=0; k<=extrapOrder; k++ )
+                                                    {
+                                                        {                                  
+                              // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                              // assert( ig>=0 && ig<N );
+                              // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                              // assert( ig==ige );
+                              // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                                                            #ifdef USE_PPP
+                                                                int kv[3]={j1+is1*k,j2+is2*k,j3+is3*k};
+                                                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                            #else
+                                                                int p=0; 
+                                                            #endif                                  
+                              // inline Ogev::getGlobalIndex
+                                                            ig = (n) + numberOfComponents*(
+                                                                          ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                            (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                            (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                        }
+                                                                    igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                                    if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                                    {
+                                                                        printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                              ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                        OV_ABORT("error");
+                                                                    }
+                                                                    if( p==myid )
+                                                                        d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                                    else
+                                                                        o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                            // #If COUNT eq FILL
+                            //   ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+                            // #Else
+                            //   countNonZero(ig0,p)
+                            // #End                
+                                                    }
+                                                }
+                                                else if( bc(side1,0)<0 || bc(side2,1)<0 || bc(side3,2)<0 )
+                                                {
+                          // At least one direction is periodic
+                          // #If COUNT == FILL
+                          //    if( grid==1 && j1==20 && j2==-1 & j3==-1 )
+                          //      printf("fillVertex3D: myid=%d, grid=%d (j1,j2,j3)=(%3d,%3d,%3d) SET ig0=%d to 1\n",
+                          //        myid,grid,j1,j2,j3,ig0);
+                          //  #End
+                                                                igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                                if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                                {
+                                                                    printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                          ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                    OV_ABORT("error");
+                                                                }
+                                                                if( p==myid )
+                                                                    d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                                else
+                                                                    o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                          // #If COUNT eq FILL
+                          //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                          // #Else
+                          //   countNonZero(ig0,p)
+                          // #End            
+                          // perioidic image: 
+                                                    int j1p = bc(side1,0)<0 ? j1 + is1*( gid(1,0)-gid(0,0) ) : j1; // periodic image, if bc<0
+                                                    int j2p = bc(side2,1)<0 ? j2 + is2*( gid(1,1)-gid(0,1) ) : j2; // periodic image, if bc<0
+                                                    int j3p = bc(side3,2)<0 ? j3 + is3*( gid(1,2)-gid(0,2) ) : j3; // periodic image, if bc<0
+                                                    {                                  
+                            // ig = (j1p)-n1a + nd1a*( (j2p)-n2a + nd2a*(n) );
+                            // assert( ig>=0 && ig<N );
+                            // ige = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                            // assert( ig==ige );
+                            // ig = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                                                        #ifdef USE_PPP
+                                                            int kv[3]={j1p,j2p,j3p};
+                                                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                        #else
+                                                            int p=0; 
+                                                        #endif                                  
+                            // inline Ogev::getGlobalIndex
+                                                        ig = (n) + numberOfComponents*(
+                                                                      ((j1p)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                        (j2p)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                        (j3p)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                    }
+                                                                igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                                if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                                {
+                                                                    printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                          ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                    OV_ABORT("error");
+                                                                }
+                                                                if( p==myid )
+                                                                    d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                                else
+                                                                    o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                          // #If COUNT eq FILL
+                          //   ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);  
+                          // #Else
+                          //   countNonZero(ig0,p)
+                          // #End                             
+                                                }
+                                            }
+                                            else if( maskLocal(j1,j2,j3)==0 )
+                                            {
+                        // unused point -- set to identity equation
+                                                            igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                                            if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                                            {
+                                                                printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                                      ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                                OV_ABORT("error");
+                                                            }
+                                                            if( p==myid )
+                                                                d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                                            else
+                                                                o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                        // #If COUNT eq FILL
+                        //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                        // #Else
+                        //     countNonZero(ig0,p)
+                        // #End            
+                                            } 
+                                        }
+                                    }
+                            }
+                        }
+            // OV_ABORT(" FILL EDGES AND CORNERS 3D - FINISH ME");
+                    }
+          // --- fill in any UNUSED ghost points on ghost lines > numGhost ----
+                    int n1,n2; 
+                    ForBoundary(side,axis)
+                    {   
+                        if( side==0 )
+                        {
+                            n1 = mg.dimension(side,axis);
+                            n2 = mg.gridIndexRange(side,axis)-numGhost-1;
+                        }
+                        else
+                        {
+                            n1 = mg.gridIndexRange(side,axis)+numGhost+1;
+                            n2 = mg.dimension(side,axis);
+                        }
+                        if( n1<=n2 )
+                        {
+              // there are unused ghost points
+                            getBoundaryIndex(mg.dimension(),side,axis,Ig1,Ig2,Ig3);
+                            Igv[axis] = Range(n1,n2);  // range of unused ghost 
+                            bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ig1,Ig2,Ig3);
+                            if( !ok ) continue; 
+                            FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+                            {
+                                {                                  
+                  // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                  // assert( ig0>=0 && ig0<N );
+                  // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                  // assert( ig0==ige );
+                  // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                                    #ifdef USE_PPP
+                                        int kv[3]={i1,i2,i3};
+                                        int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                    #else
+                                        int p=0; 
+                                    #endif                                  
+                  // inline Ogev::getGlobalIndex
+                                    ig0 = (n) + numberOfComponents*(
+                                                  ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                    (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                    (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                }
+                                            igLocal = ig0 -noffset(myid,0)*numberOfComponents;
+                                            if( !( igLocal>=0 && igLocal<numberOfEquationsThisProcessor ) )
+                                            {
+                                                printf("countNonZeros: ERROR: ig=%d, igLocal=%d, numberOfEquationsThisProcessor=%d, myid=%d, [i1,i2,i3,grid]=[%3d,%3d,%3d,%2d] noffset(myid,0)=%d, func=%s, line=%d\n",
+                                                      ig0,igLocal,numberOfEquationsThisProcessor,myid,i1,i2,i3,grid,noffset(myid,0),__func__, __LINE__);
+                                                OV_ABORT("error");
+                                            }
+                                            if( p==myid )
+                                                d_nnz[igLocal]++;  // d_nnz[numberOfUnknownsThisProcessor] : number of ON processor entries
+                                            else
+                                                o_nnz[igLocal]++;  // o_nnz[numberOfUnknownsThisProcessor] : number of OFF processor entries    
+                // #If COUNT eq FILL
+                //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr); 
+                // #Else 
+                //   countNonZero(ig0,p)
+                // #End             
+                            }
+                        }
+                    } 
+                    cpu1 = getCPU()-cpu0;
+                    printF("  ... done boundaries for grid=%d (%s) (total cpu=%9.2e)...\n",grid,(const char*)mg.getName(),cpu1); fflush(0);     
+                } // end for grid 
+        // --- fill in any interpolation equations into matrix A ----
+                    int countMatrixEntries=1;
+                    fillInterpolationCoefficients( A,ucg,countMatrixEntries );
+
+      // do this for testing 
+            for( int i=0; i<numberOfEquationsThisProcessor; i++ )
+            {
+                if( d_nnz[i]==0 )
+                    d_nnz[i]=max(stencilSize+1,d_nnz[i]);
+                if( o_nnz[i]==0 )
+                    o_nnz[i]=max(stencilSize+1,o_nnz[i]);
+            }      
+        }
+
+
+        ierr = MatCreateAIJ(PETSC_COMM_WORLD,
+                                              numberOfEquationsThisProcessor,numberOfEquationsThisProcessor,
+                                              numberOfEquations,numberOfEquations,
+                                              d_nz,d_nnz,o_nz,o_nnz,
+                                              &A); CHKERRQ(ierr);
+
+    // This next line is needed to avoid error when malloc'ing an additional entry that was more
+    // than the estimated number
+        MatSetOption(A,MAT_NEW_NONZERO_ALLOCATION_ERR,PETSC_FALSE);    
+
+    // // --- STARTED FROM PETScSOlver.bC -- Oct 27, 2025 
+
+    // // d_nz = fullStencilDimension;  // expected number of non-zero entries on this processor ("diagonal block")
+    // // o_nz = fullStencilDimension;
+    // if( fillInCount )
+    // {
+    //   //d_nz and o_nz will be ignored when d_nnzv and o_nnzv are provided
+    //   ierr = MatCreateAIJ(OGES_COMM,numberOfUnknownsThisProcessor,numberOfUnknownsThisProcessor,
+    //                       numberOfUnknowns,numberOfUnknowns,
+    //                       d_nz,d_nnzv,o_nz,o_nnzv,
+    //                       &A); CHKERRQ(ierr);
+
+    //   //turning on the following option will avoid PETSc malloc errors. However, Petsc fillin may become slow
+    //   //When the options is needed, it means the nonzeros are not counted correctly -QT
+    //   //MatSetOption(A,MAT_NEW_NONZERO_ALLOCATION_ERR,PETSC_FALSE);
+    //   if( 1==0 )
+    //   {
+    //     printF("****** PETScSolver:: build matrix... TURN OFF ERRORS WHEN NEW ENTRIES NEED TO BE ADDED (i.e. estimated storage per point is wrong) *******\n");   
+    //     MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);  
+    //   }         
+    // }
+    // else
+    // {
+    //   // --- do NOT specify exactly how many entries per row ---
+    //   int *d_nnz=PETSC_NULL;
+    //   int *o_nnz=PETSC_NULL;          
+    //   ierr = MatCreateAIJ(OGES_COMM,numberOfUnknownsThisProcessor,numberOfUnknownsThisProcessor,
+    //                       numberOfUnknowns,numberOfUnknowns,
+    //                       d_nz,d_nnz,o_nz,o_nnz,
+    //                       &A); CHKERRQ(ierr);
+    //   // This next line is needed to avoid error when malloc'ing an additional entry that was more
+    //   // than the estimated number
+    //   MatSetOption(A,MAT_NEW_NONZERO_ALLOCATION_ERR,PETSC_FALSE);
+    // }
+
+    #endif
+
+    ierr = MatSetFromOptions(A);CHKERRQ(ierr);
+    ierr = MatSetUp(A);CHKERRQ(ierr);
+
+    ierr = MatGetOwnershipRange(A,&Istart,&Iend);CHKERRQ(ierr);
+
+
+    // --------------- START LOOP OVER GRIDS ------------------
+        IntegerArray indexRangeLocal,dimensionLocal, bcLocal;
+        const int parallelGhostBC=-100; // label for parallel ghost boundaries 
         for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
         {
             MappedGrid & mg = cg[grid];
             const IntegerArray & gid = mg.gridIndexRange();
-      // const IntegerArray & dim = mg.dimension();
-      // const IntegerArray & bc = mg.boundaryCondition();
-
+            const IntegerArray & dim = mg.dimension();
+            const IntegerArray & bc = mg.boundaryCondition();
+      // ParallelGridUtility::getLocalBoundaryConditions(  mg, bcLocal,parallelGhostBC ); // *********************
+            realArray & ug = ucg[grid]; // use in findProcNum
+            ParallelGridUtility::getLocalIndexBoundsAndBoundaryConditions( ucg[grid], 
+                                                                                                                indexRangeLocal, 
+                                                                                                                dimensionLocal, 
+                                                                                                                bcLocal,
+                                                                                                                parallelGhostBC );
             mg.update(MappedGrid::THEmask );
             OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
-
+                IntegerArray & fill = checkFill ? fillArray[grid] : maskLocal;
+            MappedGridOperators & mgop = cgop[grid];    
+      // *** WHERE ARE THESE USED: ???
+            const int nd1a = gid(1,0)-gid(0,0)+1 + 2*numGhost;
+            const int nd2a = gid(1,1)-gid(0,1)+1 + 2*numGhost;
+            const int n1a = gid(0,0)-numGhost;
+            const int n2a = gid(0,1)-numGhost;
+            const int n1b = gid(1,0)+numGhost;
+            const int n2b = gid(1,1)+numGhost;
+            Real cpu0 = getCPU();
+            printF("  fillMatrixLaplacian grid=%d (%s) ...\n",grid,(const char*)mg.getName()); fflush(0);
+            if( debug>0 )
+                fprintf(pDebugFile,"  fillMatrixLaplacian grid=%d (%s) ...\n",grid,(const char*)mg.getName());
+      // int numberOfComponents=1; 
+      // const int N = nd1a*nd2a*numberOfComponents; // total number of grid points
+      // SHOULD SET MANY VALUES AT ONCE FOR EFFICIENCY
+      // #include "petscmat.h" 
+      // PetscErrorCode MatSetValues(Mat mat,PetscInt m,const PetscInt idxm[],PetscInt n,const PetscInt idxn[],const PetscScalar v[],InsertMode addv)
+      // Not Collective
+      // Input Parameters
+      // mat - the matrix
+      // v - a logically two-dimensional array of values
+      // m, idxm - the number of rows and their global indices
+      // n, idxn - the number of columns and their global indices
+      // addv  - either ADD_VALUES or INSERT_VALUES, where ADD_VALUES adds values to any existing entries, and INSERT_VALUES replaces existing entries with new values
+      // Notes    
+            int ig0,ig;  
+            bool isRectangular = mg.isRectangular();
+      // isRectangular = false; // ************************ TEMP *********************
       // ---- Find the index range for the interior equations ----
         //int extra=-1;
         //getIndex(gid,I1,I2,I3,extra,extra,0);
@@ -238,1072 +2239,2010 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
                         n2 = gid(1,axis); // include right boundary in interior,  if bc = periodic, interp or neuman 
                     Iv[axis] = Range(n1,n2);
                 }
-      // ---- interior points ----
-            FOR_3D(i1,i2,i3,I1,I2,I3) 
+            bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,I1,I2,I3);
+            if( ok && isRectangular )
             {
-          // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
-          // assert( ig0>=0 && ig0<N );
-          // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-          // assert( ig0==ige );
-          // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-          // inline Ogev::getGlobalIndex
-                    ig0 = (n) + numberOfComponents*(
-                                  ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                    (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                    (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-
-                if( maskLocal(i1,i2,i3)>0 )
-                {
-          // assert( ig0>=0 && ig0<numberOfEquations );
-                    nzzAlloc[ig0]=stencilSize;
-                }
-                else if( maskLocal(i1,i2,i3)<0 ) 
-                {
-          // assert( ig0>=0 && ig0<numberOfEquations );
-                    nzzAlloc[ig0]=stencilSize+1;          
-                }
-            }
-      // ---  boundaries and ghost ----
-            ForBoundary(side,axis)
-            {
-                const int is = 1 - 2*side; 
-                for( int ghost=0; ghost<=numGhost; ghost++ )
-                {
-                    int extra = numGhost;
-                    getBoundaryIndex(gid,side,axis,Ig1,Ig2,Ig3,extra);
-                    Igv[axis] = gid(side,axis) - is*ghost;
-                    FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+        // ------- RECTANGULAR GRID ------
+                Real dx[3]={1.,1.,1.};
+                mg.getDeltaX(dx);
+        // These are really  coeff of -Delta
+                    Real dx2i = 1./(dx[0]*dx[0]);
+                    Real dy2i = 1./(dx[1]*dx[1]);
+                    Real diag = 2.*dx2i + 2.*dy2i; 
+                    const int hw = orderOfAccuracy/2; // stencil half with
+                    const int hw3 = numberOfDimensions==3 ? hw : 0;
+                    RealArray lapCoeff;
+                    Range S(-hw,hw); // stencil
+                    if( numberOfDimensions==2 )
                     {
-              // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
-              // assert( ig0>=0 && ig0<N );
-              // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-              // assert( ig0==ige );
-              // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-              // inline Ogev::getGlobalIndex
-                            ig0 = (n) + numberOfComponents*(
-                                          ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                            (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                            (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                        if( maskLocal(i1,i2,i3)>0 )
+                        lapCoeff.redim(S,S);
+                        lapCoeff=0.;
+                        if( orderOfAccuracy==2 )
                         {
-              // assert( ig0>=0 && ig0<numberOfEquations );
-                            nzzAlloc[ig0]=stencilSize;              
-              // nzzAlloc[ig0]=stencilSize+1;  // do this for now : could improve for extrapolation
+              // ----  -Delta : order=2 ----
+                            lapCoeff(0,0)  =  2./SQR(dx[0]) + 2./SQR(dx[1]);
+                            lapCoeff(-1,0) = -1./SQR(dx[0]);
+                            lapCoeff(+1,0) = -1./SQR(dx[0]);
+                            lapCoeff(0,-1) = -1./SQR(dx[1]);
+                            lapCoeff(0,+1) = -1./SQR(dx[1]);    
                         }
-                        else if( maskLocal(i1,i2,i3)<0 ) 
+                        else if( orderOfAccuracy==4 )
                         {
-                            nzzAlloc[ig0]=stencilSize+1; // interpolation point 
-                        }   
-                    }
-                }
-            }
-
-        } // end for grid 
-
-    }
-  // PETSc NOW recommends: 
-  // It is recommended that one use the MatCreate(), MatSetType() and/or MatSetFromOptions(), MatXXXXSetPreallocation() paradigm 
-  // instead of this routine directly. [MatXXXXSetPreallocation() is, for example, MatSeqAIJSetPreallocation]
-
-    const int numberOfNonZerosPerRow = stencilSize; // number of non-zeros per row (IGNORED if nzzAlloc is given)
-    ierr = MatCreateSeqAIJ(PETSC_COMM_WORLD,numberOfEquations,numberOfEquations,numberOfNonZerosPerRow,nzzAlloc,&A); CHKERRQ(ierr);
-
-  //ierr = MatCreate(PETSC_COMM_WORLD,&A);CHKERRQ(ierr);
-  //ierr = MatSetSizes(A,PETSC_DECIDE,PETSC_DECIDE,N,N);CHKERRQ(ierr);
-
-    ierr = MatSetFromOptions(A);CHKERRQ(ierr);
-    ierr = MatSetUp(A);CHKERRQ(ierr);
-
-    ierr = MatGetOwnershipRange(A,&Istart,&Iend);CHKERRQ(ierr);
-
-
-
-
-  // --------------- START LOOP OVER GRIDS ------------------
-    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
-    {
-        MappedGrid & mg = cg[grid];
-        const IntegerArray & gid = mg.gridIndexRange();
-        const IntegerArray & dim = mg.dimension();
-        const IntegerArray & bc = mg.boundaryCondition();
-
-        mg.update(MappedGrid::THEmask );
-        OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
-
-        MappedGridOperators & mgop = cgop[grid];    
-
-        const int nd1a = gid(1,0)-gid(0,0)+1 + 2*numGhost;
-        const int nd2a = gid(1,1)-gid(0,1)+1 + 2*numGhost;
-
-        const int n1a = gid(0,0)-numGhost;
-        const int n2a = gid(0,1)-numGhost;
-
-        const int n1b = gid(1,0)+numGhost;
-        const int n2b = gid(1,1)+numGhost;
-
-        Real cpu0 = getCPU();
-        printF("  fillMatrixLaplacian grid=%d (%s) ...\n",grid,(const char*)mg.getName()); fflush(0);
-
-    // int numberOfComponents=1; 
-    // const int N = nd1a*nd2a*numberOfComponents; // total number of grid points
-
-
-    // ---- Find the index range for the interior equations ----
-      //int extra=-1;
-      //getIndex(gid,I1,I2,I3,extra,extra,0);
-            Iv[2]=Range(0,0); 
-            for( int axis=0; axis<numberOfDimensions; axis++ )
-            {
-        // int n1=Iv[axis].getBase(), n2=Iv[axis].getBound();
-                int n1=gid(0,axis)+1, n2=gid(1,axis)-1; // default interior points 
-                if( mg.boundaryCondition(0,axis)<=0 || mg.boundaryCondition(0,axis)==neumann )
-                    n1 = gid(0,axis); // include left boundary in interior,  if bc = periodic, interp or neuman 
-                if( mg.boundaryCondition(1,axis)==0 || mg.boundaryCondition(1,axis)==neumann )
-                    n2 = gid(1,axis); // include right boundary in interior,  if bc = periodic, interp or neuman 
-                Iv[axis] = Range(n1,n2);
-            }
-
-    // SHOULD SET MANY VALUES AT ONCE FOR EFFICIENCY
-
-    // #include "petscmat.h" 
-    // PetscErrorCode MatSetValues(Mat mat,PetscInt m,const PetscInt idxm[],PetscInt n,const PetscInt idxn[],const PetscScalar v[],InsertMode addv)
-    // Not Collective
-    // Input Parameters
-
-    // mat - the matrix
-    // v - a logically two-dimensional array of values
-    // m, idxm - the number of rows and their global indices
-    // n, idxn - the number of columns and their global indices
-    // addv  - either ADD_VALUES or INSERT_VALUES, where ADD_VALUES adds values to any existing entries, and INSERT_VALUES replaces existing entries with new values
-    // Notes    
-
-
-        int ig0,ig;  
-
-        bool isRectangular = mg.isRectangular();
-    // isRectangular = false; // ************************ TEMP *********************
-
-
-        if(  isRectangular )
-        {
-      // ------- RECTANGULAR GRID ------
-
-            Real dx[3]={1.,1.,1.};
-            mg.getDeltaX(dx);
-
-      // These are really  coeff of -Delta
-                Real dx2i = 1./(dx[0]*dx[0]);
-                Real dy2i = 1./(dx[1]*dx[1]);
-                Real diag = 2.*dx2i + 2.*dy2i; 
-                const int hw = orderOfAccuracy/2; // stencil half with
-                const int hw3 = numberOfDimensions==3 ? hw : 0;
-                RealArray lapCoeff;
-                Range S(-hw,hw); // stencil
-                if( numberOfDimensions==2 )
-                {
-                    lapCoeff.redim(S,S);
-                    lapCoeff=0.;
-                    if( orderOfAccuracy==2 )
-                    {
-            // ----  -Delta : order=2 ----
-                        lapCoeff(0,0)  =  2./SQR(dx[0]) + 2./SQR(dx[1]);
-                        lapCoeff(-1,0) = -1./SQR(dx[0]);
-                        lapCoeff(+1,0) = -1./SQR(dx[0]);
-                        lapCoeff(0,-1) = -1./SQR(dx[1]);
-                        lapCoeff(0,+1) = -1./SQR(dx[1]);    
-                    }
-                    else if( orderOfAccuracy==4 )
-                    {
-            // ----  -Delta : order=4 ----
-                        lapCoeff(0,0)  =  30./(12.*SQR(dx[0])) + 30./(12.*SQR(dx[1]));
-                        lapCoeff(-2,0) =   1./(12.*SQR(dx[0]));
-                        lapCoeff(-1,0) = -16./(12.*SQR(dx[0]));
-                        lapCoeff(+1,0) = -16./(12.*SQR(dx[0]));
-                        lapCoeff(+2,0) =   1./(12.*SQR(dx[0]));
-                        lapCoeff(0,-2) =   1./(12.*SQR(dx[1]));
-                        lapCoeff(0,-1) = -16./(12.*SQR(dx[1]));
-                        lapCoeff(0,+1) = -16./(12.*SQR(dx[1]));   
-                        lapCoeff(0,+2) =   1./(12.*SQR(dx[1]));   
-                    }
-                    else if( orderOfAccuracy==6 )
-                    {
-            // ----  -Delta : order=6 ----
-                        lapCoeff(0,0)  =  490./(180.*SQR(dx[0])) + 490./(180.*SQR(dx[1]));
-                        lapCoeff(-3,0) =   -2./(180.*SQR(dx[0]));
-                        lapCoeff(-2,0) =   27./(180.*SQR(dx[0]));
-                        lapCoeff(-1,0) = -270./(180.*SQR(dx[0]));
-                        lapCoeff(+1,0) = -270./(180.*SQR(dx[0]));
-                        lapCoeff(+2,0) =   27./(180.*SQR(dx[0]));
-                        lapCoeff(+3,0) =   -2./(180.*SQR(dx[0]));
-                        lapCoeff(0,-3) =   -2./(180.*SQR(dx[1]));
-                        lapCoeff(0,-2) =   27./(180.*SQR(dx[1]));
-                        lapCoeff(0,-1) = -270./(180.*SQR(dx[1]));
-                        lapCoeff(0,+1) = -270./(180.*SQR(dx[1]));   
-                        lapCoeff(0,+2) =   27./(180.*SQR(dx[1]));   
-                        lapCoeff(0,+3) =   -2./(180.*SQR(dx[1]));   
-                    }  
-                    else if( orderOfAccuracy==8 )
-                    {
-            // ----  -Delta : order=8 ----
-                        lapCoeff(0,0)  =  14350./(5040.*SQR(dx[0])) + 14350./(5040.*SQR(dx[1]));
-                        lapCoeff(-4,0) =     9./(5040.*SQR(dx[0]));
-                        lapCoeff(-3,0) =  -128./(5040.*SQR(dx[0]));
-                        lapCoeff(-2,0) =  1008./(5040.*SQR(dx[0]));
-                        lapCoeff(-1,0) = -8064./(5040.*SQR(dx[0]));
-                        lapCoeff(+1,0) = -8064./(5040.*SQR(dx[0]));
-                        lapCoeff(+2,0) =  1008./(5040.*SQR(dx[0]));
-                        lapCoeff(+3,0) =  -128./(5040.*SQR(dx[0]));
-                        lapCoeff(+4,0) =     9./(5040.*SQR(dx[0]));
-                        lapCoeff(0,-4) =     9./(5040.*SQR(dx[1]));
-                        lapCoeff(0,-3) =  -128./(5040.*SQR(dx[1]));
-                        lapCoeff(0,-2) =  1008./(5040.*SQR(dx[1]));
-                        lapCoeff(0,-1) = -8064./(5040.*SQR(dx[1]));
-                        lapCoeff(0,+1) = -8064./(5040.*SQR(dx[1]));   
-                        lapCoeff(0,+2) =  1008./(5040.*SQR(dx[1]));   
-                        lapCoeff(0,+3) =  -128./(5040.*SQR(dx[1]));   
-                        lapCoeff(0,+4) =     9./(5040.*SQR(dx[1]));   
-                    }    
-                    else
-                    {
-                        OV_ABORT("finish me - orderOfAccuracy");
-                    }
-                }
-                else
-                {
-          // -------- THREE DIMENSIONS ------------
-                    lapCoeff.redim(S,S,S);
-                    lapCoeff=0.;
-                    if( orderOfAccuracy==2 )
-                    {
-            // ----  -Delta : order=2 ----
-                        lapCoeff( 0,0,0)  =  2./SQR(dx[0]) + 2./SQR(dx[1]) + 2./SQR(dx[2]);
-                        lapCoeff(-1,0,0) = -1./SQR(dx[0]);
-                        lapCoeff(+1,0,0) = -1./SQR(dx[0]);
-                        lapCoeff(0,-1,0) = -1./SQR(dx[1]);
-                        lapCoeff(0,+1,0) = -1./SQR(dx[1]);
-                        lapCoeff(0,0,-1) = -1./SQR(dx[2]);
-                        lapCoeff(0,0,+1) = -1./SQR(dx[2]);           
-                    }  
-                    else if( orderOfAccuracy==4 )
-                    {
-            // ----  -Delta : order=4 ----
-                        lapCoeff( 0,0,0) =  30./(12.*SQR(dx[0])) + 30./(12.*SQR(dx[1])) + 30./(12.*SQR(dx[2]));
-                        lapCoeff(-2,0,0) =   1./(12.*SQR(dx[0]));
-                        lapCoeff(-1,0,0) = -16./(12.*SQR(dx[0]));
-                        lapCoeff(+1,0,0) = -16./(12.*SQR(dx[0]));
-                        lapCoeff(+2,0,0) =   1./(12.*SQR(dx[0]));
-                        lapCoeff(0,-2,0) =   1./(12.*SQR(dx[1]));
-                        lapCoeff(0,-1,0) = -16./(12.*SQR(dx[1]));
-                        lapCoeff(0,+1,0) = -16./(12.*SQR(dx[1]));   
-                        lapCoeff(0,+2,0) =   1./(12.*SQR(dx[1])); 
-                        lapCoeff(0,0,-2) =   1./(12.*SQR(dx[2]));
-                        lapCoeff(0,0,-1) = -16./(12.*SQR(dx[2]));
-                        lapCoeff(0,0,+1) = -16./(12.*SQR(dx[2]));   
-                        lapCoeff(0,0,+2) =   1./(12.*SQR(dx[2]));         
-                    }    
-                    else if( orderOfAccuracy==6 )
-                    {
-            // ----  -Delta : order=6 ----
-                        lapCoeff( 0,0,0)  =  490./(180.*SQR(dx[0])) + 490./(180.*SQR(dx[1]))+ 490./(180.*SQR(dx[2]));
-                        lapCoeff(-3,0,0) =   -2./(180.*SQR(dx[0]));
-                        lapCoeff(-2,0,0) =   27./(180.*SQR(dx[0]));
-                        lapCoeff(-1,0,0) = -270./(180.*SQR(dx[0]));
-                        lapCoeff(+1,0,0) = -270./(180.*SQR(dx[0]));
-                        lapCoeff(+2,0,0) =   27./(180.*SQR(dx[0]));
-                        lapCoeff(+3,0,0) =   -2./(180.*SQR(dx[0]));
-                        lapCoeff(0,-3,0) =   -2./(180.*SQR(dx[1]));
-                        lapCoeff(0,-2,0) =   27./(180.*SQR(dx[1]));
-                        lapCoeff(0,-1,0) = -270./(180.*SQR(dx[1]));
-                        lapCoeff(0,+1,0) = -270./(180.*SQR(dx[1]));   
-                        lapCoeff(0,+2,0) =   27./(180.*SQR(dx[1]));   
-                        lapCoeff(0,+3,0) =   -2./(180.*SQR(dx[1])); 
-                        lapCoeff(0,0,-3) =   -2./(180.*SQR(dx[2]));
-                        lapCoeff(0,0,-2) =   27./(180.*SQR(dx[2]));
-                        lapCoeff(0,0,-1) = -270./(180.*SQR(dx[2]));
-                        lapCoeff(0,0,+1) = -270./(180.*SQR(dx[2]));   
-                        lapCoeff(0,0,+2) =   27./(180.*SQR(dx[2]));   
-                        lapCoeff(0,0,+3) =   -2./(180.*SQR(dx[2])); 
-                    }    
-                    else
-                    {
-                        OV_ABORT("lapCoeff: rectangular 3d: finish me - orderOfAccuracy");
-                    }       
-                }
-
-
-
-      // ---- interior points ----
-            FOR_3D(i1,i2,i3,I1,I2,I3) 
-            {
-          // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
-          // assert( ig0>=0 && ig0<N );
-          // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-          // assert( ig0==ige );
-          // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-          // inline Ogev::getGlobalIndex
-                    ig0 = (n) + numberOfComponents*(
-                                  ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                    (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                    (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-
-        // ige = getGlobalIndex( n, iv, grid, p ); // new way 
-
-                if( maskLocal(i1,i2,i3)>0 )
-                {
-
-          // printF("fillMatLap: interior: i1=%d, i2=%d, ig0=%d, ige=%d\n",i1,i2,ig0,ige);
-
-          // --- loop over stencil ---
-                    for( int iw3=-hw3; iw3<=hw3; iw3++ )
-                    {
-                        for( int iw2=-hw;  iw2<=hw;  iw2++ )
-                        {
-                            for( int iw1=-hw; iw1<=hw; iw1++ )
-                            {
-                                if( lapCoeff(iw1,iw2,iw3) != 0. )
-                                {
-                     // ig = (i1+iw1)-n1a + nd1a*( (i2+iw2)-n2a + nd2a*(n) );
-                     // assert( ig>=0 && ig<N );
-                     // ige = getGlobalIndex( n, i1+iw1,i2+iw2,i3+iw3, grid, p ); // new way 
-                     // assert( ig==ige );
-                     // ig = getGlobalIndex( n, i1+iw1,i2+iw2,i3+iw3, grid, p ); // new way 
-                     // inline Ogev::getGlobalIndex
-                                          ig = (n) + numberOfComponents*(
-                                                        ((i1+iw1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                          (i2+iw2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                          (i3+iw3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                                      Real coeffLap= lapCoeff(iw1,iw2,iw3);
-                                      if( iw1==0 && iw2==0 && iw3==0 )
-                                      {
-                                          coeffLap = coeffLap - lambdaShift;
-                                      }
-                                      ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
-                   // ierr = MatSetValue(A,ig0,ig,lapCoeff(iw1,iw2,iw3),INSERT_VALUES);CHKERRQ(ierr);
-
-                                }
-                            }
+              // ----  -Delta : order=4 ----
+                            lapCoeff(0,0)  =  30./(12.*SQR(dx[0])) + 30./(12.*SQR(dx[1]));
+                            lapCoeff(-2,0) =   1./(12.*SQR(dx[0]));
+                            lapCoeff(-1,0) = -16./(12.*SQR(dx[0]));
+                            lapCoeff(+1,0) = -16./(12.*SQR(dx[0]));
+                            lapCoeff(+2,0) =   1./(12.*SQR(dx[0]));
+                            lapCoeff(0,-2) =   1./(12.*SQR(dx[1]));
+                            lapCoeff(0,-1) = -16./(12.*SQR(dx[1]));
+                            lapCoeff(0,+1) = -16./(12.*SQR(dx[1]));   
+                            lapCoeff(0,+2) =   1./(12.*SQR(dx[1]));   
                         }
-                    }
-                }
-                else if( maskLocal(i1,i2,i3)==0 )
-                {
-          // unused point : set A = I 
-                    ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
-                }
-            }
-        }
-        else
-        {
-      // ------- CURVILINEAR GRID ------
-
-
-      // ---- Fill interior points ----
-            RealArray lapCoeff(M0,I1,I2,I3);
-            mgop.assignCoefficients(MappedGridOperators::laplacianOperator,lapCoeff,I1,I2,I3,0,0); // 
-
-            FOR_3D(i1,i2,i3,I1,I2,I3) 
-            {
-          // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
-          // assert( ig0>=0 && ig0<N );
-          // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-          // assert( ig0==ige );
-          // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-          // inline Ogev::getGlobalIndex
-                    ig0 = (n) + numberOfComponents*(
-                                  ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                    (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                    (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                if( maskLocal(i1,i2,i3)>0 )
-                {        
-
-          // printF("Interior: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
-          // printF("fillMatLap: interior: i1=%d, i2=%d, ig0=%d, ige=%d\n",i1,i2,ig0,ige);
-
-          // --- loop over stencil ---
-                    ForStencil(m1,m2,m3)         
-                    {
-                        const int m = M123(m1,m2,m3); 
-                        Real coeffLap = -lapCoeff(m,i1,i2,i3);  // Note minus 
-                        if( coeffLap != 0. )
+                        else if( orderOfAccuracy==6 )
                         {
-                              if( m1==0 && m2==0 && m3==0 )
-                              {
-                                  coeffLap = coeffLap - lambdaShift; // diagonal shift
-                              }              
-                // ig = (i1+m1)-n1a + nd1a*( (i2+m2)-n2a + nd2a*(n) );
-                // assert( ig>=0 && ig<N );
-                // ige = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
-                // assert( ig==ige );
-                // ig = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
-                // inline Ogev::getGlobalIndex
-                                ig = (n) + numberOfComponents*(
-                                              ((i1+m1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                (i2+m2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                (i3+m3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                            ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
-                        }
-                    }
-                }
-                else if( maskLocal(i1,i2,i3)==0 )
-                {
-          // unused point : set A = I 
-                    ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
-                }        
-            }
-
-        } // end curvilinear grid
-            
-        Real cpu1 = getCPU()-cpu0;
-
-        printF("  ... done interior grid=%d (%s) (cpu=%9.2e)...\n",grid,(const char*)mg.getName(),cpu1); fflush(0); 
-                  
-    // --- fill in boundary points (constraints) ----
-        ForBoundary(side,axis)
-        {
-            if( bc(side,axis) > 0 )
-            {
-                getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
-                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
-                {
-                    if( maskLocal(i1,i2,i3)>0 )
-                    {  
-
-              // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
-              // assert( ig0>=0 && ig0<N );
-              // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-              // assert( ig0==ige );
-              // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-              // inline Ogev::getGlobalIndex
-                            ig0 = (n) + numberOfComponents*(
-                                          ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                            (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                            (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-            // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
-
-                        if( bc(side,axis)==dirichlet )
+              // ----  -Delta : order=6 ----
+                            lapCoeff(0,0)  =  490./(180.*SQR(dx[0])) + 490./(180.*SQR(dx[1]));
+                            lapCoeff(-3,0) =   -2./(180.*SQR(dx[0]));
+                            lapCoeff(-2,0) =   27./(180.*SQR(dx[0]));
+                            lapCoeff(-1,0) = -270./(180.*SQR(dx[0]));
+                            lapCoeff(+1,0) = -270./(180.*SQR(dx[0]));
+                            lapCoeff(+2,0) =   27./(180.*SQR(dx[0]));
+                            lapCoeff(+3,0) =   -2./(180.*SQR(dx[0]));
+                            lapCoeff(0,-3) =   -2./(180.*SQR(dx[1]));
+                            lapCoeff(0,-2) =   27./(180.*SQR(dx[1]));
+                            lapCoeff(0,-1) = -270./(180.*SQR(dx[1]));
+                            lapCoeff(0,+1) = -270./(180.*SQR(dx[1]));   
+                            lapCoeff(0,+2) =   27./(180.*SQR(dx[1]));   
+                            lapCoeff(0,+3) =   -2./(180.*SQR(dx[1]));   
+                        }  
+                        else if( orderOfAccuracy==8 )
                         {
-                            ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-                        }
-                        else if( bc(side,axis)==neumann )
-                        {
-              // Nothing to do here 
-                        }
+              // ----  -Delta : order=8 ----
+                            lapCoeff(0,0)  =  14350./(5040.*SQR(dx[0])) + 14350./(5040.*SQR(dx[1]));
+                            lapCoeff(-4,0) =     9./(5040.*SQR(dx[0]));
+                            lapCoeff(-3,0) =  -128./(5040.*SQR(dx[0]));
+                            lapCoeff(-2,0) =  1008./(5040.*SQR(dx[0]));
+                            lapCoeff(-1,0) = -8064./(5040.*SQR(dx[0]));
+                            lapCoeff(+1,0) = -8064./(5040.*SQR(dx[0]));
+                            lapCoeff(+2,0) =  1008./(5040.*SQR(dx[0]));
+                            lapCoeff(+3,0) =  -128./(5040.*SQR(dx[0]));
+                            lapCoeff(+4,0) =     9./(5040.*SQR(dx[0]));
+                            lapCoeff(0,-4) =     9./(5040.*SQR(dx[1]));
+                            lapCoeff(0,-3) =  -128./(5040.*SQR(dx[1]));
+                            lapCoeff(0,-2) =  1008./(5040.*SQR(dx[1]));
+                            lapCoeff(0,-1) = -8064./(5040.*SQR(dx[1]));
+                            lapCoeff(0,+1) = -8064./(5040.*SQR(dx[1]));   
+                            lapCoeff(0,+2) =  1008./(5040.*SQR(dx[1]));   
+                            lapCoeff(0,+3) =  -128./(5040.*SQR(dx[1]));   
+                            lapCoeff(0,+4) =     9./(5040.*SQR(dx[1]));   
+                        }    
                         else
                         {
-                            printF("fillMatrixLaplacian: grid=%d, side=%d, axis=%d, bc=%d is unknown!\n",grid,side,axis,bc(side,axis));
-                            ::display(bc,"bc");
-                            OV_ABORT("fillMatrixLaplacian: unknown bc");
+                            OV_ABORT("finish me - orderOfAccuracy");
                         }
-
-                    }
-                    else if( maskLocal(i1,i2,i3)==0 )
-                    {
-            // unused point -- set to identity equation
-              // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
-              // assert( ig0>=0 && ig0<N );
-              // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-              // assert( ig0==ige );
-              // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-              // inline Ogev::getGlobalIndex
-                            ig0 = (n) + numberOfComponents*(
-                                          ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                            (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                            (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                        ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-                    }
-
-                } 
-            }
-  
-        } 
-
-    // --- periodic boundaries ----
-        ForBoundary(side,axis)
-        {
-            if( bc(side,axis) < 0 )
-            {
-        // periodic boundary 
-
-                const int is = 1 - 2*side;
-                const int ndp = gid(1,axis) - gid(0,axis); 
-                const int startGhost = side==0 ? 1 : 0;       
-                for( int ghost=startGhost; ghost<=numGhost; ghost++ )
-                {
-                    getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3,ghost);
-                    for( int dir=0; dir<3; dir++ )
-                    { // Include ghost in tangential directions for non periodic adjacent sides
-                        if( dir!=axis && bc(0,dir)>=0 )
-                            Igv[dir] = Range( gid(0,dir)-numGhost, gid(1,dir)+numGhost ); 
-                    }
-              
-
-                    FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
-                    {
-            // NOTE: some periodic points may have mask<0 but not be interp points *check me* 
-            //          |  |  |  |  |  
-            //   :   P--X--+--+--+--X--P  <- lower boundary is interpolation 
-            //          |  |  |  |  |  
-            //   :   P--I--I--I--I--B--P  <- ghost points below lower boundary 
-            //  
-            // Point B on right side has mask<0 but is not an interpolation point (I) *check me*
-            // It should be a periodic point 
-            //            
-            // if( maskLocal(i1,i2,i3)>0 )
-                        if( maskLocal(i1,i2,i3) !=0  )    // NOTE
-                        {          
-                // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
-                // assert( ig0>=0 && ig0<N );
-                // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-                // assert( ig0==ige );
-                // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-                // inline Ogev::getGlobalIndex
-                                ig0 = (n) + numberOfComponents*(
-                                              ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-              // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
-                            ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-
-                            j1=i1; j2=i2; j3=i3;
-                            jv[axis] += is*( ndp ); // periodic image 
-
-                // ig = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
-                // assert( ig>=0 && ig<N );
-                // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-                // assert( ig==ige );
-                // ig = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-                // inline Ogev::getGlobalIndex
-                                ig = (n) + numberOfComponents*(
-                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                            ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);            
-                        }
-                        else if( maskLocal(i1,i2,i3)==0 )
-                        {
-              // unused point -- set to identity equation
-                // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
-                // assert( ig0>=0 && ig0<N );
-                // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-                // assert( ig0==ige );
-                // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-                // inline Ogev::getGlobalIndex
-                                ig0 = (n) + numberOfComponents*(
-                                              ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                            ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-                        }
-                    } 
-                }        
-            }         
-        }
-
-
-    // --- fill in ghost points (constraints) ----
-        ForBoundary(side,axis)
-        {
-            is1=is2=is3=0;  isv[axis]=1-2*side;   // +1 on left and -1 on right     
-                
-            if( !isRectangular && mg.boundaryCondition(side,axis)==neumann )
-            {
-        // --- Neumann BC -- curvilinear grid ---
-
-                mg.update(MappedGrid::THEvertexBoundaryNormal);
-                OV_GET_VERTEX_BOUNDARY_NORMAL(mg,side,axis,normal); 
-
-                getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
-                
-        // Get coefficient matrices on boundary needed for the normal derivative
-                realSerialArray xCoeff(M0,Ib1,Ib2,Ib3), yCoeff(M0,Ib1,Ib2,Ib3), zCoeff; 
-                mgop.assignCoefficients(MappedGridOperators::xDerivative ,xCoeff, Ib1,Ib2,Ib3,0,0);
-                mgop.assignCoefficients(MappedGridOperators::yDerivative ,yCoeff, Ib1,Ib2,Ib3,0,0);
-                if( numberOfDimensions==3 )
-                {
-                    zCoeff.redim(M0,Ib1,Ib2,Ib3);
-                    mgop.assignCoefficients(MappedGridOperators::zDerivative ,zCoeff, Ib1,Ib2,Ib3,0,0);
-                }  
-
-                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) // loop over points on the boundary
-                {
-                    int ghost=1; 
-                    int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // first ghost point          
-            // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
-            // assert( ig0>=0 && ig0<N );
-            // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-            // assert( ig0==ige );
-            // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-            // inline Ogev::getGlobalIndex
-                        ig0 = (n) + numberOfComponents*(
-                                      ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                        (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                        (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-
-                    if( maskLocal(i1,i2,i3)>0 )
-                    {               
-                        ForStencil(m1,m2,m3)
-                        {
-                            const int m  = M123(m1,m2,m3);        // the single-component coeff-index
-                            Real coeff123 = normal(i1,i2,i3,0)*xCoeff(m,i1,i2,i3) + normal(i1,i2,i3,1)*yCoeff(m,i1,i2,i3);
-                            if( numberOfDimensions==3 )
-                                coeff123 += normal(i1,i2,i3,2)*zCoeff(m,i1,i2,i3);
-
-                            if( coeff123 != 0. )
-                            {
-                  // ig = (i1+m1)-n1a + nd1a*( (i2+m2)-n2a + nd2a*(n) );
-                  // assert( ig>=0 && ig<N );
-                  // ige = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
-                  // assert( ig==ige );
-                  // ig = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
-                  // inline Ogev::getGlobalIndex
-                                    ig = (n) + numberOfComponents*(
-                                                  ((i1+m1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                    (i2+m2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                    (i3+m3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                                ierr = MatSetValue(A,ig0,ig,coeff123,INSERT_VALUES);CHKERRQ(ierr);
-                            }            
-
-                        } // end for stencil 
-
-            // Fill additional ghost with extrapolation
-                        for( int ghost=2; ghost<=numGhost; ghost++ )
-                        {
-                            int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
-                // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
-                // assert( ig0>=0 && ig0<N );
-                // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-                // assert( ig0==ige );
-                // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-                // inline Ogev::getGlobalIndex
-                                ig0 = (n) + numberOfComponents*(
-                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-
-              // extrapolate      
-                            for( int k=0; k<=extrapOrder; k++ )
-                            {
-                  // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
-                  // assert( ig>=0 && ig<N );
-                  // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
-                  // assert( ig==ige );
-                  // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
-                  // inline Ogev::getGlobalIndex
-                                    ig = (n) + numberOfComponents*(
-                                                  ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                    (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                    (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                                ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
-                            }
-                        }  
-
                     }
                     else
                     {
-            // unused point : set A = I 
-                        ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);            
-                    }
-
-                } // end FOR_3D
-
-            }  // end if curvilinear and rectangular 
-
-
-            if( mg.boundaryCondition(side,axis) >= 0 )  
-            {    
-
-                getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
-                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
-                {
-                    for( int ghost=1; ghost<=numGhost; ghost++ )
-                    {
-                        int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
-              // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
-              // assert( ig0>=0 && ig0<N );
-              // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-              // assert( ig0==ige );
-              // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-              // inline Ogev::getGlobalIndex
-                            ig0 = (n) + numberOfComponents*(
-                                          ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                            (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                            (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-            // printF("Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
-
-                        if( maskLocal(j1,j2,j3)>0 )  
+            // -------- THREE DIMENSIONS ------------
+                        lapCoeff.redim(S,S,S);
+                        lapCoeff=0.;
+                        if( orderOfAccuracy==2 )
                         {
-                            if( bc(side,axis)==neumann )   
-                            {
-                // Note : curvilinear case is done above 
-                                if( isRectangular )
-                                {
-                  // --- even symmetry for Cartesian ----
-                  //   u(-g) -   u(g) = 0 
-                                    ierr = MatSetValue(A,ig0,ig0,1.,INSERT_VALUES);CHKERRQ(ierr);
-
-                                    j1 = i1 + is1*ghost; j2 = i2 + is2*ghost;  j3 = i3 + is3*ghost;  // point inside 
-                    // ig = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
-                    // assert( ig>=0 && ig<N );
-                    // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-                    // assert( ig==ige );
-                    // ig = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-                    // inline Ogev::getGlobalIndex
-                                        ig = (n) + numberOfComponents*(
-                                                      ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                        (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                        (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                                    ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
-                                }
-                            }   
-                            else
-                            { // extrapolate      
-                                for( int k=0; k<=extrapOrder; k++ )
-                                {
-                  // getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3,n, ig); 
-                    // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
-                    // assert( ig>=0 && ig<N );
-                    // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
-                    // assert( ig==ige );
-                    // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
-                    // inline Ogev::getGlobalIndex
-                                        ig = (n) + numberOfComponents*(
-                                                      ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                        (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                        (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                                    ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
-                                }
-                            }
-                        }
-                        else if( maskLocal(j1,j2,j3)==0 )
-                        {
-              // unused point -- set to identity equation
-                            ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-                        }            
-
-                    }
-                }
-            }          
-        }
-
-    // ------ fill corners ----
-
-    // assert( numberOfDimensions==2 ); // finish me for 3D 
-        if( numberOfDimensions==2 )
-        {
-      // ----------- FILL CORNERS 2D -----
-            for( int side2=0; side2<=1; side2++ ) 
-            {
-                for( int side1=0; side1<=1; side1++ ) 
-                {
-                    is1=1-2*side1; is2=1-2*side2; is3=0;
-                    i1 = gid(side1,0); i2=gid(side2,1); i3=0; // corner point 
-                    for( int ghost2=1; ghost2<=numGhost; ghost2++ )
-                    {
-                        for( int ghost1=1; ghost1<=numGhost; ghost1++ )
-                        {
-                            int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3;  // ghost point
-                // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
-                // assert( ig0>=0 && ig0<N );
-                // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-                // assert( ig0==ige );
-                // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-                // inline Ogev::getGlobalIndex
-                                ig0 = (n) + numberOfComponents*(
-                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-
-                            if( maskLocal(j1,j2,j3)>0 )  
-                            {
-                // printF("Corner Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
-                                if( bc(side1,0)>=0 && bc(side2,1)>=0  )
-                                { // corner with no periodic faces 
-                                    for( int k=0; k<=extrapOrder; k++ )
-                                    {
-                      // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
-                      // assert( ig>=0 && ig<N );
-                      // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3, grid, p ); // new way 
-                      // assert( ig==ige );
-                      // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3, grid, p ); // new way 
-                      // inline Ogev::getGlobalIndex
-                                            ig = (n) + numberOfComponents*(
-                                                          ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                            (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                            (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                                        ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
-                                    }
-                                }
-                                else if( bc(side1,0)<0 && bc(side2,1)<0  ) 
-                                {
-                  // corner between two adjacent periodic sides *check me*
-                                    
-                                    int j1p = j1 + (1-2*side1)*( gid(1,0)-gid(0,0) ); // periodic image 
-                                    int j2p = j2 + (1-2*side2)*( gid(1,1)-gid(0,1) ); // periodic image 
-                                    int j3p = j3; 
-                    // ig = (j1p)-n1a + nd1a*( (j2p)-n2a + nd2a*(n) );
-                    // assert( ig>=0 && ig<N );
-                    // ige = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
-                    // assert( ig==ige );
-                    // ig = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
-                    // inline Ogev::getGlobalIndex
-                                        ig = (n) + numberOfComponents*(
-                                                      ((j1p)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                        (j2p)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                        (j3p)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                                    ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
-
-                                }
-                            }
-                            else if( maskLocal(j1,j2,j3)==0 )
-                            {
-                // unused point -- set to identity equation
-                                ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-                            } 
-
-                        }
-                    }
-                }
-            }
-        }
-        else
-        {
-      // --------- FILL EDGES AND CORNERS 3D ---------
-      // side1=-1 : means an edge where side2 and side3 meet
-            int ghostStart1, ghostEnd1, ghostStart2, ghostEnd2, ghostStart3, ghostEnd3;
-            for( int side3=-1; side3<=1; side3++ ) 
-            for( int side2=-1; side2<=1; side2++ ) 
-            for( int side1=-1; side1<=1; side1++ ) 
-            {
-                if( (side1==-1 && ( side2>=0 && side3>=0 ) ) ||
-                        (side2==-1 && ( side3>=0 && side1>=0 ) ) ||
-                        (side3==-1 && ( side1>=0 && side2>=0 ) ) )
-                {
-          // Edge where two faces meet
-            // default: 
-                        Iv[0]=Range(gid(side1,0),gid(side1,0)); is1=1-2*side1;  ghostStart1=1; ghostEnd1=numGhost;
-                        Iv[1]=Range(gid(side2,1),gid(side2,1)); is2=1-2*side2;  ghostStart2=1; ghostEnd2=numGhost;
-                        Iv[2]=Range(gid(side3,2),gid(side3,2)); is3=1-2*side3;  ghostStart3=1; ghostEnd3=numGhost;
-                        if( side1==-1 )
-                        { // edge lies along this axis 
-                            Iv[0]=Range(gid(0,0),gid(1,0));  is1=0; ghostStart1=0; ghostEnd1=0; 
-                        }
-                        if( side2==-1 )
-                        {
-                            Iv[1]=Range(gid(0,1),gid(1,1));  is2=0; ghostStart2=0; ghostEnd2=0;
-                        }
-                        if( side3 ==-1 )
-                        {
-                            Iv[2]=Range(gid(0,2),gid(1,2));  is3=0; ghostStart3=0; ghostEnd3=0;
+              // ----  -Delta : order=2 ----
+                            lapCoeff( 0,0,0)  =  2./SQR(dx[0]) + 2./SQR(dx[1]) + 2./SQR(dx[2]);
+                            lapCoeff(-1,0,0) = -1./SQR(dx[0]);
+                            lapCoeff(+1,0,0) = -1./SQR(dx[0]);
+                            lapCoeff(0,-1,0) = -1./SQR(dx[1]);
+                            lapCoeff(0,+1,0) = -1./SQR(dx[1]);
+                            lapCoeff(0,0,-1) = -1./SQR(dx[2]);
+                            lapCoeff(0,0,+1) = -1./SQR(dx[2]);           
                         }  
-                        for( int i3=I3.getBase(); i3<=I3.getBound(); i3++ )
-                        for( int i2=I2.getBase(); i2<=I2.getBound(); i2++ )
-                        for( int i1=I1.getBase(); i1<=I1.getBound(); i1++ )
+                        else if( orderOfAccuracy==4 )
                         {
-                            for( int ghost3=ghostStart3; ghost3<=ghostEnd3; ghost3++ )
-                            for( int ghost2=ghostStart2; ghost2<=ghostEnd2; ghost2++ )
-                            for( int ghost1=ghostStart1; ghost1<=ghostEnd1; ghost1++ )
-                            {
-                                int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3 - is3*ghost3;  // ghost point
-                  // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
-                  // assert( ig0>=0 && ig0<N );
-                  // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-                  // assert( ig0==ige );
-                  // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-                  // inline Ogev::getGlobalIndex
-                                    ig0 = (n) + numberOfComponents*(
-                                                  ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                    (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                    (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                                if( maskLocal(j1,j2,j3)>0 )  
-                                {
-                  // printF("Corner Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
-                                    if( ( side3==-1 && bc(side1,0)>=0 && bc(side2,1)>=0 ) ||
-                                            ( side1==-1 && bc(side2,1)>=0 && bc(side3,2)>=0 ) ||
-                                            ( side2==-1 && bc(side3,2)>=0 && bc(side1,0)>=0 )  )
-                                    { // edge with no periodic faces 
-                                        for( int k=0; k<=extrapOrder; k++ )
-                                        {
-                        // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
-                        // assert( ig>=0 && ig<N );
-                        // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
-                        // assert( ig==ige );
-                        // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
-                        // inline Ogev::getGlobalIndex
-                                                ig = (n) + numberOfComponents*(
-                                                              ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                                (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                                (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                                            ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
-                                        }
-                                    }
-                                    else if( ( side3==-1 && bc(side1,0)<0 && bc(side2,1)<0 ) ||
-                                                      ( side1==-1 && bc(side2,1)<0 && bc(side3,2)<0 ) ||
-                                                      ( side2==-1 && bc(side3,2)<0 && bc(side1,0)<0 )  )          
-                                    {
-                    // edge with a periodic BC in one or two directions
-                                        ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-                    // perioidic image: 
-                                        const int j1p = bc(side1,0)<0 ? j1 + is1*( gid(1,0)-gid(0,0) ) : j1; // periodic image, if bc<0
-                                        const int j2p = bc(side2,1)<0 ? j2 + is2*( gid(1,1)-gid(0,1) ) : j2; // periodic image, if bc<0
-                                        const int j3p = bc(side3,2)<0 ? j3 + is3*( gid(1,2)-gid(0,2) ) : j3; // periodic image, if bc<0
-                      // ig = (j1p)-n1a + nd1a*( (j2p)-n2a + nd2a*(n) );
-                      // assert( ig>=0 && ig<N );
-                      // ige = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
-                      // assert( ig==ige );
-                      // ig = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
-                      // inline Ogev::getGlobalIndex
-                                            ig = (n) + numberOfComponents*(
-                                                          ((j1p)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                            (j2p)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                            (j3p)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                                        ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
-                                    }
-                                }
-                                else if( maskLocal(j1,j2,j3)==0 )
-                                {
-                  // unused point -- set to identity equation
-                                    ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-                                } 
-                            }
-                        }
-                }
-                else if( side1>=0 && side2>=0 && side3>=0 )
-                {
-          // Vertex where 3 faces meet.
-            // vertex: 
-                        i1=gid(side1,0); is1=1-2*side1; 
-                        i2=gid(side2,1); is2=1-2*side2; 
-                        i3=gid(side3,2); is3=1-2*side3; 
-                        for( int ghost3=1; ghost3<=numGhost; ghost3++ )
-                        for( int ghost2=1; ghost2<=numGhost; ghost2++ )
-                        for( int ghost1=1; ghost1<=numGhost; ghost1++ )
+              // ----  -Delta : order=4 ----
+                            lapCoeff( 0,0,0) =  30./(12.*SQR(dx[0])) + 30./(12.*SQR(dx[1])) + 30./(12.*SQR(dx[2]));
+                            lapCoeff(-2,0,0) =   1./(12.*SQR(dx[0]));
+                            lapCoeff(-1,0,0) = -16./(12.*SQR(dx[0]));
+                            lapCoeff(+1,0,0) = -16./(12.*SQR(dx[0]));
+                            lapCoeff(+2,0,0) =   1./(12.*SQR(dx[0]));
+                            lapCoeff(0,-2,0) =   1./(12.*SQR(dx[1]));
+                            lapCoeff(0,-1,0) = -16./(12.*SQR(dx[1]));
+                            lapCoeff(0,+1,0) = -16./(12.*SQR(dx[1]));   
+                            lapCoeff(0,+2,0) =   1./(12.*SQR(dx[1])); 
+                            lapCoeff(0,0,-2) =   1./(12.*SQR(dx[2]));
+                            lapCoeff(0,0,-1) = -16./(12.*SQR(dx[2]));
+                            lapCoeff(0,0,+1) = -16./(12.*SQR(dx[2]));   
+                            lapCoeff(0,0,+2) =   1./(12.*SQR(dx[2]));         
+                        }    
+                        else if( orderOfAccuracy==6 )
                         {
-                            int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3 - is3*ghost3;  // ghost point
-                // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
-                // assert( ig0>=0 && ig0<N );
-                // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-                // assert( ig0==ige );
-                // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-                // inline Ogev::getGlobalIndex
-                                ig0 = (n) + numberOfComponents*(
-                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                            if( maskLocal(j1,j2,j3)>0 )  
-                            {
-                // printF("VERTEX Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
-                                if( bc(side1,0)>=0 && bc(side2,1)>=0 && bc(side3,2)>=0 )
-                                { // vertex with no periodic faces 
-                                    for( int k=0; k<=extrapOrder; k++ )
-                                    {
-                      // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
-                      // assert( ig>=0 && ig<N );
-                      // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
-                      // assert( ig==ige );
-                      // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
-                      // inline Ogev::getGlobalIndex
-                                            ig = (n) + numberOfComponents*(
-                                                          ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                            (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                            (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                                        ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
-                                    }
-                                }
-                                else if( bc(side1,0)<0 || bc(side2,1)<0 || bc(side3,2)<0 )
-                                {
-                  // At least one direction is periodic
-                                    ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-                  // perioidic image: 
-                                    int j1p = bc(side1,0)<0 ? j1 + is1*( gid(1,0)-gid(0,0) ) : j1; // periodic image, if bc<0
-                                    int j2p = bc(side2,1)<0 ? j2 + is2*( gid(1,1)-gid(0,1) ) : j2; // periodic image, if bc<0
-                                    int j3p = bc(side3,2)<0 ? j3 + is3*( gid(1,2)-gid(0,2) ) : j3; // periodic image, if bc<0
-                    // ig = (j1p)-n1a + nd1a*( (j2p)-n2a + nd2a*(n) );
-                    // assert( ig>=0 && ig<N );
-                    // ige = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
-                    // assert( ig==ige );
-                    // ig = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
-                    // inline Ogev::getGlobalIndex
-                                        ig = (n) + numberOfComponents*(
-                                                      ((j1p)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                                        (j2p)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                                        (j3p)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                                    ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
-                                }
-                            }
-                            else if( maskLocal(j1,j2,j3)==0 )
-                            {
-                // unused point -- set to identity equation
-                                ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-                            } 
-                        }
-                }
-            }
-
-      // OV_ABORT(" FILL EDGES AND CORNERS 3D - FINISH ME");
-        }
-
-
-
-
-    // --- fill in any UNUSED ghost points on ghost lines > numGhost ----
-        int n1,n2; 
-        ForBoundary(side,axis)
-        {   
-            if( side==0 )
-            {
-                n1 = mg.dimension(side,axis);
-                n2 = mg.gridIndexRange(side,axis)-numGhost-1;
-            }
-            else
-            {
-                n1 = mg.gridIndexRange(side,axis)+numGhost+1;
-                n2 = mg.dimension(side,axis);
-            }
-            if( n1<=n2 )
-            {
-        // there are unused ghost points
-
-                getBoundaryIndex(mg.dimension(),side,axis,Ig1,Ig2,Ig3);
-                Igv[axis] = Range(n1,n2);  // range of unused ghost 
-                FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+              // ----  -Delta : order=6 ----
+                            lapCoeff( 0,0,0)  =  490./(180.*SQR(dx[0])) + 490./(180.*SQR(dx[1]))+ 490./(180.*SQR(dx[2]));
+                            lapCoeff(-3,0,0) =   -2./(180.*SQR(dx[0]));
+                            lapCoeff(-2,0,0) =   27./(180.*SQR(dx[0]));
+                            lapCoeff(-1,0,0) = -270./(180.*SQR(dx[0]));
+                            lapCoeff(+1,0,0) = -270./(180.*SQR(dx[0]));
+                            lapCoeff(+2,0,0) =   27./(180.*SQR(dx[0]));
+                            lapCoeff(+3,0,0) =   -2./(180.*SQR(dx[0]));
+                            lapCoeff(0,-3,0) =   -2./(180.*SQR(dx[1]));
+                            lapCoeff(0,-2,0) =   27./(180.*SQR(dx[1]));
+                            lapCoeff(0,-1,0) = -270./(180.*SQR(dx[1]));
+                            lapCoeff(0,+1,0) = -270./(180.*SQR(dx[1]));   
+                            lapCoeff(0,+2,0) =   27./(180.*SQR(dx[1]));   
+                            lapCoeff(0,+3,0) =   -2./(180.*SQR(dx[1])); 
+                            lapCoeff(0,0,-3) =   -2./(180.*SQR(dx[2]));
+                            lapCoeff(0,0,-2) =   27./(180.*SQR(dx[2]));
+                            lapCoeff(0,0,-1) = -270./(180.*SQR(dx[2]));
+                            lapCoeff(0,0,+1) = -270./(180.*SQR(dx[2]));   
+                            lapCoeff(0,0,+2) =   27./(180.*SQR(dx[2]));   
+                            lapCoeff(0,0,+3) =   -2./(180.*SQR(dx[2])); 
+                        }    
+                        else
+                        {
+                            OV_ABORT("lapCoeff: rectangular 3d: finish me - orderOfAccuracy");
+                        }       
+                    }
+        // ---- interior points ----
+                FOR_3D(i1,i2,i3,I1,I2,I3) 
                 {
+                    {                                  
             // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
             // assert( ig0>=0 && ig0<N );
             // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
             // assert( ig0==ige );
             // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                        #ifdef USE_PPP
+                            int kv[3]={i1,i2,i3};
+                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                        #else
+                            int p=0; 
+                        #endif                                  
             // inline Ogev::getGlobalIndex
                         ig0 = (n) + numberOfComponents*(
                                       ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
                                         (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
                                         (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-                    ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                    }
+          // ige = getGlobalIndex( n, iv, grid, p ); // new way 
+                    if( maskLocal(i1,i2,i3)>0 )
+                    {
+            // printF("fillMatLap: interior: i1=%d, i2=%d, ig0=%d, ige=%d\n",i1,i2,ig0,ige);
+            // --- loop over stencil ---
+                        for( int iw3=-hw3; iw3<=hw3; iw3++ )
+                        {
+                            for( int iw2=-hw;  iw2<=hw;  iw2++ )
+                            {
+                                for( int iw1=-hw; iw1<=hw; iw1++ )
+                                {
+                                    if( lapCoeff(iw1,iw2,iw3) != 0. )
+                                    {
+                                          {                                  
+                       // ig = (i1+iw1)-n1a + nd1a*( (i2+iw2)-n2a + nd2a*(n) );
+                       // assert( ig>=0 && ig<N );
+                       // ige = getGlobalIndex( n, i1+iw1,i2+iw2,i3+iw3, grid, p ); // new way 
+                       // assert( ig==ige );
+                       // ig = getGlobalIndex( n, i1+iw1,i2+iw2,i3+iw3, grid, p ); // new way 
+                                              #ifdef USE_PPP
+                                                  int kv[3]={i1+iw1,i2+iw2,i3+iw3};
+                                                  int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                              #else
+                                                  int p=0; 
+                                              #endif                                  
+                       // inline Ogev::getGlobalIndex
+                                              ig = (n) + numberOfComponents*(
+                                                            ((i1+iw1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                              (i2+iw2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                              (i3+iw3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                          }
+                     // #If FILL eq FILL
+                     //   Real coeffLap= lapCoeff(iw1,iw2,iw3);
+                     //   if( iw1==0 && iw2==0 && iw3==0 )
+                     //   {
+                     //    coeffLap = coeffLap - lambdaShift;
+                     //   }
+                     //   ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
+                     // #Else
+                     //   countNonZero(ig0,p)
+                     // #End
+                                          Real coeffLap= lapCoeff(iw1,iw2,iw3);
+                                          if( iw1==0 && iw2==0 && iw3==0 )
+                                          {
+                                            coeffLap = coeffLap - lambdaShift;
+                                          }
+                                                  if( debug>0 )
+                                                      fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [i1+iw1,i2+iw2,i3+iw3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,coeffLap,grid,i1+iw1,i2+iw2,i3+iw3,maskLocal(i1+iw1,i2+iw2,i3+iw3));
+                                                  ierr = MatSetValue(A,ig0,ig, coeffLap, INSERT_VALUES);CHKERRQ(ierr); 
+                                                  if( checkFill && ig0==ig ) fill(i1+iw1,i2+iw2,i3+iw3)=ig0;
+                     // Real coeffLap= lapCoeff(iw1,iw2,iw3);
+                     // if( iw1==0 && iw2==0 && iw3==0 )
+                     // {
+                     //   coeffLap = coeffLap - lambdaShift;
+                     // }
+                     // ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
+                     // // ierr = MatSetValue(A,ig0,ig,lapCoeff(iw1,iw2,iw3),INSERT_VALUES);CHKERRQ(ierr);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else if( maskLocal(i1,i2,i3)==0 )
+                    {
+            // unused point : set A = I 
+                                if( debug>0 )
+                                    fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [i1,i2,i3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.0,grid,i1,i2,i3,maskLocal(i1,i2,i3));
+                                ierr = MatSetValue(A,ig0,ig0, 1.0, INSERT_VALUES);CHKERRQ(ierr); 
+                                if( checkFill && ig0==ig0 ) fill(i1,i2,i3)=ig0;
+            // #If FILL eq FILL
+            //   ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+            // #Else
+            //   countNonZero(ig0,p)
+            // #End
+                    }
                 }
             }
-        } 
+            else if( ok )
+            {
+        // ------- CURVILINEAR GRID ------
+        // ---- Fill interior points ----
+                RealArray lapCoeff(M0,I1,I2,I3);
+                mgop.assignCoefficients(MappedGridOperators::laplacianOperator,lapCoeff,I1,I2,I3,0,0); // 
+                FOR_3D(i1,i2,i3,I1,I2,I3) 
+                {
+                    {                                  
+            // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+            // assert( ig0>=0 && ig0<N );
+            // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+            // assert( ig0==ige );
+            // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                        #ifdef USE_PPP
+                            int kv[3]={i1,i2,i3};
+                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                        #else
+                            int p=0; 
+                        #endif                                  
+            // inline Ogev::getGlobalIndex
+                        ig0 = (n) + numberOfComponents*(
+                                      ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                        (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                        (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                    }
+                    if( maskLocal(i1,i2,i3)>0 )
+                    {        
+            // printF("Interior: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+            // printF("fillMatLap: interior: i1=%d, i2=%d, ig0=%d, ige=%d\n",i1,i2,ig0,ige);
+            // --- loop over stencil ---
+                        ForStencil(m1,m2,m3)         
+                        {
+                            const int m = M123(m1,m2,m3); 
+                            Real coeffLap = -lapCoeff(m,i1,i2,i3);  // Note minus 
+                            if( coeffLap != 0. )
+                            {
+                                if( m1==0 && m2==0 && m3==0 )
+                                {
+                                      coeffLap = coeffLap - lambdaShift; // diagonal shift
+                                }              
+                                {                                  
+                  // ig = (i1+m1)-n1a + nd1a*( (i2+m2)-n2a + nd2a*(n) );
+                  // assert( ig>=0 && ig<N );
+                  // ige = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
+                  // assert( ig==ige );
+                  // ig = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
+                                    #ifdef USE_PPP
+                                        int kv[3]={i1+m1,i2+m2,i3+m3};
+                                        int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                    #else
+                                        int p=0; 
+                                    #endif                                  
+                  // inline Ogev::getGlobalIndex
+                                    ig = (n) + numberOfComponents*(
+                                                  ((i1+m1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                    (i2+m2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                    (i3+m3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                }
+                                        if( debug>0 )
+                                            fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [i1+m1,i2+m2,i3+m3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,coeffLap,grid,i1+m1,i2+m2,i3+m3,maskLocal(i1+m1,i2+m2,i3+m3));
+                                        ierr = MatSetValue(A,ig0,ig, coeffLap, INSERT_VALUES);CHKERRQ(ierr); 
+                                        if( checkFill && ig0==ig ) fill(i1+m1,i2+m2,i3+m3)=ig0;
+                // #If FILL eq FILL
+                //   ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
+                // #Else
+                //   countNonZero(ig0,p)
+                // #End              
+                            }
+                        }
+                    }
+                    else if( maskLocal(i1,i2,i3)==0 )
+                    {
+            // unused point : set A = I 
+                                if( debug>0 )
+                                    fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [i1,i2,i3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.0,grid,i1,i2,i3,maskLocal(i1,i2,i3));
+                                ierr = MatSetValue(A,ig0,ig0, 1.0, INSERT_VALUES);CHKERRQ(ierr); 
+                                if( checkFill && ig0==ig0 ) fill(i1,i2,i3)=ig0;
+            // #If FILL eq FILL
+            //   ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+            // #Else
+            //   countNonZero(ig0,p)
+            // #End            
+                    }        
+                }
+            } // end curvilinear grid
+            cpu1 = getCPU()-cpu0;
+            printF("  ... done interior grid=%d (%s) (cpu=%9.2e)...\n",grid,(const char*)mg.getName(),cpu1); fflush(0); 
+            if( debug>0 )
+                fprintf(pDebugFile,"  ... done interior grid=%d (%s) (cpu=%9.2e)...\n",grid,(const char*)mg.getName(),cpu1); fflush(0);
+      // --- fill in boundary points (constraints) ----
+            ForBoundary(side,axis)
+            {
+                if( bcLocal(side,axis) > 0 )
+                {
+                    getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+                    bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ib1,Ib2,Ib3);
+                    if(ok )
+                    {
+                        FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+                        {
+                            if( maskLocal(i1,i2,i3)>0 )
+                            {  
+                                {                                  
+                  // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                  // assert( ig0>=0 && ig0<N );
+                  // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                  // assert( ig0==ige );
+                  // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                                    #ifdef USE_PPP
+                                        int kv[3]={i1,i2,i3};
+                                        int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                    #else
+                                        int p=0; 
+                                    #endif                                  
+                  // inline Ogev::getGlobalIndex
+                                    ig0 = (n) + numberOfComponents*(
+                                                  ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                    (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                    (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                }
+                // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+                                if( bcLocal(side,axis)==dirichlet )
+                                {
+                                            if( debug>0 )
+                                                fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [i1,i2,i3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.,grid,i1,i2,i3,maskLocal(i1,i2,i3));
+                                            ierr = MatSetValue(A,ig0,ig0, 1., INSERT_VALUES);CHKERRQ(ierr); 
+                                            if( checkFill && ig0==ig0 ) fill(i1,i2,i3)=ig0;
+                  // #If FILL eq FILL
+                  //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr); 
+                  // #Else 
+                  //   countNonZero(ig0,p)
+                  // #End                  
+                                }
+                                else if( bcLocal(side,axis)==neumann )
+                                {
+                  // Nothing to do here 
+                                }
+                                else
+                                {
+                                    printF("fillMatrixLaplacian: grid=%d, side=%d, axis=%d, bc=%d is unknown!\n",grid,side,axis,bcLocal(side,axis));
+                                    ::display(bc,"bc");
+                                    OV_ABORT("fillMatrixLaplacian: unknown bc");
+                                }
+                            }
+                            else if( maskLocal(i1,i2,i3)==0 )
+                            {
+                // unused point -- set to identity equation
+                                {                                  
+                  // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                  // assert( ig0>=0 && ig0<N );
+                  // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                  // assert( ig0==ige );
+                  // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                                    #ifdef USE_PPP
+                                        int kv[3]={i1,i2,i3};
+                                        int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                    #else
+                                        int p=0; 
+                                    #endif                                  
+                  // inline Ogev::getGlobalIndex
+                                    ig0 = (n) + numberOfComponents*(
+                                                  ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                    (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                    (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                }
+                                        if( debug>0 )
+                                            fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [i1,i2,i3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.,grid,i1,i2,i3,maskLocal(i1,i2,i3));
+                                        ierr = MatSetValue(A,ig0,ig0, 1., INSERT_VALUES);CHKERRQ(ierr); 
+                                        if( checkFill && ig0==ig0 ) fill(i1,i2,i3)=ig0;
+                // #If FILL eq FILL
+                //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                // #Else 
+                //   countNonZero(ig0,p)
+                // #End                
+                            }
+                        } 
+                    }
+                }
+            } 
+      // --- periodic boundaries ----
+            if( debug>0 )
+                fprintf(pDebugFile,"  -- START periodic boundaries grid=%d (%s) ---\n",grid,(const char*)mg.getName());
+            ForBoundary(side,axis)
+            {
+                if( bc(side,axis) < 0 && bcLocal(side,axis)!=parallelGhostBC )
+                {
+          // periodic boundary 
+                    if( debug>0 )
+                        fprintf(pDebugFile,"fill periodic BC, grid=%d, (side,axis)=(%d,%d)\n",grid,side,axis);
+                    const int is = 1 - 2*side;
+                    const int ndp = gid(1,axis) - gid(0,axis);   // for periodic image -- use global gid
+                    const int startGhost = side==0 ? 1 : 0;       
+                    for( int ghost=startGhost; ghost<=numGhost; ghost++ )
+                    {
+                        getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3,ghost);
+                        for( int dir=0; dir<3; dir++ )
+                        { 
+              // Include ghost in tangential directions for non periodic adjacent sides
+                            if( true )
+                            { // *new* way Nov 9, 2025 -- fix for parallel
+                                if( dir!=axis )
+                                {
+                                    int numGhost0 = bcLocal(0,dir)>=0 ? numGhost : 0;
+                                    int numGhost1 = bcLocal(1,dir)>=0 ? numGhost : 0;
+                                    Igv[dir] = Range( gid(0,dir)-numGhost0, gid(1,dir)+numGhost1 ); 
+                                }
+                            }
+                            else
+                            {
+                                if( dir!=axis && bcLocal(0,dir)>=0 )
+                                    Igv[dir] = Range( gid(0,dir)-numGhost, gid(1,dir)+numGhost ); 
+                            }
+                        }
+                        bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ig1,Ig2,Ig3);
+                        if( ok )
+                        {
+                            FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+                            {
+                // NOTE: some periodic points may have mask<0 but not be interp points *check me* 
+                //          |  |  |  |  |  
+                //   :   P--X--+--+--+--X--P  <- lower boundary is interpolation 
+                //          |  |  |  |  |  
+                //   :   P--I--I--I--I--B--P  <- ghost points below lower boundary 
+                //  
+                // Point B on right side has mask<0 but is not an interpolation point (I) *check me*
+                // It should be a periodic point 
+                //            
+                // if( maskLocal(i1,i2,i3)>0 )
+                                if( maskLocal(i1,i2,i3) !=0  )    // NOTE
+                                {          
+                                    {                                  
+                    // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                    // assert( ig0>=0 && ig0<N );
+                    // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                    // assert( ig0==ige );
+                    // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                                        #ifdef USE_PPP
+                                            int kv[3]={i1,i2,i3};
+                                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                        #else
+                                            int p=0; 
+                                        #endif                                  
+                    // inline Ogev::getGlobalIndex
+                                        ig0 = (n) + numberOfComponents*(
+                                                      ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                        (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                        (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                    }
+                  // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+                                            if( debug>0 )
+                                                fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [i1,i2,i3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.,grid,i1,i2,i3,maskLocal(i1,i2,i3));
+                                            ierr = MatSetValue(A,ig0,ig0, 1., INSERT_VALUES);CHKERRQ(ierr); 
+                                            if( checkFill && ig0==ig0 ) fill(i1,i2,i3)=ig0;
+                  // #If FILL eq FILL
+                  //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                  // #Else 
+                  //   countNonZero(ig0,p)
+                  // #End 
+                                    j1=i1; j2=i2; j3=i3;
+                                    jv[axis] += is*( ndp ); // periodic image 
+                                    {                                  
+                    // ig = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                    // assert( ig>=0 && ig<N );
+                    // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                    // assert( ig==ige );
+                    // ig = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                        #ifdef USE_PPP
+                                            int kv[3]={j1,j2,j3};
+                                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                        #else
+                                            int p=0; 
+                                        #endif                                  
+                    // inline Ogev::getGlobalIndex
+                                        ig = (n) + numberOfComponents*(
+                                                      ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                        (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                        (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                    }
+                                            if( debug>0 )
+                                                fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1,j2,j3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,-1.,grid,j1,j2,j3,maskLocal(j1,j2,j3));
+                                            ierr = MatSetValue(A,ig0,ig, -1., INSERT_VALUES);CHKERRQ(ierr); 
+                                            if( checkFill && ig0==ig ) fill(j1,j2,j3)=ig0;
+                  // #If FILL eq FILL
+                  //   ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);   
+                  // #Else 
+                  //   countNonZero(ig0,p)
+                  // #End   
+                                }
+                                else if( maskLocal(i1,i2,i3)==0 )
+                                {
+                  // unused point -- set to identity equation
+                                    {                                  
+                    // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+                    // assert( ig0>=0 && ig0<N );
+                    // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                    // assert( ig0==ige );
+                    // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                                        #ifdef USE_PPP
+                                            int kv[3]={i1,i2,i3};
+                                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                        #else
+                                            int p=0; 
+                                        #endif                                  
+                    // inline Ogev::getGlobalIndex
+                                        ig0 = (n) + numberOfComponents*(
+                                                      ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                        (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                        (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                    }
+                                            if( debug>0 )
+                                                fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [i1,i2,i3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.,grid,i1,i2,i3,maskLocal(i1,i2,i3));
+                                            ierr = MatSetValue(A,ig0,ig0, 1., INSERT_VALUES);CHKERRQ(ierr); 
+                                            if( checkFill && ig0==ig0 ) fill(i1,i2,i3)=ig0;
+                  // #If FILL eq FILL
+                  //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr); 
+                  // #Else 
+                  //   countNonZero(ig0,p)
+                  // #End                    
+                                }
+                            }
+                        } 
+                    }        
+                }         
+            }
+      // --- fill in ghost points (constraints) ----
+            if( debug>0 )
+                fprintf(pDebugFile,"  -- START Neumann boundaries grid=%d (%s) ---\n",grid,(const char*)mg.getName()); 
+            ForBoundary(side,axis)
+            {
+                is1=is2=is3=0;  isv[axis]=1-2*side;   // +1 on left and -1 on right     
+                if( !isRectangular && mg.boundaryCondition(side,axis)==neumann )
+                {
+          // --- Neumann BC -- curvilinear grid ---
+                    mg.update(MappedGrid::THEvertexBoundaryNormal);
+                    OV_GET_VERTEX_BOUNDARY_NORMAL(mg,side,axis,normal); 
+                    getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+                    bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ib1,Ib2,Ib3);
+                    if( !ok ) continue;
+          // Get coefficient matrices on boundary needed for the normal derivative
+                    realSerialArray xCoeff(M0,Ib1,Ib2,Ib3), yCoeff(M0,Ib1,Ib2,Ib3), zCoeff; 
+                    mgop.assignCoefficients(MappedGridOperators::xDerivative ,xCoeff, Ib1,Ib2,Ib3,0,0);
+                    mgop.assignCoefficients(MappedGridOperators::yDerivative ,yCoeff, Ib1,Ib2,Ib3,0,0);
+                    if( numberOfDimensions==3 )
+                    {
+                        zCoeff.redim(M0,Ib1,Ib2,Ib3);
+                        mgop.assignCoefficients(MappedGridOperators::zDerivative ,zCoeff, Ib1,Ib2,Ib3,0,0);
+                    }  
+                    FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) // loop over points on the boundary
+                    {
+                        int ghost=1; 
+                        int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // first ghost point          
+                        {                                  
+              // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+              // assert( ig0>=0 && ig0<N );
+              // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+              // assert( ig0==ige );
+              // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                            #ifdef USE_PPP
+                                int kv[3]={j1,j2,j3};
+                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                            #else
+                                int p=0; 
+                            #endif                                  
+              // inline Ogev::getGlobalIndex
+                            ig0 = (n) + numberOfComponents*(
+                                          ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                            (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                            (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                        }
+                        if( maskLocal(i1,i2,i3)>0 )
+                        {               
+                            ForStencil(m1,m2,m3)
+                            {
+                                const int m  = M123(m1,m2,m3);        // the single-component coeff-index
+                                Real coeff123 = normal(i1,i2,i3,0)*xCoeff(m,i1,i2,i3) + normal(i1,i2,i3,1)*yCoeff(m,i1,i2,i3);
+                                if( numberOfDimensions==3 )
+                                    coeff123 += normal(i1,i2,i3,2)*zCoeff(m,i1,i2,i3);
+                                if( coeff123 != 0. )
+                                {
+                                    {                                  
+                    // ig = (i1+m1)-n1a + nd1a*( (i2+m2)-n2a + nd2a*(n) );
+                    // assert( ig>=0 && ig<N );
+                    // ige = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
+                    // assert( ig==ige );
+                    // ig = getGlobalIndex( n, i1+m1,i2+m2,i3+m3, grid, p ); // new way 
+                                        #ifdef USE_PPP
+                                            int kv[3]={i1+m1,i2+m2,i3+m3};
+                                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                        #else
+                                            int p=0; 
+                                        #endif                                  
+                    // inline Ogev::getGlobalIndex
+                                        ig = (n) + numberOfComponents*(
+                                                      ((i1+m1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                        (i2+m2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                        (i3+m3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                    }
+                                            if( debug>0 )
+                                                fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [i1+m1,i2+m2,i3+m3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,coeff123,grid,i1+m1,i2+m2,i3+m3,maskLocal(i1+m1,i2+m2,i3+m3));
+                                            ierr = MatSetValue(A,ig0,ig, coeff123, INSERT_VALUES);CHKERRQ(ierr); 
+                                            if( checkFill && ig0==ig ) fill(i1+m1,i2+m2,i3+m3)=ig0;
+                  // #If FILL eq FILL
+                  //   ierr = MatSetValue(A,ig0,ig,coeff123,INSERT_VALUES);CHKERRQ(ierr);
+                  // #Else 
+                  //   countNonZero(ig0,p)
+                  // #End                    
+                                }            
+                            } // end for stencil 
+              // Fill additional ghost with extrapolation
+                            for( int ghost=2; ghost<=numGhost; ghost++ )
+                            {
+                                int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+                                {                                  
+                  // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                  // assert( ig0>=0 && ig0<N );
+                  // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                  // assert( ig0==ige );
+                  // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                    #ifdef USE_PPP
+                                        int kv[3]={j1,j2,j3};
+                                        int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                    #else
+                                        int p=0; 
+                                    #endif                                  
+                  // inline Ogev::getGlobalIndex
+                                    ig0 = (n) + numberOfComponents*(
+                                                  ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                    (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                    (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                }
+                // extrapolate      
+                                for( int k=0; k<=extrapOrder; k++ )
+                                {
+                                    {                                  
+                    // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                    // assert( ig>=0 && ig<N );
+                    // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                    // assert( ig==ige );
+                    // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                                        #ifdef USE_PPP
+                                            int kv[3]={j1+is1*k,j2+is2*k,j3+is3*k};
+                                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                        #else
+                                            int p=0; 
+                                        #endif                                  
+                    // inline Ogev::getGlobalIndex
+                                        ig = (n) + numberOfComponents*(
+                                                      ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                        (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                        (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                    }
+                                            if( debug>0 )
+                                                fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1+is1*k,j2+is2*k,j3+is3*k]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,extraplapCoeff[k],grid,j1+is1*k,j2+is2*k,j3+is3*k,maskLocal(j1+is1*k,j2+is2*k,j3+is3*k));
+                                            ierr = MatSetValue(A,ig0,ig, extraplapCoeff[k], INSERT_VALUES);CHKERRQ(ierr); 
+                                            if( checkFill && ig0==ig ) fill(j1+is1*k,j2+is2*k,j3+is3*k)=ig0;
+                  // #If FILL eq FILL
+                  //   ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr); 
+                  // #Else 
+                  //   countNonZero(ig0,p)
+                  // #End                        
+                                }
+                            }  
+                        }
+                        else
+                        {
+              // unused point : set A = I 
+                                    if( debug>0 )
+                                        fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1,j2,j3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.0,grid,j1,j2,j3,maskLocal(j1,j2,j3));
+                                    ierr = MatSetValue(A,ig0,ig0, 1.0, INSERT_VALUES);CHKERRQ(ierr); 
+                                    if( checkFill && ig0==ig0 ) fill(j1,j2,j3)=ig0;
+              // #If FILL eq FILL
+              //   ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);  
+              // #Else 
+              //   countNonZero(ig0,p)
+              // #End                                        
+                        }
+                    } // end FOR_3D
+                }  // end if curvilinear and rectangular 
+                if( true )
+                {
+          // if( mg.boundaryCondition(side,axis) >= 0 )  
+                    if( bcLocal(side,axis) >= 0 )  
+                    {    
+                        getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+                        bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ib1,Ib2,Ib3);
+            // if( !ok ) continue;
+                        FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+                        {
+                            for( int ghost=1; ghost<=numGhost; ghost++ )
+                            {
+                                int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+                                {                                  
+                  // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                  // assert( ig0>=0 && ig0<N );
+                  // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                  // assert( ig0==ige );
+                  // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                    #ifdef USE_PPP
+                                        int kv[3]={j1,j2,j3};
+                                        int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                    #else
+                                        int p=0; 
+                                    #endif                                  
+                  // inline Ogev::getGlobalIndex
+                                    ig0 = (n) + numberOfComponents*(
+                                                  ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                    (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                    (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                }
+                // printF("Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
+                                if( maskLocal(j1,j2,j3)>0 )  
+                                {
+                                    if( bcLocal(side,axis)==neumann )   
+                                    {
+                    // Note : curvilinear case is done above 
+                                        if( isRectangular )
+                                        {
+                      // --- even symmetry for Cartesian ----
+                      //   u(-g) -   u(g) = 0 
+                                                    if( debug>0 )
+                                                        fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1,j2,j3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.0,grid,j1,j2,j3,maskLocal(j1,j2,j3));
+                                                    ierr = MatSetValue(A,ig0,ig0, 1.0, INSERT_VALUES);CHKERRQ(ierr); 
+                                                    if( checkFill && ig0==ig0 ) fill(j1,j2,j3)=ig0;
+                      // #If FILL eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig0,1.,INSERT_VALUES);CHKERRQ(ierr);
+                      // #Else 
+                      //   countNonZero(ig0,p)
+                      // #End 
+                                            j1 = i1 + is1*ghost; j2 = i2 + is2*ghost;  j3 = i3 + is3*ghost;  // point inside 
+                                            {                                  
+                        // ig = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                        // assert( ig>=0 && ig<N );
+                        // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                        // assert( ig==ige );
+                        // ig = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                                #ifdef USE_PPP
+                                                    int kv[3]={j1,j2,j3};
+                                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                #else
+                                                    int p=0; 
+                                                #endif                                  
+                        // inline Ogev::getGlobalIndex
+                                                ig = (n) + numberOfComponents*(
+                                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                            }
+                                                    if( debug>0 )
+                                                        fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1,j2,j3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,-1.0,grid,j1,j2,j3,maskLocal(j1,j2,j3));
+                                                    ierr = MatSetValue(A,ig0,ig, -1.0, INSERT_VALUES);CHKERRQ(ierr); 
+                                                    if( checkFill && ig0==ig ) fill(j1,j2,j3)=ig0;
+                      // #If FILL eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);    
+                      // #Else 
+                      //   countNonZero(ig0,p)
+                      // #End                                   
+                                        }
+                                    }   
+                                    else
+                                    { // extrapolate      
+                                        for( int k=0; k<=extrapOrder; k++ )
+                                        {
+                      // getGlobalIndexAndProcMacro( j1+is1*k,j2+is2*k,j3,n, ig); 
+                                            {                                  
+                        // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                        // assert( ig>=0 && ig<N );
+                        // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                        // assert( ig==ige );
+                        // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                                                #ifdef USE_PPP
+                                                    int kv[3]={j1+is1*k,j2+is2*k,j3+is3*k};
+                                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                #else
+                                                    int p=0; 
+                                                #endif                                  
+                        // inline Ogev::getGlobalIndex
+                                                ig = (n) + numberOfComponents*(
+                                                              ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                            }
+                                                    if( debug>0 )
+                                                        fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1+is1*k,j2+is2*k,j3+is3*k]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,extraplapCoeff[k],grid,j1+is1*k,j2+is2*k,j3+is3*k,maskLocal(j1+is1*k,j2+is2*k,j3+is3*k));
+                                                    ierr = MatSetValue(A,ig0,ig, extraplapCoeff[k], INSERT_VALUES);CHKERRQ(ierr); 
+                                                    if( checkFill && ig0==ig ) fill(j1+is1*k,j2+is2*k,j3+is3*k)=ig0;
+                      // #If FILL eq FILL 
+                      //   ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr); 
+                      // #Else 
+                      //   countNonZero(ig0,p)
+                      // #End                       
+                                        }
+                                    }
+                                }
+                                else if( maskLocal(j1,j2,j3)==0 )
+                                {
+                  // unused point -- set to identity equation
+                                            if( debug>0 )
+                                                fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1,j2,j3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.0,grid,j1,j2,j3,maskLocal(j1,j2,j3));
+                                            ierr = MatSetValue(A,ig0,ig0, 1.0, INSERT_VALUES);CHKERRQ(ierr); 
+                                            if( checkFill && ig0==ig0 ) fill(j1,j2,j3)=ig0;
+                  // #If FILL eq FILL
+                  //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                  // #Else 
+                  //   countNonZero(ig0,p)
+                  // #End                  
+                                }            
+                            }
+                        }
+                    } 
+                } // end old way          
+            }
+      // ------ fill corners ----
+      // assert( numberOfDimensions==2 ); // finish me for 3D 
+            if( numberOfDimensions==2 )
+            {
+        // ----------- FILL CORNERS 2D -----
+                for( int side2=0; side2<=1; side2++ ) 
+                {
+                    for( int side1=0; side1<=1; side1++ ) 
+                    {
+                        if( bcLocal(side1,0)==parallelGhostBC || bcLocal(side2,1)==parallelGhostBC ) continue;
+                        is1=1-2*side1; is2=1-2*side2; is3=0;
+                        i1 = gid(side1,0); i2=gid(side2,1); i3=0; // corner point 
+                        for( int ghost2=1; ghost2<=numGhost; ghost2++ )
+                        {
+                            for( int ghost1=1; ghost1<=numGhost; ghost1++ )
+                            {
+                                int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3;  // ghost point
+                                {                                  
+                  // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                  // assert( ig0>=0 && ig0<N );
+                  // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                  // assert( ig0==ige );
+                  // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                    #ifdef USE_PPP
+                                        int kv[3]={j1,j2,j3};
+                                        int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                    #else
+                                        int p=0; 
+                                    #endif                                  
+                  // inline Ogev::getGlobalIndex
+                                    ig0 = (n) + numberOfComponents*(
+                                                  ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                    (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                    (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                }
+                                if( maskLocal(j1,j2,j3)>0 )  
+                                {
+                  // printF("Corner Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
+                                    if( bcLocal(side1,0)>=0 && bcLocal(side2,1)>=0  )
+                                    { // corner with no periodic faces 
+                                        for( int k=0; k<=extrapOrder; k++ )
+                                        {
+                                            {                                  
+                        // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                        // assert( ig>=0 && ig<N );
+                        // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3, grid, p ); // new way 
+                        // assert( ig==ige );
+                        // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3, grid, p ); // new way 
+                                                #ifdef USE_PPP
+                                                    int kv[3]={j1+is1*k,j2+is2*k,j3};
+                                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                #else
+                                                    int p=0; 
+                                                #endif                                  
+                        // inline Ogev::getGlobalIndex
+                                                ig = (n) + numberOfComponents*(
+                                                              ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                            }
+                                                    if( debug>0 )
+                                                        fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1+is1*k,j2+is2*k,j3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,extraplapCoeff[k],grid,j1+is1*k,j2+is2*k,j3,maskLocal(j1+is1*k,j2+is2*k,j3));
+                                                    ierr = MatSetValue(A,ig0,ig, extraplapCoeff[k], INSERT_VALUES);CHKERRQ(ierr); 
+                                                    if( checkFill && ig0==ig ) fill(j1+is1*k,j2+is2*k,j3)=ig0;
+                      // #If FILL eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr); 
+                      // #Else 
+                      //   countNonZero(ig0,p)
+                      // #End                          
+                                        }
+                                    }
+                                    else if( bcLocal(side1,0)<0 && bcLocal(side2,1)<0  ) 
+                                    {
+                    // corner between two adjacent periodic sides *check me*
+                                        int j1p = j1 + (1-2*side1)*( gid(1,0)-gid(0,0) ); // periodic image 
+                                        int j2p = j2 + (1-2*side2)*( gid(1,1)-gid(0,1) ); // periodic image 
+                                        int j3p = j3; 
+                                        {                                  
+                      // ig = (j1p)-n1a + nd1a*( (j2p)-n2a + nd2a*(n) );
+                      // assert( ig>=0 && ig<N );
+                      // ige = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                      // assert( ig==ige );
+                      // ig = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                                            #ifdef USE_PPP
+                                                int kv[3]={j1p,j2p,j3p};
+                                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                            #else
+                                                int p=0; 
+                                            #endif                                  
+                      // inline Ogev::getGlobalIndex
+                                            ig = (n) + numberOfComponents*(
+                                                          ((j1p)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                            (j2p)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                            (j3p)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                        }
+                                                if( debug>0 )
+                                                    fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1p,j2p,j3p]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,-1.0,grid,j1p,j2p,j3p,maskLocal(j1p,j2p,j3p));
+                                                ierr = MatSetValue(A,ig0,ig, -1.0, INSERT_VALUES);CHKERRQ(ierr); 
+                                                if( checkFill && ig0==ig ) fill(j1p,j2p,j3p)=ig0;
+                    // #If FILL eq FILL
+                    //   ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);
+                    // #Else 
+                    //   countNonZero(ig0,p)
+                    // #End                                        
+                                    }
+                                }
+                                else if( maskLocal(j1,j2,j3)==0 )
+                                {
+                  // unused point -- set to identity equation
+                                            if( debug>0 )
+                                                fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1,j2,j3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.0,grid,j1,j2,j3,maskLocal(j1,j2,j3));
+                                            ierr = MatSetValue(A,ig0,ig0, 1.0, INSERT_VALUES);CHKERRQ(ierr); 
+                                            if( checkFill && ig0==ig0 ) fill(j1,j2,j3)=ig0;
+                  // #If FILL eq FILL
+                  //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr); 
+                  // #Else 
+                  //   countNonZero(ig0,p)
+                  // #End                      
+                                } 
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+        // --------- FILL EDGES AND CORNERS 3D ---------
+        // side1=-1 : means an edge where side2 and side3 meet
+                int ghostStart1, ghostEnd1, ghostStart2, ghostEnd2, ghostStart3, ghostEnd3;
+                for( int side3=-1; side3<=1; side3++ ) 
+                for( int side2=-1; side2<=1; side2++ ) 
+                for( int side1=-1; side1<=1; side1++ ) 
+                {
+                    if( (side1==-1 && ( side2>=0 && side3>=0 ) ) ||
+                            (side2==-1 && ( side3>=0 && side1>=0 ) ) ||
+                            (side3==-1 && ( side1>=0 && side2>=0 ) ) )
+                    {
+            // Edge where two faces meet
+              // default: 
+                            Iv[0]=Range(gid(side1,0),gid(side1,0)); is1=1-2*side1;  ghostStart1=1; ghostEnd1=numGhost;
+                            Iv[1]=Range(gid(side2,1),gid(side2,1)); is2=1-2*side2;  ghostStart2=1; ghostEnd2=numGhost;
+                            Iv[2]=Range(gid(side3,2),gid(side3,2)); is3=1-2*side3;  ghostStart3=1; ghostEnd3=numGhost;
+                            bool ok=true;
+                            if( side1==-1 )
+                            { // edge lies along this axis 
+                                Iv[0]=Range(gid(0,0),gid(1,0));  is1=0; ghostStart1=0; ghostEnd1=0; 
+                                if( bcLocal(side2,1)==parallelGhostBC || bcLocal(side3,2)==parallelGhostBC ) ok=false;
+                            }
+                            if( side2==-1 )
+                            {
+                                Iv[1]=Range(gid(0,1),gid(1,1));  is2=0; ghostStart2=0; ghostEnd2=0;
+                                if( bcLocal(side1,0)==parallelGhostBC || bcLocal(side3,2)==parallelGhostBC ) ok=false;
+                            }
+                            if( side3 ==-1 )
+                            {
+                                Iv[2]=Range(gid(0,2),gid(1,2));  is3=0; ghostStart3=0; ghostEnd3=0;
+                                if( bcLocal(side1,0)==parallelGhostBC || bcLocal(side2,1)==parallelGhostBC ) ok=false;
+                            }  
+                            ok= ok && ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,I1,I2,I3);
+                            if( ok )
+                            {
+                                for( int i3=I3.getBase(); i3<=I3.getBound(); i3++ )
+                                for( int i2=I2.getBase(); i2<=I2.getBound(); i2++ )
+                                for( int i1=I1.getBase(); i1<=I1.getBound(); i1++ )
+                                {
+                  // #If FILL == FILL
+                  //   if( grid==1 && side3==-1 )
+                  //     printf("fillEdge3D: myid=%d, grid=%d (i1,i2,i3)=(%3d,%3d,%3d) [side1,side2,side3]=[%d,%d,%d] bcLocal=[%d,%d,%d] bc=[%d,%d,%d] maskLocal(i1,i2,i3)=%d\n",
+                  //       myid,grid,i1,i2,i3,side1,side2,side3,bcLocal(side1,0),bcLocal(side2,1),bcLocal(0,2),bc(side1,0),bc(side2,1),bc(0,2),maskLocal(i1,i2,i3));
+                  // #End
+                                    for( int ghost3=ghostStart3; ghost3<=ghostEnd3; ghost3++ )
+                                    for( int ghost2=ghostStart2; ghost2<=ghostEnd2; ghost2++ )
+                                    for( int ghost1=ghostStart1; ghost1<=ghostEnd1; ghost1++ )
+                                    {
+                                        int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3 - is3*ghost3;  // ghost point
+                    // #If FILL == FILL
+                    //    if( grid==1 && side3==-1 )
+                    //      printf("fillEdge3D: myid=%d, grid=%d (j1,j2,j3)=(%3d,%3d,%3d) \n",
+                    //        myid,grid,j1,j2,j3);
+                    //  #End
+                                        {                                  
+                      // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                      // assert( ig0>=0 && ig0<N );
+                      // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                      // assert( ig0==ige );
+                      // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                            #ifdef USE_PPP
+                                                int kv[3]={j1,j2,j3};
+                                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                            #else
+                                                int p=0; 
+                                            #endif                                  
+                      // inline Ogev::getGlobalIndex
+                                            ig0 = (n) + numberOfComponents*(
+                                                          ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                            (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                            (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                        }
+                    // if( maskLocal(j1,j2,j3)>0 )  
+                                        if( maskLocal(i1,i2,i3)!=0 )   // *wdh* Nov 8, 2025
+                                        {
+                      // printF("Corner Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
+                                            if( ( side3==-1 && bc(side1,0)>=0 && bc(side2,1)>=0 ) ||
+                                                    ( side1==-1 && bc(side2,1)>=0 && bc(side3,2)>=0 ) ||
+                                                    ( side2==-1 && bc(side3,2)>=0 && bc(side1,0)>=0 )  )
+                                            { // edge with no periodic faces 
+                        // #If FILL == FILL
+                        //   if( grid==1 && side3==-1 )
+                        //     printf("fillEdge3D: myid=%d, grid=%d (j1,j2,j3)=(%3d,%3d,%3d)  *EXTRAP ig0=%d\n",
+                        //       myid,grid,j1,j2,j3,ig0);
+                        // #End
+                                                for( int k=0; k<=extrapOrder; k++ )
+                                                {
+                                                    {                                  
+                            // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                            // assert( ig>=0 && ig<N );
+                            // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                            // assert( ig==ige );
+                            // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                                                        #ifdef USE_PPP
+                                                            int kv[3]={j1+is1*k,j2+is2*k,j3+is3*k};
+                                                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                        #else
+                                                            int p=0; 
+                                                        #endif                                  
+                            // inline Ogev::getGlobalIndex
+                                                        ig = (n) + numberOfComponents*(
+                                                                      ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                        (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                        (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                    }
+                                                            if( debug>0 )
+                                                                fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1+is1*k,j2+is2*k,j3+is3*k]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,extraplapCoeff[k],grid,j1+is1*k,j2+is2*k,j3+is3*k,maskLocal(j1+is1*k,j2+is2*k,j3+is3*k));
+                                                            ierr = MatSetValue(A,ig0,ig, extraplapCoeff[k], INSERT_VALUES);CHKERRQ(ierr); 
+                                                            if( checkFill && ig0==ig ) fill(j1+is1*k,j2+is2*k,j3+is3*k)=ig0;
+                          // #If FILL eq FILL
+                          //   ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);
+                          // #Else
+                          //   countNonZero(ig0,p)
+                          // #End
+                                                }
+                                            }
+                                            else if( ( side3==-1 && ( bc(side1,0)<0 || bc(side2,1)<0 ) ) ||   // *wdh* Nov 8, 2025
+                                                              ( side1==-1 && ( bc(side2,1)<0 || bc(side3,2)<0 ) ) ||
+                                                              ( side2==-1 && ( bc(side3,2)<0 || bc(side1,0)<0 ) )  )             
+                      // else if( ( side3==-1 && bc(side1,0)<0 && bc(side2,1)<0 ) ||
+                      //          ( side1==-1 && bc(side2,1)<0 && bc(side3,2)<0 ) ||
+                      //          ( side2==-1 && bc(side3,2)<0 && bc(side1,0)<0 )  )          
+                                            {
+                        // edge with a periodic BC in one or two directions
+                        // #If FILL == FILL
+                        //   if( grid==1 && side3==-1 )
+                        //     printf("fillEdge3D: myid=%d, grid=%d (j1,j2,j3)=(%3d,%3d,%3d) [side1,side2,side3]=[%d,%d,%d] bcLocal=[%d,%d,%d] bc=[%d,%d,%d] maskLocal(i1,i2,i3)=%d *SET PERIOIDIC ig0=%d\n",
+                        //       myid,grid,j1,j2,j3,side1,side2,side3,bcLocal(side1,0),bcLocal(side2,1),bcLocal(side3,2),bc(side1,0),bc(side2,1),bc(side3,2),maskLocal(i1,i2,i3),ig0);
+                        // #End
+                                                        if( debug>0 )
+                                                            fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1,j2,j3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.,grid,j1,j2,j3,maskLocal(j1,j2,j3));
+                                                        ierr = MatSetValue(A,ig0,ig0, 1., INSERT_VALUES);CHKERRQ(ierr); 
+                                                        if( checkFill && ig0==ig0 ) fill(j1,j2,j3)=ig0;
+                        // #If FILL eq FILL
+                        //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);
+                        // #Else
+                        //   countNonZero(ig0,p)
+                        // #End                
+                        // periodic image: 
+                                                const int j1p = bc(side1,0)<0 ? j1 + is1*( gid(1,0)-gid(0,0) ) : j1; // periodic image, if bc<0
+                                                const int j2p = bc(side2,1)<0 ? j2 + is2*( gid(1,1)-gid(0,1) ) : j2; // periodic image, if bc<0
+                                                const int j3p = bc(side3,2)<0 ? j3 + is3*( gid(1,2)-gid(0,2) ) : j3; // periodic image, if bc<0
+                                                {                                  
+                          // ig = (j1p)-n1a + nd1a*( (j2p)-n2a + nd2a*(n) );
+                          // assert( ig>=0 && ig<N );
+                          // ige = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                          // assert( ig==ige );
+                          // ig = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                                                    #ifdef USE_PPP
+                                                        int kv[3]={j1p,j2p,j3p};
+                                                        int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                    #else
+                                                        int p=0; 
+                                                    #endif                                  
+                          // inline Ogev::getGlobalIndex
+                                                    ig = (n) + numberOfComponents*(
+                                                                  ((j1p)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                    (j2p)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                    (j3p)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                }
+                                                        if( debug>0 )
+                                                            fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1p,j2p,j3p]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,-1.,grid,j1p,j2p,j3p,maskLocal(j1p,j2p,j3p));
+                                                        ierr = MatSetValue(A,ig0,ig, -1., INSERT_VALUES);CHKERRQ(ierr); 
+                                                        if( checkFill && ig0==ig ) fill(j1p,j2p,j3p)=ig0;
+                        // #If FILL eq FILL
+                        //   ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
+                        // #Else
+                        //   countNonZero(ig0,p)
+                        // #End
+                                            }
+                                        }
+                    // else if( maskLocal(j1,j2,j3)==0 )
+                                        else if( maskLocal(i1,i2,i3)==0 )
+                                        {
+                      // unused point -- set to identity equation
+                                if( grid==1 && side3==-1 )
+                                    printf("fillEdge3D: myid=%d, grid=%d (j1,j2,j3)=(%3d,%3d,%3d)  *SET UNUSED ig0=%d\n",
+                                        myid,grid,j1,j2,j3,ig0);
+                                                    if( debug>0 )
+                                                        fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1,j2,j3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.,grid,j1,j2,j3,maskLocal(j1,j2,j3));
+                                                    ierr = MatSetValue(A,ig0,ig0, 1., INSERT_VALUES);CHKERRQ(ierr); 
+                                                    if( checkFill && ig0==ig0 ) fill(j1,j2,j3)=ig0;
+                      // #If FILL eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                      // #Else
+                      //   countNonZero(ig0,p)
+                      // #End            
+                                        } 
+                                    }
+                                }
+                            }
+                    }
+                    else if( side1>=0 && side2>=0 && side3>=0 )
+                    {
+            // Vertex where 3 faces meet.
+              // vertex: 
+                            i1=gid(side1,0); is1=1-2*side1; 
+                            i2=gid(side2,1); is2=1-2*side2; 
+                            i3=gid(side3,2); is3=1-2*side3; 
+                            bool ok = true;
+                            if( bcLocal(side1,0)==parallelGhostBC ||
+                                    bcLocal(side2,1)==parallelGhostBC ||
+                                    bcLocal(side3,2)==parallelGhostBC )
+                                ok=false;
+              // #If FILL == FILL
+              //   if( grid==1 )
+              //     printf("fillVertex3D: myid=%d, grid=%d (i1,i2,i3)=(%3d,%3d,%3d) [side1,side2,side3]=[%d,%d,%d] bcLocal=[%d,%d,%d] bc=[%d,%d,%d] maskLocal(i1,i2,i3)=%d\n",
+              //       myid,grid,i1,i2,i3,side1,side2,side3,bcLocal(side1,0),bcLocal(side2,1),bcLocal(side3,2),bc(side1,0),bc(side2,1),bc(side3,2),maskLocal(i1,i2,i3));
+              // #End
+                            if( ok )
+                            {
+                                for( int ghost3=1; ghost3<=numGhost; ghost3++ )
+                                for( int ghost2=1; ghost2<=numGhost; ghost2++ )
+                                for( int ghost1=1; ghost1<=numGhost; ghost1++ )
+                                {
+                                    int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3 - is3*ghost3;  // ghost point
+                                    {                                  
+                    // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                    // assert( ig0>=0 && ig0<N );
+                    // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                    // assert( ig0==ige );
+                    // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                        #ifdef USE_PPP
+                                            int kv[3]={j1,j2,j3};
+                                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                        #else
+                                            int p=0; 
+                                        #endif                                  
+                    // inline Ogev::getGlobalIndex
+                                        ig0 = (n) + numberOfComponents*(
+                                                      ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                        (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                        (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                    }
+                  // #If FILL == FILL
+                  //   if( grid==1 && j1==20 && j2==-1 & j3==-1 )
+                  //     printf("fillVertex3D: myid=%d, grid=%d (j1,j2,j3)=(%3d,%3d,%3d) [side1,side2,side3]=[%d,%d,%d] bcLocal=[%d,%d,%d] bc=[%d,%d,%d] maskLocal(j1,j2,j3)=%d\n",
+                  //       myid,grid,j1,j2,j3,side1,side2,side3,bcLocal(side1,0),bcLocal(side2,1),bcLocal(side3,2),bc(side1,0),bc(side2,1),bc(side3,2), maskLocal(j1,j2,j3));
+                  // #End      
+                  // if( maskLocal(j1,j2,j3)>0 )  
+                                    if( maskLocal(i1,i2,i3)>0 )   // *wdh* Nov 8, 2025
+                                    {
+                    // printF("VERTEX Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
+                                        if( bc(side1,0)>=0 && bc(side2,1)>=0 && bc(side3,2)>=0 )
+                                        { // vertex with no periodic faces 
+                                            for( int k=0; k<=extrapOrder; k++ )
+                                            {
+                                                {                                  
+                          // ig = (j1+is1*k)-n1a + nd1a*( (j2+is2*k)-n2a + nd2a*(n) );
+                          // assert( ig>=0 && ig<N );
+                          // ige = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                          // assert( ig==ige );
+                          // ig = getGlobalIndex( n, j1+is1*k,j2+is2*k,j3+is3*k, grid, p ); // new way 
+                                                    #ifdef USE_PPP
+                                                        int kv[3]={j1+is1*k,j2+is2*k,j3+is3*k};
+                                                        int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                    #else
+                                                        int p=0; 
+                                                    #endif                                  
+                          // inline Ogev::getGlobalIndex
+                                                    ig = (n) + numberOfComponents*(
+                                                                  ((j1+is1*k)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                    (j2+is2*k)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                    (j3+is3*k)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                                }
+                                                        if( debug>0 )
+                                                            fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1+is1*k,j2+is2*k,j3+is3*k]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,extraplapCoeff[k],grid,j1+is1*k,j2+is2*k,j3+is3*k,maskLocal(j1+is1*k,j2+is2*k,j3+is3*k));
+                                                        ierr = MatSetValue(A,ig0,ig, extraplapCoeff[k], INSERT_VALUES);CHKERRQ(ierr); 
+                                                        if( checkFill && ig0==ig ) fill(j1+is1*k,j2+is2*k,j3+is3*k)=ig0;
+                        // #If FILL eq FILL
+                        //   ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+                        // #Else
+                        //   countNonZero(ig0,p)
+                        // #End                
+                                            }
+                                        }
+                                        else if( bc(side1,0)<0 || bc(side2,1)<0 || bc(side3,2)<0 )
+                                        {
+                      // At least one direction is periodic
+                      // #If FILL == FILL
+                      //    if( grid==1 && j1==20 && j2==-1 & j3==-1 )
+                      //      printf("fillVertex3D: myid=%d, grid=%d (j1,j2,j3)=(%3d,%3d,%3d) SET ig0=%d to 1\n",
+                      //        myid,grid,j1,j2,j3,ig0);
+                      //  #End
+                                                    if( debug>0 )
+                                                        fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1,j2,j3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.,grid,j1,j2,j3,maskLocal(j1,j2,j3));
+                                                    ierr = MatSetValue(A,ig0,ig0, 1., INSERT_VALUES);CHKERRQ(ierr); 
+                                                    if( checkFill && ig0==ig0 ) fill(j1,j2,j3)=ig0;
+                      // #If FILL eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                      // #Else
+                      //   countNonZero(ig0,p)
+                      // #End            
+                      // perioidic image: 
+                                            int j1p = bc(side1,0)<0 ? j1 + is1*( gid(1,0)-gid(0,0) ) : j1; // periodic image, if bc<0
+                                            int j2p = bc(side2,1)<0 ? j2 + is2*( gid(1,1)-gid(0,1) ) : j2; // periodic image, if bc<0
+                                            int j3p = bc(side3,2)<0 ? j3 + is3*( gid(1,2)-gid(0,2) ) : j3; // periodic image, if bc<0
+                                            {                                  
+                        // ig = (j1p)-n1a + nd1a*( (j2p)-n2a + nd2a*(n) );
+                        // assert( ig>=0 && ig<N );
+                        // ige = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                        // assert( ig==ige );
+                        // ig = getGlobalIndex( n, j1p,j2p,j3p, grid, p ); // new way 
+                                                #ifdef USE_PPP
+                                                    int kv[3]={j1p,j2p,j3p};
+                                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                                #else
+                                                    int p=0; 
+                                                #endif                                  
+                        // inline Ogev::getGlobalIndex
+                                                ig = (n) + numberOfComponents*(
+                                                              ((j1p)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                                (j2p)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                                (j3p)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                                            }
+                                                    if( debug>0 )
+                                                        fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1p,j2p,j3p]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig,-1.,grid,j1p,j2p,j3p,maskLocal(j1p,j2p,j3p));
+                                                    ierr = MatSetValue(A,ig0,ig, -1., INSERT_VALUES);CHKERRQ(ierr); 
+                                                    if( checkFill && ig0==ig ) fill(j1p,j2p,j3p)=ig0;
+                      // #If FILL eq FILL
+                      //   ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);  
+                      // #Else
+                      //   countNonZero(ig0,p)
+                      // #End                             
+                                        }
+                                    }
+                                    else if( maskLocal(j1,j2,j3)==0 )
+                                    {
+                    // unused point -- set to identity equation
+                                                if( debug>0 )
+                                                    fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [j1,j2,j3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.,grid,j1,j2,j3,maskLocal(j1,j2,j3));
+                                                ierr = MatSetValue(A,ig0,ig0, 1., INSERT_VALUES);CHKERRQ(ierr); 
+                                                if( checkFill && ig0==ig0 ) fill(j1,j2,j3)=ig0;
+                    // #If FILL eq FILL
+                    //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+                    // #Else
+                    //     countNonZero(ig0,p)
+                    // #End            
+                                    } 
+                                }
+                            }
+                    }
+                }
+        // OV_ABORT(" FILL EDGES AND CORNERS 3D - FINISH ME");
+            }
+      // --- fill in any UNUSED ghost points on ghost lines > numGhost ----
+            int n1,n2; 
+            ForBoundary(side,axis)
+            {   
+                if( side==0 )
+                {
+                    n1 = mg.dimension(side,axis);
+                    n2 = mg.gridIndexRange(side,axis)-numGhost-1;
+                }
+                else
+                {
+                    n1 = mg.gridIndexRange(side,axis)+numGhost+1;
+                    n2 = mg.dimension(side,axis);
+                }
+                if( n1<=n2 )
+                {
+          // there are unused ghost points
+                    getBoundaryIndex(mg.dimension(),side,axis,Ig1,Ig2,Ig3);
+                    Igv[axis] = Range(n1,n2);  // range of unused ghost 
+                    bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ig1,Ig2,Ig3);
+                    if( !ok ) continue; 
+                    FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+                    {
+                        {                                  
+              // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+              // assert( ig0>=0 && ig0<N );
+              // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+              // assert( ig0==ige );
+              // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                            #ifdef USE_PPP
+                                int kv[3]={i1,i2,i3};
+                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                            #else
+                                int p=0; 
+                            #endif                                  
+              // inline Ogev::getGlobalIndex
+                            ig0 = (n) + numberOfComponents*(
+                                          ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                            (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                            (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                        }
+                                if( debug>0 )
+                                    fprintf(pDebugFile,"fill row=%6d col=%6d val=%9.2e (grid=%d, [i1,i2,i3]=[%3i,%3i,%3i], mask=%d)\n",ig0,ig0,1.0,grid,i1,i2,i3,maskLocal(i1,i2,i3));
+                                ierr = MatSetValue(A,ig0,ig0, 1.0, INSERT_VALUES);CHKERRQ(ierr); 
+                                if( checkFill && ig0==ig0 ) fill(i1,i2,i3)=ig0;
+            // #If FILL eq FILL
+            //   ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr); 
+            // #Else 
+            //   countNonZero(ig0,p)
+            // #End             
+                    }
+                }
+            } 
+            cpu1 = getCPU()-cpu0;
+            printF("  ... done boundaries for grid=%d (%s) (total cpu=%9.2e)...\n",grid,(const char*)mg.getName(),cpu1); fflush(0);     
+        } // end for grid 
+    // --- fill in any interpolation equations into matrix A ----
+            fillInterpolationCoefficients( A,ucg );
 
 
-        cpu1 = getCPU()-cpu0;
-        printF("  ... done boundaries for grid=%d (%s) (total cpu=%9.2e)...\n",grid,(const char*)mg.getName(),cpu1); fflush(0);     
+    if( checkFill )
+    {
+        int numErrors=0;
+        for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+        {
+            MappedGrid & mg = cg[grid];
+            OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
+            getIndex(mg.dimension(),I1,I2,I3);
+            bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,I1,I2,I3);
+            IntegerArray & fill = fillArray[grid];
+            if( ok )
+            {
+                FOR_3D(i1,i2,i3,I1,I2,I3)
+                {
+                    if( maskLocal(i1,i2,i3)>=0 && fill(i1,i2,i3)<0 ) // avoid interp points for now
+                    {
+                        printf("checkFill: myid=%d: pt (i1,i2,i3)=(%3d,%3d,%d) grid=%d : diagonal NOT set! mask=%d\n",myid,i1,i2,i3,grid,maskLocal(i1,i2,i3));
+                        numErrors++;
+                    }
 
-    } // end for grid 
+          // if( grid==1 && i1==20 && i2==-1 && i3==-1 )
+          // {
+          //   printf("\n $$$ checkFill: grid=%d mask(%d,%d,%d) = %d $$$\n\n",grid,i1,i2,i3,maskLocal(i1,i2,i3));
+          // }
+                }
+            }
+        }  
+        numErrors = ParallelUtility::getSum(numErrors);
+
+        if( numErrors==0 )
+            printF("\n +++++ fillMatLap:  checkFill : NO ERRORS found+++\n\n");
+        else
+            printF("\n +++++ fillMatLap: checkFill : %d ERRORS found+++\n\n",numErrors);
+    }
+
+    if( checkFill )
+        delete [] fillArray;
+
+  // // --------------- START LOOP OVER GRIDS ------------------
+
+  // IntegerArray indexRangeLocal,dimensionLocal, bcLocal;
+  // const int parallelGhostBC=-100; // label for parallel ghost boundaries 
+
+  // for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+  // {
+  //   MappedGrid & mg = cg[grid];
+  //   const IntegerArray & gid = mg.gridIndexRange();
+  //   const IntegerArray & dim = mg.dimension();
+  //   const IntegerArray & bc = mg.boundaryCondition();
+
+  //   // ParallelGridUtility::getLocalBoundaryConditions(  mg, bcLocal,parallelGhostBC ); // *********************
+  //   realArray & ug = ucg[grid]; // use in findProcNum
+  //   ParallelGridUtility::getLocalIndexBoundsAndBoundaryConditions( ucg[grid], 
+  //                                                     indexRangeLocal, 
+  //                                                     dimensionLocal, 
+  //                                                     bcLocal,
+  //                                                     parallelGhostBC );
+
+  //   mg.update(MappedGrid::THEmask );
+  //   OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
+
+  //   MappedGridOperators & mgop = cgop[grid];    
+
+  //   // *** WHERE ARE THESE USED: ???
+  //   const int nd1a = gid(1,0)-gid(0,0)+1 + 2*numGhost;
+  //   const int nd2a = gid(1,1)-gid(0,1)+1 + 2*numGhost;
+
+  //   const int n1a = gid(0,0)-numGhost;
+  //   const int n2a = gid(0,1)-numGhost;
+
+  //   const int n1b = gid(1,0)+numGhost;
+  //   const int n2b = gid(1,1)+numGhost;
+
+  //   Real cpu0 = getCPU();
+  //   printF("  fillMatrixLaplacian grid=%d (%s) ...\n",grid,(const char*)mg.getName()); fflush(0);
+
+  //   // int numberOfComponents=1; 
+  //   // const int N = nd1a*nd2a*numberOfComponents; // total number of grid points
 
 
-  // --- fill in any interpolation equations into matrix A ----
-    fillInterpolationCoefficients( A,ucg );
+  //   // ---- Find the index range for the interior equations ----
+  //   getInteriorIndexRange( Iv );
+
+  //   bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,I1,I2,I3);
+  //   if( !ok ) continue;
+
+  //   // SHOULD SET MANY VALUES AT ONCE FOR EFFICIENCY
+
+  //   // #include "petscmat.h" 
+  //   // PetscErrorCode MatSetValues(Mat mat,PetscInt m,const PetscInt idxm[],PetscInt n,const PetscInt idxn[],const PetscScalar v[],InsertMode addv)
+  //   // Not Collective
+  //   // Input Parameters
+
+  //   // mat - the matrix
+  //   // v - a logically two-dimensional array of values
+  //   // m, idxm - the number of rows and their global indices
+  //   // n, idxn - the number of columns and their global indices
+  //   // addv  - either ADD_VALUES or INSERT_VALUES, where ADD_VALUES adds values to any existing entries, and INSERT_VALUES replaces existing entries with new values
+  //   // Notes    
+
+
+  //   int ig0,ig;  
+
+  //   bool isRectangular = mg.isRectangular();
+  //   // isRectangular = false; // ************************ TEMP *********************
+
+
+  //   if(  isRectangular )
+  //   {
+  //     // ------- RECTANGULAR GRID ------
+
+  //     Real dx[3]={1.,1.,1.};
+  //     mg.getDeltaX(dx);
+
+  //     // These are really  coeff of -Delta
+  //     getLaplacianCoefficientsRectangular();
+
+  //     // ---- interior points ----
+  //     FOR_3D(i1,i2,i3,I1,I2,I3) 
+  //     {
+  //       getGlobalIndexAndProcMacro( i1,i2,i3,n, ig0 );
+
+  //       // ige = getGlobalIndex( n, iv, grid, p ); // new way 
+
+  //       if( maskLocal(i1,i2,i3)>0 )
+  //       {
+
+  //         // printF("fillMatLap: interior: i1=%d, i2=%d, ig0=%d, ige=%d\n",i1,i2,ig0,ige);
+
+  //         // --- loop over stencil ---
+  //         for( int iw3=-hw3; iw3<=hw3; iw3++ )
+  //         {
+  //           for( int iw2=-hw;  iw2<=hw;  iw2++ )
+  //           {
+  //             for( int iw1=-hw; iw1<=hw; iw1++ )
+  //             {
+  //               if( lapCoeff(iw1,iw2,iw3) != 0. )
+  //               {
+  //                  getGlobalIndexAndProcMacro( i1+iw1,i2+iw2,i3+iw3,n, ig );
+  //                  Real coeffLap= lapCoeff(iw1,iw2,iw3);
+  //                  if( iw1==0 && iw2==0 && iw3==0 )
+  //                  {
+  //                    coeffLap = coeffLap - lambdaShift;
+  //                  }
+  //                  ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
+  //                  // ierr = MatSetValue(A,ig0,ig,lapCoeff(iw1,iw2,iw3),INSERT_VALUES);CHKERRQ(ierr);
+
+  //               }
+  //             }
+  //           }
+  //         }
+  //       }
+  //       else if( maskLocal(i1,i2,i3)==0 )
+  //       {
+  //         // unused point : set A = I 
+  //         ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+  //       }
+  //     }
+  //   }
+  //   else
+  //   {
+  //     // ------- CURVILINEAR GRID ------
+
+
+  //     // ---- Fill interior points ----
+  //     RealArray lapCoeff(M0,I1,I2,I3);
+  //     mgop.assignCoefficients(MappedGridOperators::laplacianOperator,lapCoeff,I1,I2,I3,0,0); // 
+
+  //     FOR_3D(i1,i2,i3,I1,I2,I3) 
+  //     {
+  //       getGlobalIndexAndProcMacro( i1,i2,i3,n, ig0 );
+  //       if( maskLocal(i1,i2,i3)>0 )
+  //       {        
+
+  //         // printF("Interior: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+  //         // printF("fillMatLap: interior: i1=%d, i2=%d, ig0=%d, ige=%d\n",i1,i2,ig0,ige);
+
+  //         // --- loop over stencil ---
+  //         ForStencil(m1,m2,m3)         
+  //         {
+  //           const int m = M123(m1,m2,m3); 
+  //           Real coeffLap = -lapCoeff(m,i1,i2,i3);  // Note minus 
+  //           if( coeffLap != 0. )
+  //           {
+  //              if( m1==0 && m2==0 && m3==0 )
+  //              {
+  //                coeffLap = coeffLap - lambdaShift; // diagonal shift
+  //              }              
+  //             getGlobalIndexAndProcMacro( i1+m1,i2+m2,i3+m3,n, ig );
+  //             ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
+  //           }
+  //         }
+  //       }
+  //       else if( maskLocal(i1,i2,i3)==0 )
+  //       {
+  //         // unused point : set A = I 
+  //         ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+  //       }        
+  //     }
+
+  //   } // end curvilinear grid
+            
+  //   cpu1 = getCPU()-cpu0;
+
+  //   printF("  ... done interior grid=%d (%s) (cpu=%9.2e)...\n",grid,(const char*)mg.getName(),cpu1); fflush(0); 
+                  
+  //   // --- fill in boundary points (constraints) ----
+  //   ForBoundary(side,axis)
+  //   {
+  //     if( bcLocal(side,axis) > 0 )
+  //     {
+  //       getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+  //       bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ib1,Ib2,Ib3);
+
+  //       FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+  //       {
+  //         if( maskLocal(i1,i2,i3)>0 )
+  //         {  
+
+  //           getGlobalIndexAndProcMacro( i1,i2,i3,n, ig0 );
+  //           // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+
+  //           if( bcLocal(side,axis)==dirichlet )
+  //           {
+  //             ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+  //           }
+  //           else if( bcLocal(side,axis)==neumann )
+  //           {
+  //             // Nothing to do here 
+  //           }
+  //           else
+  //           {
+  //             printF("fillMatrixLaplacian: grid=%d, side=%d, axis=%d, bc=%d is unknown!\n",grid,side,axis,bcLocal(side,axis));
+  //             ::display(bc,"bc");
+  //             OV_ABORT("fillMatrixLaplacian: unknown bc");
+  //           }
+
+  //         }
+  //         else if( maskLocal(i1,i2,i3)==0 )
+  //         {
+  //           // unused point -- set to identity equation
+  //           getGlobalIndexAndProcMacro( i1,i2,i3,n, ig0 );
+  //           ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+  //         }
+
+  //       } 
+  //     }
+  
+  //   } 
+
+  //   // --- periodic boundaries ----
+  //   ForBoundary(side,axis)
+  //   {
+  //     if( bc(side,axis) < 0 && bcLocal(side,axis)!=parallelGhostBC )
+  //     {
+  //       // periodic boundary 
+
+  //       const int is = 1 - 2*side;
+  //       const int ndp = gid(1,axis) - gid(0,axis);   // for periodic image -- use global gid
+  //       const int startGhost = side==0 ? 1 : 0;       
+  //       for( int ghost=startGhost; ghost<=numGhost; ghost++ )
+  //       {
+  //         getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3,ghost);
+  //         bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ig1,Ig2,Ig3);
+
+  //         for( int dir=0; dir<3; dir++ )
+  //         { // Include ghost in tangential directions for non periodic adjacent sides
+  //           if( dir!=axis && bcLocal(0,dir)>=0 )
+  //             Igv[dir] = Range( gid(0,dir)-numGhost, gid(1,dir)+numGhost ); 
+  //         }
+              
+
+  //         FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+  //         {
+  //           // NOTE: some periodic points may have mask<0 but not be interp points *check me* 
+  //           //          |  |  |  |  |  
+  //           //   :   P--X--+--+--+--X--P  <- lower boundary is interpolation 
+  //           //          |  |  |  |  |  
+  //           //   :   P--I--I--I--I--B--P  <- ghost points below lower boundary 
+  //           //  
+  //           // Point B on right side has mask<0 but is not an interpolation point (I) *check me*
+  //           // It should be a periodic point 
+  //           //            
+  //           // if( maskLocal(i1,i2,i3)>0 )
+  //           if( maskLocal(i1,i2,i3) !=0  )    // NOTE
+  //           {          
+  //             getGlobalIndexAndProcMacro( i1,i2,i3,n, ig0 );
+  //             // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+  //             ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+
+  //             j1=i1; j2=i2; j3=i3;
+  //             jv[axis] += is*( ndp ); // periodic image 
+
+  //             getGlobalIndexAndProcMacro( j1,j2,j3,n, ig  );
+  //             ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);   
+
+  //           }
+  //           else if( maskLocal(i1,i2,i3)==0 )
+  //           {
+  //             // unused point -- set to identity equation
+  //             getGlobalIndexAndProcMacro( i1,i2,i3,n, ig0 );
+  //             ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+  //           }
+  //         } 
+  //       }        
+  //     }         
+  //   }
+
+
+  //   // --- fill in ghost points (constraints) ----
+  //   ForBoundary(side,axis)
+  //   {
+  //     is1=is2=is3=0;  isv[axis]=1-2*side;   // +1 on left and -1 on right     
+                
+  //     if( !isRectangular && mg.boundaryCondition(side,axis)==neumann )
+  //     {
+  //       // --- Neumann BC -- curvilinear grid ---
+
+  //       mg.update(MappedGrid::THEvertexBoundaryNormal);
+  //       OV_GET_VERTEX_BOUNDARY_NORMAL(mg,side,axis,normal); 
+
+  //       getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+  //       bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ib1,Ib2,Ib3);
+  //       if( !ok ) continue;
+                
+  //       // Get coefficient matrices on boundary needed for the normal derivative
+  //       realSerialArray xCoeff(M0,Ib1,Ib2,Ib3), yCoeff(M0,Ib1,Ib2,Ib3), zCoeff; 
+  //       mgop.assignCoefficients(MappedGridOperators::xDerivative ,xCoeff, Ib1,Ib2,Ib3,0,0);
+  //       mgop.assignCoefficients(MappedGridOperators::yDerivative ,yCoeff, Ib1,Ib2,Ib3,0,0);
+  //       if( numberOfDimensions==3 )
+  //       {
+  //         zCoeff.redim(M0,Ib1,Ib2,Ib3);
+  //         mgop.assignCoefficients(MappedGridOperators::zDerivative ,zCoeff, Ib1,Ib2,Ib3,0,0);
+  //       }  
+
+  //       FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) // loop over points on the boundary
+  //       {
+  //         int ghost=1; 
+  //         int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // first ghost point          
+  //         getGlobalIndexAndProcMacro( j1,j2,j3,n, ig0 );
+
+  //         if( maskLocal(i1,i2,i3)>0 )
+  //         {               
+  //           ForStencil(m1,m2,m3)
+  //           {
+  //             const int m  = M123(m1,m2,m3);        // the single-component coeff-index
+  //             Real coeff123 = normal(i1,i2,i3,0)*xCoeff(m,i1,i2,i3) + normal(i1,i2,i3,1)*yCoeff(m,i1,i2,i3);
+  //             if( numberOfDimensions==3 )
+  //               coeff123 += normal(i1,i2,i3,2)*zCoeff(m,i1,i2,i3);
+
+  //             if( coeff123 != 0. )
+  //             {
+  //               getGlobalIndexAndProcMacro( i1+m1,i2+m2,i3+m3,n, ig );
+  //               ierr = MatSetValue(A,ig0,ig,coeff123,INSERT_VALUES);CHKERRQ(ierr);
+  //             }            
+
+  //           } // end for stencil 
+
+  //           // Fill additional ghost with extrapolation
+  //           for( int ghost=2; ghost<=numGhost; ghost++ )
+  //           {
+  //             int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+  //             getGlobalIndexAndProcMacro( j1,j2,j3,n, ig0 );
+
+  //             // extrapolate      
+  //             for( int k=0; k<=extrapOrder; k++ )
+  //             {
+  //               getGlobalIndexAndProcMacro( j1+is1*k,j2+is2*k,j3+is3*k,n, ig);
+  //               ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+  //             }
+  //           }  
+
+  //         }
+  //         else
+  //         {
+  //           // unused point : set A = I 
+  //           ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);            
+  //         }
+
+  //       } // end FOR_3D
+
+  //     }  // end if curvilinear and rectangular 
+
+
+  //     if( mg.boundaryCondition(side,axis) >= 0 )  
+  //     {    
+
+  //       getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+  //       bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ib1,Ib2,Ib3);
+  //       if( !ok ) continue;
+
+  //       FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+  //       {
+  //         for( int ghost=1; ghost<=numGhost; ghost++ )
+  //         {
+  //           int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+  //           getGlobalIndexAndProcMacro( j1,j2,j3,n, ig0 );
+  //           // printF("Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
+
+  //           if( maskLocal(j1,j2,j3)>0 )  
+  //           {
+  //             if( bcLocal(side,axis)==neumann )   
+  //             {
+  //               // Note : curvilinear case is done above 
+  //               if( isRectangular )
+  //               {
+  //                 // --- even symmetry for Cartesian ----
+  //                 //   u(-g) -   u(g) = 0 
+  //                 ierr = MatSetValue(A,ig0,ig0,1.,INSERT_VALUES);CHKERRQ(ierr);
+
+  //                 j1 = i1 + is1*ghost; j2 = i2 + is2*ghost;  j3 = i3 + is3*ghost;  // point inside 
+  //                 getGlobalIndexAndProcMacro( j1,j2,j3,n, ig );
+  //                 ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
+  //               }
+  //             }   
+  //             else
+  //             { // extrapolate      
+  //               for( int k=0; k<=extrapOrder; k++ )
+  //               {
+  //                 // getGlobalIndexAndProcMacro( j1+is1*k,j2+is2*k,j3,n, ig); 
+  //                 getGlobalIndexAndProcMacro( j1+is1*k,j2+is2*k,j3+is3*k,n, ig);  // *wdh* bug fixed Sept 1, 2024 
+  //                 ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+  //               }
+  //             }
+  //           }
+  //           else if( maskLocal(j1,j2,j3)==0 )
+  //           {
+  //             // unused point -- set to identity equation
+  //             ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+  //           }            
+
+  //         }
+  //       }
+  //     }          
+  //   }
+
+  //   // ------ fill corners ----
+
+  //   // assert( numberOfDimensions==2 ); // finish me for 3D 
+  //   if( numberOfDimensions==2 )
+  //   {
+  //     // ----------- FILL CORNERS 2D -----
+  //     for( int side2=0; side2<=1; side2++ ) 
+  //     {
+  //       for( int side1=0; side1<=1; side1++ ) 
+  //       {
+  //         if( bcLocal(side1,0)==parallelGhostBC || bcLocal(side2,1)==parallelGhostBC ) continue;
+
+  //         is1=1-2*side1; is2=1-2*side2; is3=0;
+
+  //         i1 = gid(side1,0); i2=gid(side2,1); i3=0; // corner point 
+
+  //         for( int ghost2=1; ghost2<=numGhost; ghost2++ )
+  //         {
+  //           for( int ghost1=1; ghost1<=numGhost; ghost1++ )
+  //           {
+  //             int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3;  // ghost point
+  //             getGlobalIndexAndProcMacro( j1,j2,j3,n, ig0 );
+
+  //             if( maskLocal(j1,j2,j3)>0 )  
+  //             {
+  //               // printF("Corner Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
+  //               if( bcLocal(side1,0)>=0 && bcLocal(side2,1)>=0  )
+  //               { // corner with no periodic faces 
+  //                 for( int k=0; k<=extrapOrder; k++ )
+  //                 {
+  //                   getGlobalIndexAndProcMacro( j1+is1*k,j2+is2*k,j3,n, ig);
+  //                   ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+  //                 }
+  //               }
+  //               else if( bcLocal(side1,0)<0 && bcLocal(side2,1)<0  ) 
+  //               {
+  //                 // corner between two adjacent periodic sides *check me*
+                                    
+  //                 int j1p = j1 + (1-2*side1)*( gid(1,0)-gid(0,0) ); // periodic image 
+  //                 int j2p = j2 + (1-2*side2)*( gid(1,1)-gid(0,1) ); // periodic image 
+  //                 int j3p = j3; 
+  //                 getGlobalIndexAndProcMacro( j1p,j2p,j3p,n, ig  );
+  //                 ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
+
+  //               }
+  //             }
+  //             else if( maskLocal(j1,j2,j3)==0 )
+  //             {
+  //               // unused point -- set to identity equation
+  //               ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+  //             } 
+
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+  //   else
+  //   {
+  //     // --------- FILL EDGES AND CORNERS 3D ---------
+  //     // side1=-1 : means an edge where side2 and side3 meet
+  //     int ghostStart1, ghostEnd1, ghostStart2, ghostEnd2, ghostStart3, ghostEnd3;
+  //     for( int side3=-1; side3<=1; side3++ ) 
+  //     for( int side2=-1; side2<=1; side2++ ) 
+  //     for( int side1=-1; side1<=1; side1++ ) 
+  //     {
+  //       if( (side1==-1 && ( side2>=0 && side3>=0 ) ) ||
+  //           (side2==-1 && ( side3>=0 && side1>=0 ) ) ||
+  //           (side3==-1 && ( side1>=0 && side2>=0 ) ) )
+  //       {
+  //         // Edge where two faces meet
+  //         fillEdgeCoefficients3d( side1,side2,side3 );
+  //       }
+  //       else if( side1>=0 && side2>=0 && side3>=0 )
+  //       {
+  //         // Vertex where 3 faces meet.
+  //         fillVertexCoefficients3d( side1,side2,side3 );
+  //       }
+  //     }
+
+  //     // OV_ABORT(" FILL EDGES AND CORNERS 3D - FINISH ME");
+  //   }
+
+
+
+
+  //   // --- fill in any UNUSED ghost points on ghost lines > numGhost ----
+  //   int n1,n2; 
+  //   ForBoundary(side,axis)
+  //   {   
+  //     if( side==0 )
+  //     {
+  //       n1 = mg.dimension(side,axis);
+  //       n2 = mg.gridIndexRange(side,axis)-numGhost-1;
+  //     }
+  //     else
+  //     {
+  //       n1 = mg.gridIndexRange(side,axis)+numGhost+1;
+  //       n2 = mg.dimension(side,axis);
+  //     }
+  //     if( n1<=n2 )
+  //     {
+  //       // there are unused ghost points
+
+  //       getBoundaryIndex(mg.dimension(),side,axis,Ig1,Ig2,Ig3);
+  //       Igv[axis] = Range(n1,n2);  // range of unused ghost 
+  //       FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+  //       {
+  //         getGlobalIndexAndProcMacro( i1,i2,i3,n, ig0 );
+  //         ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+  //       }
+  //     }
+  //   } 
+
+  //   cpu1 = getCPU()-cpu0;
+  //   printF("  ... done boundaries for grid=%d (%s) (total cpu=%9.2e)...\n",grid,(const char*)mg.getName(),cpu1); fflush(0);     
+
+  // } // end for grid 
+
+
+  // // --- fill in any interpolation equations into matrix A ----
+  // fillInterpolationCoefficients( A,ucg );
 
 
     ierr = MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     ierr = MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
 
+    PetscBool missing;
+    PetscInt d;
+    PetscCall(MatMissingDiagonal(A, &missing, &d));
+    if( missing ) 
+    {
+          PetscInt rstart;
+          PetscCall(MatGetOwnershipRange(A, &rstart, NULL));
 
+        printf("PETSC: myid=%d: matrix is missing a diagonal: local-index=%d, global index = %d (rstart=%d)\n",myid,d-rstart, d, rstart);  
+
+        int ig = d; // global index
+    // ig = (n) + numberOfComponents*(
+    //        ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+    //         (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+    //         (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+
+        printf("myid=%d: noffset(myid,0) = %d\n",myid, noffset(myid,0));
+
+        int n, i1, i2, i3, grid;
+        equationToIndex( ig, n, i1, i2, i3, grid, cg.numberOfComponentGrids() ); 
+
+        MappedGrid & mg = cg[grid];
+        OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
+        const IntegerArray & bc = mg.boundaryCondition();
+        const IntegerArray & gid = mg.gridIndexRange();
+
+        printf(" myid=%d: missing pt is (i1,i2,i3)=(%3d,%3d,%3d) grid=%d bc=[%d,%d,%d,%d,%d,%d] gid=[%d,%d,%d,%d,%d,%d] mask=%d\n",myid,i1,i2,i3,grid,
+                    bc(0,0),bc(1,0), bc(0,1), bc(1,1), bc(0,2), bc(1,2),
+                    gid(0,0),gid(1,0), gid(0,1), gid(1,1), gid(0,2), gid(1,2),
+                    maskLocal(i1,i2,i3)
+                    );
+
+
+
+    }
 
   // -----------------------------------------
   // ----- MATRIX B = I at active points -----
   // -----------------------------------------
 
-    ierr = MatCreate(PETSC_COMM_WORLD,&B);CHKERRQ(ierr);
-    ierr = MatSetSizes(B,PETSC_DECIDE,PETSC_DECIDE,N,N);CHKERRQ(ierr);
+    #ifndef USE_PPP
+        ierr = MatCreate(PETSC_COMM_WORLD,&B);CHKERRQ(ierr);
+        ierr = MatSetSizes(B,PETSC_DECIDE,PETSC_DECIDE,N,N);CHKERRQ(ierr);
+    #else
+        ierr = MatCreateAIJ(PETSC_COMM_WORLD,
+                                              numberOfEquationsThisProcessor,numberOfEquationsThisProcessor,
+                                              numberOfEquations,numberOfEquations,
+                                              d_nz,d_nnz,o_nz,o_nnz,
+                                              &B); CHKERRQ(ierr);
+
+    // This next line is needed to avoid error when malloc'ing an additional entry that was more
+    // than the estimated number
+        MatSetOption(B,MAT_NEW_NONZERO_ALLOCATION_ERR,PETSC_FALSE);        
+    #endif
+
+
     ierr = MatSetFromOptions(B);CHKERRQ(ierr);
     ierr = MatSetUp(B);CHKERRQ(ierr);
 
@@ -1326,6 +4265,7 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
 
         const IntegerArray & gid = mg.gridIndexRange();
 
+    // ARE THESE NEXT NEEDED??
         const int nd1a = gid(1,0)-gid(0,0)+1 + 2*numGhost;
         const int nd2a = gid(1,1)-gid(0,1)+1 + 2*numGhost;
 
@@ -1338,6 +4278,7 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
     // int numberOfComponents=1; 
     // const int N = nd1a*nd2a*numberOfComponents; // total number of grid points
 
+        realArray & ug = ucg[grid]; // use in findProcNum
 
     // ---- get interior points ----
         int extra=-1;
@@ -1358,6 +4299,7 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
                     n2 = gid(1,axis); // include right boundary in interior,  if bc = periodic, interp or neuman 
                 Iv[axis] = Range(n1,n2);
             }
+        bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,I1,I2,I3);
 
     // getIndex(gid,I1,I2,I3,extra,extra,0);
     // for( int axis=0; axis<numberOfDimensions; axis++ )
@@ -1368,25 +4310,36 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
     //   }
     // }    
 
-        FOR_3D(i1,i2,i3,I1,I2,I3) 
+        if( ok )
         {
-            if( maskLocal(i1,i2,i3)>0 )
+            FOR_3D(i1,i2,i3,I1,I2,I3) 
             {
-          // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
-          // assert( ig0>=0 && ig0<N );
-          // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-          // assert( ig0==ige );
-          // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-          // inline Ogev::getGlobalIndex
-                    ig0 = (n) + numberOfComponents*(
-                                  ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                    (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                    (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-        // printF("B ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
-                ierr = MatSetValue(B,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);      
+                if( maskLocal(i1,i2,i3)>0 )
+                {
+                    {                                  
+            // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+            // assert( ig0>=0 && ig0<N );
+            // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+            // assert( ig0==ige );
+            // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                        #ifdef USE_PPP
+                            int kv[3]={i1,i2,i3};
+                            int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                        #else
+                            int p=0; 
+                        #endif                                  
+            // inline Ogev::getGlobalIndex
+                        ig0 = (n) + numberOfComponents*(
+                                      ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                        (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                        (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                    }
+          // printF("B ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+                    ierr = MatSetValue(B,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);      
+                }
             }
         }
-        
+
         if( eigOption==0 )
         {      
       // --- fill in boundary points (constraints) ----
@@ -1398,20 +4351,32 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
             ForBoundary(side,axis)
             {
                 getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
-                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+                bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ib1,Ib2,Ib3);
+                if( ok )
                 {
-            // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
-            // assert( ig0>=0 && ig0<N );
-            // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-            // assert( ig0==ige );
-            // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
-            // inline Ogev::getGlobalIndex
-                        ig0 = (n) + numberOfComponents*(
-                                      ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                        (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                        (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-          // printF("Boundary B: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
-                    ierr = MatSetValue(B,ig0,ig0, smallValue,INSERT_VALUES);CHKERRQ(ierr);  
+                    FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+                    {
+                        {                                  
+              // ig0 = (i1)-n1a + nd1a*( (i2)-n2a + nd2a*(n) );
+              // assert( ig0>=0 && ig0<N );
+              // ige = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+              // assert( ig0==ige );
+              // ig0 = getGlobalIndex( n, i1,i2,i3, grid, p ); // new way 
+                            #ifdef USE_PPP
+                                int kv[3]={i1,i2,i3};
+                                int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                            #else
+                                int p=0; 
+                            #endif                                  
+              // inline Ogev::getGlobalIndex
+                            ig0 = (n) + numberOfComponents*(
+                                          ((i1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                            (i2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                            (i3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                        }
+            // printF("Boundary B: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+                        ierr = MatSetValue(B,ig0,ig0, smallValue,INSERT_VALUES);CHKERRQ(ierr);  
+                    }
                 }          
             } 
 
@@ -1421,25 +4386,37 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
                 is1=is2=is3=0;
                 isv[axis]=1-2*side;   // +1 on left and -1 on right 
                 getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
-                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+                bool ok=ParallelUtility::getLocalArrayBounds(mg.mask(),maskLocal,Ib1,Ib2,Ib3);
+                if( ok )
                 {
-                    for( int ghost=1; ghost<=numGhost; ghost++ )
+                    FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
                     {
-                        int j1 = i1 -is1*ghost, j2 = i2 -is2*ghost,  j3 = i3;  // ghost point
-              // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
-              // assert( ig0>=0 && ig0<N );
-              // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-              // assert( ig0==ige );
-              // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
-              // inline Ogev::getGlobalIndex
-                            ig0 = (n) + numberOfComponents*(
-                                          ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
-                                            (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
-                                            (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
-            // printF("B Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
-                        ierr = MatSetValue(B,ig0,ig0, smallValue,INSERT_VALUES);CHKERRQ(ierr);             
-                    }
-                }          
+                        for( int ghost=1; ghost<=numGhost; ghost++ )
+                        {
+                            int j1 = i1 -is1*ghost, j2 = i2 -is2*ghost,  j3 = i3;  // ghost point
+                            {                                  
+                // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
+                // assert( ig0>=0 && ig0<N );
+                // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                // assert( ig0==ige );
+                // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                #ifdef USE_PPP
+                                    int kv[3]={j1,j2,j3};
+                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                #else
+                                    int p=0; 
+                                #endif                                  
+                // inline Ogev::getGlobalIndex
+                                ig0 = (n) + numberOfComponents*(
+                                              ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
+                                                (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
+                                                (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                            }
+              // printF("B Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
+                            ierr = MatSetValue(B,ig0,ig0, smallValue,INSERT_VALUES);CHKERRQ(ierr);             
+                        }
+                    } 
+                }         
             }  
 
       // --- fill corners ----
@@ -1447,6 +4424,8 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
             {
                 for( int side1=0; side1<=1; side1++ ) 
                 {
+                    if( bcLocal(side1,0)==parallelGhostBC || bcLocal(side2,1)==parallelGhostBC ) continue;
+
                     is1=1-2*side1; is2=1-2*side2; is3=0;
                     i1 = gid(side1,0); i2=gid(side2,1); i3=0; // corner point 
                     for( int ghost2=1; ghost2<=numGhost; ghost2++ )
@@ -1454,16 +4433,24 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
                         for( int ghost1=1; ghost1<=numGhost; ghost1++ )
                         {
                             int j1 = i1 -is1*ghost1, j2 = i2 -is2*ghost2, j3 = i3;  // ghost point
+                            {                                  
                 // ig0 = (j1)-n1a + nd1a*( (j2)-n2a + nd2a*(n) );
                 // assert( ig0>=0 && ig0<N );
                 // ige = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
                 // assert( ig0==ige );
                 // ig0 = getGlobalIndex( n, j1,j2,j3, grid, p ); // new way 
+                                #ifdef USE_PPP
+                                    int kv[3]={j1,j2,j3};
+                                    int p= ug.Array_Descriptor.findProcNum( kv );  // processor number
+                                #else
+                                    int p=0; 
+                                #endif                                  
                 // inline Ogev::getGlobalIndex
                                 ig0 = (n) + numberOfComponents*(
                                               ((j1)-nab(0,axis1,p,grid))+ndab(0,p,grid)*(
                                                 (j2)-nab(0,axis2,p,grid) +ndab(1,p,grid)*(
                                                 (j3)-nab(0,axis3,p,grid))) + noffset(p,grid) );
+                            }
               // printF("B Corner Ghost: ig0=%d, j1=%d, j2=%d\n",ig0,j1,j2);
 
                             ierr = MatSetValue(B,ig0,ig0, smallValue,INSERT_VALUES);CHKERRQ(ierr);                  
@@ -1478,13 +4465,34 @@ fillMatrixLaplacian( int orderOfAccuracy, realCompositeGridFunction & ucg, Compo
     ierr = MatAssemblyBegin(B,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     ierr = MatAssemblyEnd(B,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
 
-  // clean up
-    delete [] nzzAlloc;
+  // --- Note: use eigSolvers/matlab/displayMatrix.m to plot the matrices ---
 
-  // delete [] pGridOffset;
-  // delete [] pnd1;
-  // delete [] pnd2;
-  // delete [] pnd3;
+    bool outputMatrixToMatlab=0; // set to 1 to output a matlab file
+    if( outputMatrixToMatlab )
+    {
+        PetscViewer viewer;
+    // Create an ASCII viewer
+        PetscViewerASCIIOpen(PETSC_COMM_WORLD, "SlepcMatrix.m", &viewer);
+    // Set the viewer format to MATLAB
+        PetscObjectSetName((PetscObject)A,"A");
+        PetscObjectSetName((PetscObject)B,"B");
+        PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);
+    // View the matrix
+        MatView(A, viewer);
+        MatView(B, viewer);
+
+
+    // Destroy the viewer
+        PetscViewerDestroy(&viewer);    
+    }
+  // clean up
+    #ifndef USE_PPP
+        delete [] nzzAlloc;
+    #else
+        delete [] d_nnz;
+        delete [] o_nnz;
+    #endif
+
 
     return 0;
 }

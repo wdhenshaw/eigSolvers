@@ -3,6 +3,857 @@ cd ~/Dropbox/research/eig/cmd
 set eigSolvers = ~/Dropbox/research/eigSolvers
 set eigdoc = ~/Dropbox/research/eigSolvers/doc
 
+RUN GDB in xterms and start immediately:
+mpiexec -n 2 xterm -e gdb -ex run --args $genEigs -noplot
+
+
+************************************************
+****** Mon Jan 26, 2026
+
+TEST upwinding
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice16.order4.ng3 -numEigenValues=512 -tol=1.0e-14 -bc1=d -show=diskG16O4Ev512.show -orthogonalize=1 -go=go
+
+
+
+************************************************
+****** Tues Dec 3, 2025
+
+Return to radiation BCs
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order4 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareGO4BrrrrEv16.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareGO4BrrrrEv16 -matlab=1 -go=go
+
+======================== GenEigs problem=laplace =======================
+ grid=/home/henshw/grids/square128.order4.hdf, np=1
+ orderOfAccuracy=4, numberOfComponents=1 numGhost=2 shift=-1 
+ useAccurateInnerProduct=0, discreteEigenvalues=0
+ includePressure=0, useWideStencils=0, eigCase=none
+      total cpu =  9.48e-01 (s) (includes build matrix)
+ cpu/eigenvalue =  5.27e-02 (s)
+ bc = [r,r,r,r] for grid=0 (square)
+ eigenSolver=[KrylovSchur], linearSolver=ksp[preonly] pc[lu]
+===================================================================
+
+ **** INFO: genEigs: unknown eigCase=[none]
+
+  resid = || A phi - lambda phi ||_max / |lambda| 
+  VECT max-err = max-norm( closest vector in 2 norm to eigenpsace )/( max-norm of phi)  
+  VECT l2-err  =      L2h( closest vector in 2 norm to eigenpsace )/( L2h norm of phi)  
+  lma = sqrt(k), me=exact multiplicity, m=computed multiplicity
+
+
+Eigenvalue   0 : k=    0.00000000 + (   -0.00000000) i m=1 res=1.01e-09 resbc=1.61e-05
+Eigenvalue   1 : k=    0.00000000 + (   +0.00000000) i m=1 res=1.01e-09 resbc=1.61e-05
+Eigenvalue   2 : k=   -0.00000000 + (   -0.00000000) i m=1 res=6.71e-10 resbc=1.60e-05
+Eigenvalue   3 : k=   -0.00000000 + (   -0.00000394) i m=1 res=1.88e-09 resbc=1.35e-05
+Eigenvalue   4 : k=   -0.00000000 + (   +0.00000394) i m=1 res=1.88e-09 resbc=1.35e-05
+Eigenvalue   5 : k=   -0.65218354 + (   -0.00000000) i m=1 res=7.34e-10 resbc=1.77e-05
+Eigenvalue   6 : k=   -0.65218354 + (   -0.00000000) i m=1 res=1.54e-09 resbc=3.26e-05
+Eigenvalue   7 : k=   -1.30063633 + (   -0.00000000) i m=1 res=6.28e-10 resbc=1.96e-05
+Eigenvalue   8 : k=   -1.30063645 + (   -0.00000000) i m=1 res=4.49e-09 resbc=6.54e-05
+Eigenvalue   9 : k=   -3.40662436 + (   -0.00000000) i m=1 res=6.73e-10 resbc=2.24e-05
+Eigenvalue  10 : k=   -3.40662911 + (   -0.00000000) i m=1 res=1.21e-09 resbc=7.21e-05
+Eigenvalue  11 : k=   -3.84907977 + (   -0.67310711) i m=1 res=1.61e-09 resbc=5.70e-05
+Eigenvalue  12 : k=   -3.84907977 + (   +0.67310711) i m=1 res=1.61e-09 resbc=5.70e-05
+Eigenvalue  13 : k=   -3.84907977 + (   -0.67310711) i m=1 res=8.22e-10 resbc=5.18e-05
+Eigenvalue  14 : k=   -3.84907977 + (   +0.67310711) i m=1 res=8.22e-10 resbc=5.18e-05
+Eigenvalue  15 : k=   -4.98586402 + (   -0.00000000) i m=1 res=1.21e-09 resbc=9.83e-05
+Eigenvalue  16 : k=   -4.98571484 + (   -4.44281243) i m=1 res=4.38e-09 resbc=2.63e-04
+Eigenvalue  17 : k=   -4.98571484 + (   +4.44281243) i m=1 res=4.38e-09 resbc=2.63e-04
+
+ ==== SUMMARY: max-residual = 4.49e-09
+
+
+
+************************************************
+****** Sun Nov 9, 2025
+
+MORE TESTS:
+
+>>> DARK CORNER ROOM 3D
+
+
+
+darkCornerRoom3dGride2.order2.hdf 
+
+>>> DARK CORNER ROOM 2D
+
+
+PC=LU : More ... OK 
+mpiexec -n 16  $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoomGride4.order4.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=darkCornerRoomEv.show -numEigenValues=128 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 10 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+-np=32
+     total cpu =  2.05e+02 (s) (includes build matrix) np=32
+ cpu/eigenvalue =  1.60e+00 (s)
+
+-np=16
+     total cpu =  3.04e+02 (s) (includes build matrix) np=16
+ cpu/eigenvalue =  2.38e+00 (s)
+
+Eigenvalue   0 : k=    0.22786759 + (-0.0e+00) i lam=    0.47735479 m=1 res=1.87e-09 resbc=0.00e+00
+Eigenvalue   1 : k=    0.52834054 + (-0.0e+00) i lam=    0.72687038 m=1 res=3.43e-09 resbc=0.00e+00
+...
+
+Eigenvalue 129 : k=   19.23051512 + (-0.0e+00) i lam=    4.38526112 m=1 res=1.89e-09 resbc=0.00e+00
+Eigenvalue 130 : k=   19.59687614 + (-0.0e+00) i lam=    4.42683591 m=1 res=1.42e-09 resbc=0.00e+00
+Eigenvalue 131 : k=   19.62491437 + (-0.0e+00) i lam=    4.43000162 m=1 res=4.59e-10 resbc=0.00e+00
+Eigenvalue 132 : k=   19.70167992 + (-0.0e+00) i lam=    4.43865745 m=1 res=1.58e-10 resbc=0.00e+00
+Eigenvalue 133 : k=   19.72989164 + (-0.0e+00) i lam=    4.44183427 m=1 res=1.23e-09 resbc=0.00e+00
+Eigenvalue 134 : k=   19.78933726 + (-0.0e+00) i lam=    4.44852080 m=1 res=6.20e-10 resbc=0.00e+00
+
+ ==== SUMMARY: max-residual = 1.37e-08
+
+
+PC=LU : OK 
+mpiexec -n 6  $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoomGride4.order4.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=darkCornerRoomEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 10 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+Eigenvalue   0 : k=    0.22786759 + (-0.0e+00) i lam=    0.47735479 m=1 res=2.31e-09 resbc=0.00e+00
+Eigenvalue   1 : k=    0.52834054 + (-0.0e+00) i lam=    0.72687038 m=1 res=3.63e-09 resbc=0.00e+00
+Eigenvalue   2 : k=    0.60121209 + (-0.0e+00) i lam=    0.77537867 m=1 res=3.29e-09 resbc=0.00e+00
+Eigenvalue   3 : k=    0.88079975 + (-0.0e+00) i lam=    0.93850932 m=1 res=3.52e-09 resbc=0.00e+00
+Eigenvalue   4 : k=    1.05301076 + (-0.0e+00) i lam=    1.02616313 m=1 res=5.81e-09 resbc=0.00e+00
+Eigenvalue   5 : k=    1.19682115 + (-0.0e+00) i lam=    1.09399321 m=1 res=7.18e-09 resbc=0.00e+00
+Eigenvalue   6 : k=    1.40950721 + (-0.0e+00) i lam=    1.18722669 m=1 res=9.66e-09 resbc=0.00e+00
+Eigenvalue   7 : k=    1.45368375 + (-0.0e+00) i lam=    1.20568808 m=1 res=3.74e-09 resbc=0.00e+00
+
+GMRES+ ILU : running but xterm closed ...
+mpiexec -n 8  $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=darkCornerRoomGride4.order4.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=darkCornerRoomEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_ksp_gmres_restart 500 -st_ksp_gmres_restart 1000 -st_sub_pc_type ilu -st_pc_factor_levels 20 -st_sub_pc_factor_levels 20 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+
+0]PETSC ERROR: --------------------- Error Message --------------------------------------------------------------
+[0]PETSC ERROR: Residual norm computed by GMRES recursion formula 3.76961e-08 is far from the computed residual norm 1.21872e-07 at restart, residual norm at start of cycle 8.13496e-07
+
+
+[0]PETSC ERROR: Residual norm computed by GMRES recursion formula 5.87568e-07 is far from the computed residual norm 3.87458e-06 at restart, residual norm at start of cycle 3.28407e-05
+[0]PETSC ERROR: WARNING! There are option(s) set that were not used! Could be the program crashed before they were used or a spelling mistake, etc!
+
+
+>>> CIC - OK 
+
+mpiexec -n 6  $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice2.order4.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=cicEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_pc_type ilu -st_pc_factor_levels 10 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+
+
+SPHERE ORDER 4
+mpiexec -n 6  $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree2.order4.ng3.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_pc_type ilu -st_pc_factor_levels 10 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+Eigenvalue   0 : k=    9.86957649 + (-0.0e+00) i lam=    3.14158821 m=1 res=4.19e-13 resbc=0.00e+00
+Eigenvalue   1 : k=   20.19062550 + (-5.7e-09) i                    m=1 res=3.96e-10 resbc=0.00e+00
+Eigenvalue   2 : k=   20.19062550 + (+5.7e-09) i                    m=1 res=1.98e-10 resbc=0.00e+00
+Eigenvalue   3 : k=   20.19062793 + (-0.0e+00) i lam=    4.49339826 m=1 res=7.21e-13 resbc=0.00e+00
+Eigenvalue   4 : k=   33.21744432 + (-0.0e+00) i lam=    5.76345767 m=1 res=3.39e-13 resbc=0.00e+00
+Eigenvalue   5 : k=   33.21748452 + (-0.0e+00) i lam=    5.76346116 m=1 res=2.71e-13 resbc=0.00e+00
+Eigenvalue   6 : k=   33.21761225 + (-1.2e-07) i                    m=1 res=2.54e-09 resbc=0.00e+00
+Eigenvalue   7 : k=   33.21761225 + (+1.2e-07) i                    m=1 res=5.08e-09 resbc=0.00e+00
+Eigenvalue   8 : k=   33.21761477 + (-0.0e+00) i lam=    5.76347246 m=1 res=4.55e-13 resbc=0.00e+00
+Eigenvalue   9 : k=   39.47860959 + (-0.0e+00) i lam=    6.28320058 m=1 res=1.12e-13 resbc=0.00e+00
+
+ ==== SUMMARY: max-residual = 5.08e-09
+
+
+BUG FIXED -- extended periodic BC
+
+mpiexec -n 6 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree1.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_pc_type ilu -st_pc_factor_levels 10 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+Eigenvalue   0 : k=    9.78208040 + (-0.0e+00) i lam=    3.12763176 m=1 res=1.27e-12 resbc=0.00e+00
+Eigenvalue   1 : k=   19.91910799 + (-0.0e+00) i lam=    4.46308279 m=1 res=9.75e-14 resbc=0.00e+00
+Eigenvalue   2 : k=   19.93113236 + (-0.0e+00) i lam=    4.46442968 m=1 res=7.89e-13 resbc=0.00e+00
+Eigenvalue   3 : k=   19.93113236 + (-0.0e+00) i lam=    4.46442968 m=1 res=1.66e-12 resbc=0.00e+00
+Eigenvalue   4 : k=   32.72144450 + (-0.0e+00) i lam=    5.72026612 m=1 res=7.95e-14 resbc=0.00e+00
+Eigenvalue   5 : k=   32.72390307 + (-0.0e+00) i lam=    5.72048102 m=1 res=1.27e-13 resbc=0.00e+00
+Eigenvalue   6 : k=   32.72881929 + (-0.0e+00) i lam=    5.72091070 m=1 res=4.18e-13 resbc=0.00e+00
+Eigenvalue   7 : k=   32.72934283 + (-0.0e+00) i lam=    5.72095646 m=1 res=5.35e-13 resbc=0.00e+00
+Eigenvalue   8 : k=   38.46993004 + (-0.0e+00) i lam=    6.20241324 m=1 res=1.86e-13 resbc=0.00e+00
+
+ ==== SUMMARY: max-residual = 1.66e-12
+
+
+>>>>
++++++ fillMatLap:  checkFill : NO ERRORS found+++
+
+PETSC: myid=5: matrix is missing a diagonal: local-index=586, global index = 20049 (rstart=19463)
+myid=5: noffset(myid,0) = 19463
+ myid=5: missing pt is (i1,i2,i3)=( 20, 44,  0) grid=1 bc=[0,0,-1,-1,0,1] gid=[0,19,0,44,0,6] mask=-2147483648
+computeEigenvalues: set SLEPSc eigenSolver: ESPSetType=[KrylovSchur]
+
+
+************************************************
+****** Sat Nov 8, 2025
+
+ADD FILL-IN CHECK
+
+SPHERE ORDER2 -- trouble:
+
+mpiexec -n 6 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree1.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_pc_type ilu -st_pc_factor_levels 10 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+fillVertex3D: myid=3, grid=1 (i1,i2,i3)=(  0,  0,  0) [side1,side2,side3]=[0,0,0] bcLocal=[-100,-1,0]
+
+fillVertex3D: myid=3, grid=1 (i1,i2,i3)=( 19,  0,  0) [side1,side2,side3]=[1,0,0] bcLocal=[0,-1,0]   *********
+
+fillVertex3D: myid=3, grid=1 (i1,i2,i3)=(  0, 44,  0) [side1,side2,side3]=[0,1,0] bcLocal=[-100,-100,0]
+fillVertex3D: myid=3, grid=1 (i1,i2,i3)=( 19, 44,  0) [side1,side2,side3]=[1,1,0] bcLocal=[0,-100,0]
+fillVertex3D: myid=3, grid=1 (i1,i2,i3)=(  0,  0,  6) [side1,side2,side3]=[0,0,1] bcLocal=[-100,-1,1]
+fillVertex3D: myid=3, grid=1 (i1,i2,i3)=( 19,  0,  6) [side1,side2,side3]=[1,0,1] bcLocal=[0,-1,1]
+fillVertex3D: myid=3, grid=1 (i1,i2,i3)=(  0, 44,  6) [side1,side2,side3]=[0,1,1] bcLocal=[-100,-100,1]
+fillVertex3D: myid=3, grid=1 (i1,i2,i3)=( 19, 44,  6) [side1,side2,side3]=[1,1,1] bcLocal=[0,-100,1]
+fillVertex3D: myid=5, grid=1 (i1,i2,i3)=(  0,  0,  0) [side1,side2,side3]=[0,0,0] bcLocal=[-100,-100,0]
+fillVertex3D: myid=5, grid=1 (i1,i2,i3)=( 19,  0,  0) [side1,side2,side3]=[1,0,0] bcLocal=[0,-100,0]
+fillVertex3D: myid=5, grid=1 (i1,i2,i3)=(  0, 44,  0) [side1,side2,side3]=[0,1,0] bcLocal=[-100,-1,0]
+fillVertex3D: myid=5, grid=1 (i1,i2,i3)=( 19, 44,  0) [side1,side2,side3]=[1,1,0] bcLocal=[0,-1,0]
+fillVertex3D: myid=5, grid=1 (i1,i2,i3)=(  0,  0,  6) [side1,side2,side3]=[0,0,1] bcLocal=[-100,-100,1]
+fillVertex3D: myid=5, grid=1 (i1,i2,i3)=( 19,  0,  6) [side1,side2,side3]=[1,0,1] bcLocal=[0,-100,1]
+fillVertex3D: myid=5, grid=1 (i1,i2,i3)=(  0, 44,  6) [side1,side2,side3]=[0,1,1] bcLocal=[-100,-1,1]
+fillVertex3D: myid=5, grid=1 (i1,i2,i3)=( 19, 44,  6) [side1,side2,side3]=[1,1,1] bcLocal=[0,-1,1]
+fillVertex3D: myid=2, grid=1 (i1,i2,i3)=(  0,  0,  0) [side1,side2,side3]=[0,0,0] bcLocal=[0,-100,0]
+fillVertex3D: myid=2, grid=1 (i1,i2,i3)=( 19,  0,  0) [side1,side2,side3]=[1,0,0] bcLocal=[-100,-100,0]
+fillVertex3D: myid=2, grid=1 (i1,i2,i3)=(  0, 44,  0) [side1,side2,side3]=[0,1,0] bcLocal=[0,-1,0]
+fillVertex3D: myid=2, grid=1 (i1,i2,i3)=( 19, 44,  0) [side1,side2,side3]=[1,1,0] bcLocal=[-100,-1,0]
+fillVertex3D: myid=2, grid=1 (i1,i2,i3)=(  0,  0,  6) [side1,side2,side3]=[0,0,1] bcLocal=[0,-100,1]
+fillVertex3D: myid=2, grid=1 (i1,i2,i3)=( 19,  0,  6) [side1,side2,side3]=[1,0,1] bcLocal=[-100,-100,1]
+fillVertex3D: myid=2, grid=1 (i1,i2,i3)=(  0, 44,  6) [side1,side2,side3]=[0,1,1] bcLocal=[0,-1,1]
+fillVertex3D: myid=2, grid=1 (i1,i2,i3)=( 19, 44,  6) [side1,side2,side3]=[1,1,1] bcLocal=[-100,-1,1]
+fillVertex3D: myid=4, grid=1 (i1,i2,i3)=(  0,  0,  0) [side1,side2,side3]=[0,0,0] bcLocal=[-100,-100,0]
+fillVertex3D: myid=4, grid=1 (i1,i2,i3)=( 19,  0,  0) [side1,side2,side3]=[1,0,0] bcLocal=[0,-100,0]
+fillVertex3D: myid=4, grid=1 (i1,i2,i3)=(  0, 44,  0) [side1,side2,side3]=[0,1,0] bcLocal=[-100,-100,0]
+fillVertex3D: myid=4, grid=1 (i1,i2,i3)=( 19, 44,  0) [side1,side2,side3]=[1,1,0] bcLocal=[0,-100,0]
+fillVertex3D: myid=4, grid=1 (i1,i2,i3)=(  0,  0,  6) [side1,side2,side3]=[0,0,1] bcLocal=[-100,-100,1]
+fillVertex3D: myid=4, grid=1 (i1,i2,i3)=( 19,  0,  6) [side1,side2,side3]=[1,0,1] bcLocal=[0,-100,1]
+fillVertex3D: myid=4, grid=1 (i1,i2,i3)=(  0, 44,  6) [side1,side2,side3]=[0,1,1] bcLocal=[-100,-100,1]
+fillVertex3D: myid=4, grid=1 (i1,i2,i3)=( 19, 44,  6) [side1,side2,side3]=[1,1,1] bcLocal=[0,-100,1]
+fillVertex3D: myid=1, grid=1 (i1,i2,i3)=(  0,  0,  0) [side1,side2,side3]=[0,0,0] bcLocal=[0,-100,0]
+fillVertex3D: myid=1, grid=1 (i1,i2,i3)=( 19,  0,  0) [side1,side2,side3]=[1,0,0] bcLocal=[-100,-100,0]
+fillVertex3D: myid=1, grid=1 (i1,i2,i3)=(  0, 44,  0) [side1,side2,side3]=[0,1,0] bcLocal=[0,-100,0]
+fillVertex3D: myid=1, grid=1 (i1,i2,i3)=( 19, 44,  0) [side1,side2,side3]=[1,1,0] bcLocal=[-100,-100,0]
+fillVertex3D: myid=1, grid=1 (i1,i2,i3)=(  0,  0,  6) [side1,side2,side3]=[0,0,1] bcLocal=[0,-100,1]
+fillVertex3D: myid=1, grid=1 (i1,i2,i3)=( 19,  0,  6) [side1,side2,side3]=[1,0,1] bcLocal=[-100,-100,1]
+fillVertex3D: myid=1, grid=1 (i1,i2,i3)=(  0, 44,  6) [side1,side2,side3]=[0,1,1] bcLocal=[0,-100,1]
+fillVertex3D: myid=1, grid=1 (i1,i2,i3)=( 19, 44,  6) [side1,side2,side3]=[1,1,1] bcLocal=[-100,-100,1]
+fillVertex3D: myid=0, grid=1 (i1,i2,i3)=(  0,  0,  0) [side1,side2,side3]=[0,0,0] bcLocal=[0,-1,0]
+fillVertex3D: myid=0, grid=1 (i1,i2,i3)=( 19,  0,  0) [side1,side2,side3]=[1,0,0] bcLocal=[-100,-1,0]
+fillVertex3D: myid=0, grid=1 (i1,i2,i3)=(  0, 44,  0) [side1,side2,side3]=[0,1,0] bcLocal=[0,-100,0]
+fillVertex3D: myid=0, grid=1 (i1,i2,i3)=( 19, 44,  0) [side1,side2,side3]=[1,1,0] bcLocal=[-100,-100,0]
+fillVertex3D: myid=0, grid=1 (i1,i2,i3)=(  0,  0,  6) [side1,side2,side3]=[0,0,1] bcLocal=[0,-1,1]
+fillVertex3D: myid=0, grid=1 (i1,i2,i3)=( 19,  0,  6) [side1,side2,side3]=[1,0,1] bcLocal=[-100,-1,1]
+fillVertex3D: myid=0, grid=1 (i1,i2,i3)=(  0, 44,  6) [side1,side2,side3]=[0,1,1] bcLocal=[0,-100,1]
+fillVertex3D: myid=0, grid=1 (i1,i2,i3)=( 19, 44,  6) [side1,side2,side3]=[1,1,1] bcLocal=[-100,-100,1]
+
+PETSC: myid=3: matrix is missing a diagonal: local-index=214, global index = 12274 (rstart=12060)
+myid=3: noffset(myid,0) = 12060
+ myid=3: missing pt is (i1,i2,i3)=( 20, -1, -1) grid=1 bc=[0,0,-1,-1,0,1] gid=[0,19,0,44,0,6] mask=-2147483648
+PETSC: myid=5: matrix is missing a diagonal: local-index=382, global index = 19845 (rstart=19463)
+myid=5: noffset(myid,0) = 19463
+ myid=5: missing pt is (i1,i2,i3)=( 20, 44, -1) grid=1 bc=[0,0,-1,-1,0,1] gid=[0,19,0,44,0,6] mask=-2147483648
+computeEigenvalues: set SLEPSc eigenSolver: ESPSetType=[KrylovSchur]
+
+
+
+[3]PETSC ERROR: Object is in wrong state
+[3]PETSC ERROR: Matrix is missing diagonal entry 214
+
+
+Eigenvalue   0 : k=    9.78208040 + (-0.0e+00) i lam=    3.12763176 m=1 res=1.74e-08 resbc=0.00e+00
+Eigenvalue   1 : k=   19.91910799 + (-0.0e+00) i lam=    4.46308279 m=1 res=5.53e-09 resbc=0.00e+00
+Eigenvalue   2 : k=   19.93113236 + (-0.0e+00) i lam=    4.46442968 m=1 res=3.63e-09 resbc=0.00e+00
+Eigenvalue   3 : k=   19.93113236 + (-0.0e+00) i lam=    4.46442968 m=1 res=4.27e-09 resbc=0.00e+00
+Eigenvalue   4 : k=   32.72144450 + (-0.0e+00) i lam=    5.72026612 m=1 res=3.53e-09 resbc=0.00e+00
+Eigenvalue   5 : k=   32.72390306 + (-0.0e+00) i lam=    5.72048102 m=1 res=8.03e-09 resbc=0.00e+00
+Eigenvalue   6 : k=   32.72390307 + (-0.0e+00) i lam=    5.72048102 m=1 res=4.46e-09 resbc=0.00e+00
+Eigenvalue   7 : k=   32.72881928 + (-0.0e+00) i lam=    5.72091070 m=1 res=1.35e-08 resbc=0.00e+00
+Eigenvalue   8 : k=   32.72934282 + (-0.0e+00) i lam=    5.72095646 m=1 res=1.67e-08 resbc=0.00e+00
+Eigenvalue   9 : k=   38.46993004 + (-0.0e+00) i lam=    6.20241324 m=1 res=2.50e-08 resbc=0.00e+00
+
+
+mpiexec -n 1 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree1.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_pc_type ilu -st_pc_factor_levels 10 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go -debug=1
+
+fillVertex3D: grid=1 (i1,i2,i3)=(  0,  0,  0) [side1,side2,side3]=[0,0,0] bcLocal=[0,-1,0]
+fillVertex3D: grid=1 (i1,i2,i3)=( 19,  0,  0) [side1,side2,side3]=[1,0,0] bcLocal=[0,-1,0]
+fillVertex3D: grid=1 (i1,i2,i3)=(  0, 44,  0) [side1,side2,side3]=[0,1,0] bcLocal=[0,-1,0]
+fillVertex3D: grid=1 (i1,i2,i3)=( 19, 44,  0) [side1,side2,side3]=[1,1,0] bcLocal=[0,-1,0]
+fillVertex3D: grid=1 (i1,i2,i3)=(  0,  0,  6) [side1,side2,side3]=[0,0,1] bcLocal=[0,-1,1]
+fillVertex3D: grid=1 (i1,i2,i3)=( 19,  0,  6) [side1,side2,side3]=[1,0,1] bcLocal=[0,-1,1]
+fillVertex3D: grid=1 (i1,i2,i3)=(  0, 44,  6) [side1,side2,side3]=[0,1,1] bcLocal=[0,-1,1]
+fillVertex3D: grid=1 (i1,i2,i3)=( 19, 44,  6) [side1,side2,side3]=[1,1,1] bcLocal=[0,-1,1]
+
+
+mpiexec -n 2 xterm -e gdb -ex run --args $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree1.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_pc_type ilu -st_pc_factor_levels 10 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go 
+
+
+mpiexec -n 2 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree1.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_pc_type ilu -st_pc_factor_levels 10 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go 
+
+
+DISK : OK
+mpirun -n 4 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=diskEv.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+ +++++ fillMatLap:  checkFill : NO ERRORS found+++
+
+
+SPHERE ORDER2 -- trouble:
+
+mpiexec -n 1  $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree1.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_pc_type ilu -st_pc_factor_levels 10 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+
+SPHERE ORDER 4
+mpiexec -n 6  $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree2.order4.ng3.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_pc_type ilu -st_pc_factor_levels 10 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+Ogev::buildGlobalIndexing: grid=0 p=0 local bounds=[-3,7][-3,13][-3,30] 
+Ogev::buildGlobalIndexing: grid=1 p=0 local bounds=[-3,18][-3,28][-3,13] 
+
+Ogev::buildGlobalIndexing >>>>>>>>>>> myid=0 numberOfGridPointsThisProcessor=24310, numberOfGridPoints=145180<<<<<<<<<<<<<<<<<<<
+
+[3]PETSC ERROR: Matrix is missing diagonal entry 7103
+
+
+
+DISK:
+OK np=2,4,8,16,32
+
+mpirun -n 4 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=diskEv.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+************************************************
+****** Fri Nov 7, 2025
+
+
++++++++ REDO PARALLEL COUNTING OF NON-ZEROS TO SPEED UP FILL INTERP COEFF
+
+>>> CLEAN UP CODE
+
+ mpirun -n 4 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=diskEv.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+Eigenvalue   0 : k=    5.77734879 + (-0.0e+00) i lam=    2.40361161 m=1 res=2.89e-11 resbc=0.00e+00
+Eigenvalue   1 : k=   14.64580528 + (-0.0e+00) i lam=    3.82698384 m=1 res=1.76e-11 resbc=0.00e+00
+Eigenvalue   2 : k=   14.64595874 + (-0.0e+00) i lam=    3.82700389 m=1 res=5.41e-11 resbc=0.00e+00
+Eigenvalue   3 : k=   26.24910550 + (-0.0e+00) i lam=    5.12338809 m=1 res=4.05e-11 resbc=0.00e+00
+Eigenvalue   4 : k=   26.27559841 + (-0.0e+00) i lam=    5.12597292 m=1 res=2.36e-11 resbc=0.00e+00
+Eigenvalue   5 : k=   30.31468634 + (-0.0e+00) i lam=    5.50587744 m=1 res=2.44e-11 resbc=0.00e+00
+Eigenvalue   6 : k=   40.45336513 + (-0.0e+00) i lam=    6.36029599 m=1 res=2.03e-11 resbc=0.00e+00
+Eigenvalue   7 : k=   40.45605420 + (-0.0e+00) i lam=    6.36050739 m=1 res=2.26e-11 resbc=0.00e+00
+Eigenvalue   8 : k=   48.81008782 + (-0.0e+00) i lam=    6.98642168 m=1 res=1.65e-11 resbc=0.00e+00
+Eigenvalue   9 : k=   48.81070851 + (-0.0e+00) i lam=    6.98646610 m=1 res=1.32e-11 resbc=0.00e+00
+Eigenvalue  10 : k=   57.10828046 + (-0.0e+00) i lam=    7.55700208 m=1 res=1.53e-11 resbc=0.00e+00
+Eigenvalue  11 : k=   57.11423459 + (-0.0e+00) i lam=    7.55739602 m=1 res=1.41e-11 resbc=0.00e+00
+Eigenvalue  12 : k=   69.95254525 + (-0.0e+00) i lam=    8.36376382 m=1 res=2.18e-11 resbc=0.00e+00
+Eigenvalue  13 : k=   70.11599943 + (-0.0e+00) i lam=    8.37352969 m=1 res=1.32e-11 resbc=0.00e+00
+Eigenvalue  14 : k=   73.91532943 + (-0.0e+00) i lam=    8.59740248 m=1 res=1.02e-11 resbc=0.00e+00
+Eigenvalue  15 : k=   76.14331012 + (-0.0e+00) i lam=    8.72601342 m=1 res=1.01e-11 resbc=0.00e+00
+Eigenvalue  16 : k=   76.14446077 + (-0.0e+00) i lam=    8.72607935 m=1 res=1.29e-11 resbc=0.00e+00
+
+
+
+test:
+mpiexec -n 2 xterm -e gdb --args $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=diskEv.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+
+mpirun -np 2 valgrind  $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=diskEv.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+
+mpirun -n 2 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=diskEv.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+
++++++++++++  TEST 3D
+
+BIGS FIXED : if( !ok ) continue;
+
+
+>>> SPHERE 
+
+mpiexec -n 6 xterm -e gdb --args $genEigs  $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree2.order4.ng3.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_pc_type ilu -st_pc_factor_levels 10 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+
+
+--- ORDER=4
+
+mpirun -n 1 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree2.order4.ng3.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_pc_type ilu -st_pc_factor_levels 10 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+Eigenvalue   0 : k=    9.86957649 + (-0.0e+00) i lam=    3.14158821 m=1 res=4.70e-08 resbc=0.00e+00
+Eigenvalue   1 : k=   20.19062550 + (-0.0e+00) i lam=    4.49339799 m=1 res=5.70e-09 resbc=0.00e+00
+Eigenvalue   2 : k=   20.19062551 + (-0.0e+00) i lam=    4.49339799 m=1 res=1.14e-08 resbc=0.00e+00
+Eigenvalue   3 : k=   20.19062793 + (-0.0e+00) i lam=    4.49339826 m=1 res=5.39e-09 resbc=0.00e+00
+Eigenvalue   4 : k=   33.21744432 + (-0.0e+00) i lam=    5.76345767 m=1 res=1.24e-08 resbc=0.00e+00
+Eigenvalue   5 : k=   33.21748452 + (-0.0e+00) i lam=    5.76346116 m=1 res=5.46e-09 resbc=0.00e+00
+Eigenvalue   6 : k=   33.21761225 + (-1.1e-07) i                    m=1 res=1.52e-08 resbc=0.00e+00
+Eigenvalue   7 : k=   33.21761225 + (+1.1e-07) i                    m=1 res=1.16e-08 resbc=0.00e+00
+Eigenvalue   8 : k=   33.21761476 + (-0.0e+00) i lam=    5.76347246 m=1 res=4.48e-09 resbc=0.00e+00
+Eigenvalue   9 : k=   39.47860958 + (-0.0e+00) i lam=    6.28320058 m=1 res=4.81e-09 resbc=0.00e+00
+
+-np=1
+  total cpu =  2.14e+02 (s) (includes build matrix)
+
+-np=2:
+NEW:
+*** fillInterpolationCoefficients: cpu time = 2.90e-01 (np=2)
+
+-np=4: 
+NEW:
+*** fillInterpolationCoefficients: cpu time = 9.21e-02 (np=4)
+      total cpu =  2.81e+02 (s) (includes build matrix) np=4
+OLD: 
+*** fillInterpolationCoefficients: cpu time = 1.10e+02
+     total cpu =  7.76e+02 (s) (includes build matrix) np=4
+
+-np=8: 
+NEW:
+  TROUBLE
+OLD:
+*** fillInterpolationCoefficients: cpu time = 7.11e+00 (np=8)
+     total cpu =  2.09e+02 (s) (includes build matrix) np=8
+
+-np=16
+*** fillInterpolationCoefficients: cpu time = 1.88e+00 (np=16)
+      total cpu =  9.18e+01 (s) (includes build matrix) np=16
+
+---- ORDER=2
+
+>>> decrease tols to elimnate small imag part
+mpirun -n 8 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-14 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-15 -st_ksp_max_it 10000 -go=go
+
+
+mpiexec -n 2 xterm -e gdb --args $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+
+-np=4:
+      total cpu =  9.27e+01 (s) (includes build matrix)
+-np=8:
+      total cpu =  2.38e+01 (s) (includes build matrix)
+-np=16
+      total cpu =  1.34e+01 (s) (includes build matrix)
+
+
+Eigenvalue   0 : k=    9.85486057 + (-0.0e+00) i lam=    3.13924522 m=1 res=2.17e-13 resbc=0.00e+00
+Eigenvalue   1 : k=   20.13051219 + (-0.0e+00) i lam=    4.48670393 m=1 res=5.40e-13 resbc=0.00e+00
+Eigenvalue   2 : k=   20.13051220 + (-0.0e+00) i lam=    4.48670393 m=1 res=5.54e-13 resbc=0.00e+00
+Eigenvalue   3 : k=   20.13083305 + (-0.0e+00) i lam=    4.48673969 m=1 res=1.08e-12 resbc=0.00e+00
+Eigenvalue   4 : k=   33.04569903 + (-0.0e+00) i lam=    5.74853886 m=1 res=1.31e-13 resbc=0.00e+00
+Eigenvalue   5 : k=   33.04816030 + (-0.0e+00) i lam=    5.74875293 m=1 res=1.37e-13 resbc=0.00e+00
+Eigenvalue   6 : k=   33.07475647 + (-0.0e+00) i lam=    5.75106568 m=1 res=8.18e-14 resbc=0.00e+00
+Eigenvalue   7 : k=   33.07495204 + (-0.0e+00) i lam=    5.75108268 m=1 res=1.55e-13 resbc=0.00e+00
+Eigenvalue   8 : k=   33.07495205 + (-0.0e+00) i lam=    5.75108268 m=1 res=1.54e-13 resbc=0.00e+00
+Eigenvalue   9 : k=   39.24106609 + (-0.0e+00) i lam=    6.26426900 m=1 res=1.09e-13 resbc=0.00e+00
+
+
+
+
+mpirun -np 2 valgrind --log-file=genEigs.out.np%p $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square32O2Ev64.show -numEigenValues=64 -go=go
+
+
+mpirun -n 2 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+
+
+
+ORDER=4 : TOO MUCH MEmeory ???
+mpirun -n 4 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=spheree2.order4.ng3.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=sphereEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+
+-np=4:
+*** fillInterpolationCoefficients: cpu time = 1.05e+02
+
+0]PETSC ERROR: ------------------------------------------------------------------------
+[0]PETSC ERROR: Caught signal number 11 SEGV: Segmentation Violation, probably memory access out of range
+
+
+
+-np=1:
+*** fillInterpolationCoefficients: cpu time = 4.91e-01
+
+[0]PETSC ERROR: #1 PetscMallocAlign() at /home/henshw/Dropbox/cg66backup/software/petsc-3.18.2-parallel-hypre/src/sys/memory/mal.c:55
+...
+[0]PETSC ERROR: #22 computeEigenvalues() at src/computeEigenvalues.C:506
+
+
+**************************************************************** 
+ERROR: (SerialArray:Error_Checking_For_Index_Operators) INDEXING OUT OF BOUNDS                      
+**************************************************************** 
+ERROR: in Array Indexing using: 
+     (Min[0] = -3,Max[0] = 30) 
+     (Min[1] = -3,Max[1] = 30) 
+     (Min[2] = -3,Max[2] = 30) 
+     (Min[3] = 1,Max[3] = 1) 
+     (Min[4] = 0,Max[4] = 0) 
+     (Min[5] = 0,Max[5] = 0) 
+**************************************************************** 
+Original Array object base and Bounds are: 
+     (Local_Base[0] = -5,Local_Bound[0] = 32) 
+     (Local_Base[1] = -5,Local_Bound[1] = 32) 
+     (Local_Base[2] = -5,Local_Bound[2] = 32) 
+     (Local_Base[3] = 0,Local_Bound[3] = 0) 
+     (Local_Base[4] = 0,Local_Bound[4] = 0) 
+     (Local_Base[5] = 0,Local_Bound[5] = 0) 
+**************************************************************** 
+
+
+
+>>> pipe: OK 
+
+PIPE  O4
+mpirun -n 4 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=pipeze2.order4.ng3.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=pipeEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+
+-np=4
+      total cpu =  1.99e+01 (s) (includes build matrix)
+ -np=8
+   total cpu =  9.47e+00 (s) (includes build matrix)
+
+
+
+Eigenvalue   0 : k=   33.00202102 + (-0.0e+00) i lam=    5.74473855 m=1 res=1.54e-13 resbc=0.00e+00
+Eigenvalue   1 : k=   62.61467606 + (-0.0e+00) i lam=    7.91294358 m=1 res=1.37e-13 resbc=0.00e+00
+Eigenvalue   2 : k=   68.59445072 + (-0.0e+00) i lam=    8.28217669 m=1 res=2.99e-12 resbc=0.00e+00
+Eigenvalue   3 : k=   68.59458750 + (-0.0e+00) i lam=    8.28218495 m=1 res=2.07e-12 resbc=0.00e+00
+Eigenvalue   4 : k=   98.20817775 + (-0.0e+00) i lam=    9.91000392 m=1 res=1.11e-13 resbc=0.00e+00
+Eigenvalue   5 : k=   98.20831454 + (-0.0e+00) i lam=    9.91001082 m=1 res=1.25e-13 resbc=0.00e+00
+Eigenvalue   6 : k=  111.98155509 + (-0.0e+00) i lam=   10.58213377 m=1 res=1.21e-13 resbc=0.00e+00
+Eigenvalue   7 : k=  115.35978955 + (-0.0e+00) i lam=   10.74056747 m=1 res=2.53e-13 resbc=0.00e+00
+Eigenvalue   8 : k=  115.35998260 + (-0.0e+00) i lam=   10.74057646 m=1 res=1.33e-13 resbc=0.00e+00
+Eigenvalue   9 : k=  131.73344113 + (-0.0e+00) i lam=   11.47751895 m=1 res=6.93e-14 resbc=0.00e+00
+
+
+PIPE O2
+mpirun -n 4 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=pipeze2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=pipeEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+Eigenvalue   0 : k=   32.89167207 + (-0.0e+00) i lam=    5.73512616 m=1 res=8.41e-14 resbc=0.00e+00
+Eigenvalue   1 : k=   62.18629306 + (-0.0e+00) i lam=    7.88582862 m=1 res=1.16e-13 resbc=0.00e+00
+Eigenvalue   2 : k=   68.07352516 + (-0.0e+00) i lam=    8.25066816 m=1 res=1.14e-13 resbc=0.00e+00
+Eigenvalue   3 : k=   68.07689030 + (-0.0e+00) i lam=    8.25087209 m=1 res=1.02e-13 resbc=0.00e+00
+Eigenvalue   4 : k=   97.35324815 + (-0.0e+00) i lam=    9.86677496 m=1 res=2.27e-12 resbc=0.00e+00
+Eigenvalue   5 : k=   97.35661103 + (-0.0e+00) i lam=    9.86694537 m=1 res=3.16e-12 resbc=0.00e+00
+Eigenvalue   6 : k=  110.17965879 + (-0.0e+00) i lam=   10.49664988 m=1 res=1.40e-12 resbc=0.00e+00
+Eigenvalue   7 : k=  113.69158636 + (-0.0e+00) i lam=   10.66262568 m=1 res=4.16e-13 resbc=0.00e+00
+Eigenvalue   8 : k=  114.12611159 + (-0.0e+00) i lam=   10.68298234 m=1 res=6.62e-12 resbc=0.00e+00
+Eigenvalue   9 : k=  129.86623324 + (-0.0e+00) i lam=   11.39588668 m=1 res=1.34e-12 resbc=0.00e+00
+
+>>>> BOX : OK 
+
+TRYE GMRES+ILU(10) : OK 
+mpirun -n 4 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=box2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=boxEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_ksp_type gmres -st_sub_pc_type ilu -st_pc_factor_levels 10 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+
+mpirun -n 4 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=box2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=boxEv.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-14 -st_ksp_max_it 10000 -go=go
+
+-np=4 -st_ksp_rtol 1e-14 
+Eigenvalue   0 : k=   29.54798257 + (-0.0e+00) i lam=    5.43580560 eig=   0, true=   29.54798257, rel-err=1.14e-14, me=1 mult=1 VECT: max-err=2.56e-14, l2-err=1.42e-14, res=1.95e-13 resbc=0.00e+00
+Eigenvalue   1 : k=   58.85344201 + (-0.0e+00) i lam=    7.67159970 eig=   1, true=   58.85344201, rel-err=8.93e-15, me=3 mult=1 VECT: max-err=2.61e-14, l2-err=1.47e-14, res=2.55e-13 resbc=0.00e+00
+Eigenvalue   2 : k=   58.85344201 + (-0.0e+00) i lam=    7.67159970 eig=   1, true=   58.85344201, rel-err=5.80e-15, me=3 mult=1 VECT: max-err=2.52e-14, l2-err=1.18e-14, res=1.42e-13 resbc=0.00e+00
+Eigenvalue   3 : k=   58.85344201 + (-0.0e+00) i lam=    7.67159970 eig=   2, true=   58.85344201, rel-err=5.31e-15, me=3 mult=1 VECT: max-err=6.49e-14, l2-err=4.47e-14, res=6.78e-13 resbc=0.00e+00
+Eigenvalue   4 : k=   88.15890145 + (-0.0e+00) i lam=    9.38929718 eig=   4, true=   88.15890145, rel-err=6.13e-15, me=3 mult=1 VECT: max-err=5.18e-14, l2-err=3.81e-14, res=2.50e-13 resbc=0.00e+00
+Eigenvalue   5 : k=   88.15890145 + (-0.0e+00) i lam=    9.38929718 eig=   4, true=   88.15890145, rel-err=1.45e-15, me=3 mult=1 VECT: max-err=9.56e-14, l2-err=7.15e-14, res=9.47e-13 resbc=0.00e+00
+Eigenvalue   6 : k=   88.15890145 + (-0.0e+00) i lam=    9.38929718 eig=   4, true=   88.15890145, rel-err=1.13e-15, me=3 mult=1 VECT: max-err=1.09e-13, l2-err=7.56e-14, res=1.13e-12 resbc=0.00e+00
+Eigenvalue   7 : k=  106.89343570 + (-0.0e+00) i lam=   10.33892817 eig=   7, true=  106.89343570, rel-err=8.51e-15, me=3 mult=1 VECT: max-err=9.98e-14, l2-err=1.19e-13, res=5.36e-13 resbc=0.00e+00
+Eigenvalue   8 : k=  106.89343570 + (-0.0e+00) i lam=   10.33892817 eig=   9, true=  106.89343570, rel-err=7.98e-16, me=3 mult=1 VECT: max-err=2.54e-13, l2-err=1.65e-13, res=1.09e-12 resbc=0.00e+00
+ max-rel-err=1.14e-14, max-evect-err=2.54e-13
+ ==== SUMMARY: max-residual = 1.13e-12
+
+
+
+-np=1
+Eigenvalue   0 : k=   29.54798257 + (-0.0e+00) i lam=    5.43580560 eig=   0, true=   29.54798257, rel-err=6.01e-16, me=1 mult=1 VECT: max-err=4.55e-15, l2-err=1.99e-15, res=2.27e-13 resbc=0.00e+00
+Eigenvalue   1 : k=   58.85344201 + (-0.0e+00) i lam=    7.67159970 eig=   1, true=   58.85344201, rel-err=6.64e-15, me=3 mult=1 VECT: max-err=3.36e-14, l2-err=2.61e-14, res=3.43e-13 resbc=0.00e+00
+Eigenvalue   2 : k=   58.85344201 + (-0.0e+00) i lam=    7.67159970 eig=   1, true=   58.85344201, rel-err=4.83e-15, me=3 mult=1 VECT: max-err=1.22e-14, l2-err=1.11e-14, res=7.85e-14 resbc=0.00e+00
+Eigenvalue   3 : k=   58.85344201 + (-0.0e+00) i lam=    7.67159970 eig=   1, true=   58.85344201, rel-err=6.04e-16, me=3 mult=1 VECT: max-err=1.38e-14, l2-err=1.21e-14, res=1.20e-13 resbc=0.00e+00
+Eigenvalue   4 : k=   88.15890145 + (-0.0e+00) i lam=    9.38929718 eig=   4, true=   88.15890145, rel-err=7.25e-15, me=3 mult=1 VECT: max-err=1.09e-14, l2-err=9.86e-15, res=8.00e-14 resbc=0.00e+00
+Eigenvalue   5 : k=   88.15890145 + (-0.0e+00) i lam=    9.38929718 eig=   4, true=   88.15890145, rel-err=1.61e-16, me=3 mult=1 VECT: max-err=5.12e-14, l2-err=4.47e-14, res=2.19e-13 resbc=0.00e+00
+Eigenvalue   6 : k=   88.15890145 + (-0.0e+00) i lam=    9.38929718 eig=   4, true=   88.15890145, rel-err=2.26e-15, me=3 mult=1 VECT: max-err=1.38e-14, l2-err=1.09e-14, res=4.93e-14 resbc=0.00e+00
+Eigenvalue   7 : k=  106.89343570 + (-0.0e+00) i lam=   10.33892817 eig=   7, true=  106.89343570, rel-err=1.74e-14, me=3 mult=1 VECT: max-err=2.70e-13, l2-err=3.12e-13, res=2.24e-12 resbc=0.00e+00
+Eigenvalue   8 : k=  106.89343570 + (-0.0e+00) i lam=   10.33892817 eig=   7, true=  106.89343570, rel-err=5.32e-15, me=3 mult=1 VECT: max-err=3.87e-13, l2-err=4.04e-13, res=3.13e-12 resbc=0.00e+00
+Eigenvalue   9 : k=  106.89343570 + (-0.0e+00) i lam=   10.33892817 eig=   7, true=  106.89343570, rel-err=1.99e-15, me=3 mult=1 VECT: max-err=7.42e-14, l2-err=5.74e-14, res=5.51e-13 resbc=0.00e+00
+Eigenvalue  10 : k=  117.46436089 + (-0.0e+00) i lam=   10.83809766 eig=  10, true=  117.46436089, rel-err=8.47e-15, me=1 mult=1 VECT: max-err=1.69e-14, l2-err=1.10e-14, res=4.71e-14 resbc=0.00e+00
+Eigenvalue  11 : k=  136.19889514 + (-0.0e+00) i lam=   11.67042823 eig=  11, true=  136.19889514, rel-err=5.84e-15, me=6 mult=1 VECT: max-err=1.51e-14, l2-err=1.19e-14, res=4.61e-14 resbc=0.00e+00
+Eigenvalue  12 : k=  136.19889514 + (-0.0e+00) i lam=   11.67042823 eig=  11, true=  136.19889514, rel-err=3.13e-15, me=6 mult=1 VECT: max-err=1.53e-14, l2-err=1.18e-14, res=3.67e-14 resbc=0.00e+00
+ max-rel-err=1.74e-14, max-evect-err=3.87e-13
+ ==== SUMMARY: max-residual = 3.13e-12
+
+
+
+************************************************
+****** Fri Oct 31, 2025
+
+MORE PARALLEL TESTS
+
+*BUG FIXED* genEigs.bC --> fix compute errs in eigenvectors 
+
+check errors in eigenvectors ... fixed 
+
+
+mpirun -n 4 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice8.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=diskEv.show -numEigenValues=128 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+np=4:
+      total cpu =  2.12e+01 (s) (includes build matrix)
+ cpu/eigenvalue =  1.62e-01 (s)
+np=8
+      total cpu =  1.25e+01 (s) (includes build matrix)
+ cpu/eigenvalue =  9.53e-02 (s)
+
+>>> DISK: *trouble* ... BUG found : periodic BCs
+
+mpirun -n 1 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=diskEv.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+>>> RSIS -- OK **FIX RESIDUAL FOR COMPLEX CONJUGATE EIG PAIRS ***
+
+mpirun -np 2 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=rsise4.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=rsis4Ev.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+Eigenvalue   0 : k=    4.93395418 + (-0.0e+00) i lam=sqrt(k)=    2.22125059, mult=1, resid=5.43e-10 resbc=0.00e+00
+Eigenvalue   1 : k=   12.33142280 + (-2.1e-04) i, mult=1, resid=1.60e-05 resbc=0.00e+00
+Eigenvalue   2 : k=   12.33142280 + (+2.1e-04) i, mult=1, resid=1.78e-05 resbc=0.00e+00
+Eigenvalue   3 : k=   19.72842530 + (-0.0e+00) i lam=sqrt(k)=    4.44166920, mult=1, resid=3.88e-10 resbc=0.00e+00
+Eigenvalue   4 : k=   24.64881941 + (-0.0e+00) i lam=sqrt(k)=    4.96475774, mult=1, resid=3.17e-10 resbc=0.00e+00
+Eigenvalue   5 : k=   24.64942764 + (-0.0e+00) i lam=sqrt(k)=    4.96481899, mult=1, resid=5.09e-10 resbc=0.00e+00
+Eigenvalue   6 : k=   32.04373395 + (-1.5e-03) i, mult=1, resid=4.50e-05 resbc=0.00e+00
+Eigenvalue   7 : k=   32.04373395 + (+1.5e-03) i, mult=1, resid=4.62e-05 resbc=0.00e+00
+
+
+
+>> NONSQUARE: OK 
+mpirun -np 2 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=nonSquare16.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square16Ev8.show -numEigenValues=8 -orthogonalize=1 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+
+TWO SQUARES:
+
+twoSquares : OK
+mpirun -n 2 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=twoSquarese2.order2 -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=diskEv.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+mpirun -n 2 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=twoSquarese1.order2 -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=diskEv.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+CIC
+mpirun -n 1 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=diskEv.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+DISK: *trouble*
+mpirun -n 1 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=diskEv.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+[0]PETSC ERROR: --------------------- Error Message --------------------------------------------------------------
+[0]PETSC ERROR: Object is in wrong state
+[0]PETSC ERROR: Matrix is missing diagonal entry 1481
+
+
+
+
+ORDER=4
+mpirun -n 4 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square128.order4.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square128Ev.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+--np=4 -st_ksp_rtol 1e-14
+Eigenvalue   0 : k=   19.73920875 + (-0.0e+00) i lam=sqrt(k)=    4.44288293, eig=   0, true=   19.73920872, rel-err=1.18e-09, multe=1 mult=1 VECT: max-err=8.64e-10, l2-err=8.44e-10, res=8.66e-12 resbc=0.00e+00
+Eigenvalue   1 : k=   49.34802017 + (-0.0e+00) i lam=sqrt(k)=    7.02481460, eig=   1, true=   49.34801942, rel-err=1.53e-08, multe=2 mult=1 VECT: max-err=2.51e-08, l2-err=1.68e-08, res=2.28e-11 resbc=0.00e+00
+Eigenvalue   2 : k=   49.34802017 + (-0.0e+00) i lam=sqrt(k)=    7.02481460, eig=   1, true=   49.34801942, rel-err=1.53e-08, multe=2 mult=1 VECT: max-err=2.50e-08, l2-err=1.68e-08, res=1.95e-11 resbc=0.00e+00
+Eigenvalue   3 : k=   78.95683160 + (-0.0e+00) i lam=sqrt(k)=    8.88576567, eig=   3, true=   78.95683012, rel-err=1.88e-08, multe=1 mult=1 VECT: max-err=2.75e-08, l2-err=2.44e-08, res=1.53e-11 resbc=0.00e+00
+Eigenvalue   4 : k=   98.69602342 + (-0.0e+00) i lam=sqrt(k)=    9.93458723, eig=   4, true=   98.69601498, rel-err=8.56e-08, multe=2 mult=1 VECT: max-err=1.06e-07, l2-err=1.32e-07, res=1.55e-11 resbc=0.00e+00
+Eigenvalue   5 : k=   98.69602342 + (-0.0e+00) i lam=sqrt(k)=    9.93458723, eig=   4, true=   98.69601498, rel-err=8.56e-08, multe=2 mult=1 VECT: max-err=1.84e-07, l2-err=1.29e-07, res=1.54e-11 resbc=0.00e+00
+
+--np=4
+Eigenvalue   0 : k=   19.73920875 + (-0.0e+00) i lam=sqrt(k)=    4.44288293, eig=   0, true=   19.73920872, rel-err=1.18e-09, multe=1 mult=1 VECT: max-err=8.64e-10, l2-err=8.45e-10, res=9.53e-10 resbc=0.00e+00 *RES*
+Eigenvalue   1 : k=   49.34802017 + (-0.0e+00) i lam=sqrt(k)=    7.02481460, eig=   1, true=   49.34801942, rel-err=1.53e-08, multe=2 mult=1 VECT: max-err=2.52e-08, l2-err=1.68e-08, res=1.09e-09 resbc=0.00e+00 *RES*
+Eigenvalue   2 : k=   49.34802017 + (-0.0e+00) i lam=sqrt(k)=    7.02481460, eig=   1, true=   49.34801942, rel-err=1.53e-08, multe=2 mult=1 VECT: max-err=2.42e-08, l2-err=1.68e-08, res=1.30e-09 resbc=0.00e+00 *RES*
+Eigenvalue   3 : k=   78.95683160 + (-0.0e+00) i lam=sqrt(k)=    8.88576567, eig=   3, true=   78.95683012, rel-err=1.88e-08, multe=1 mult=1 VECT: max-err=2.75e-08, l2-err=2.44e-08, res=8.49e-10 resbc=0.00e+00 *RES*
+Eigenvalue   4 : k=   98.69602342 + (-0.0e+00) i lam=sqrt(k)=    9.93458723, eig=   4, true=   98.69601498, rel-err=8.56e-08, multe=2 mult=1 VECT: max-err=1.91e-07, l2-err=1.26e-07, res=6.51e-10 resbc=0.00e+00 *RES*
+
+--np=1
+Eigenvalue   0 : k=   19.73920875 + (-0.0e+00) i lam=sqrt(k)=    4.44288293, eig=   0, true=   19.73920872, rel-err=1.18e-09, multe=1 mult=1 VECT: max-err=8.63e-10, l2-err=8.44e-10, res=2.42e-11 resbc=0.00e+00
+Eigenvalue   1 : k=   49.34802017 + (-0.0e+00) i lam=sqrt(k)=    7.02481460, eig=   1, true=   49.34801942, rel-err=1.53e-08, multe=2 mult=1 VECT: max-err=2.42e-08, l2-err=1.72e-08, res=3.85e-12 resbc=0.00e+00
+Eigenvalue   2 : k=   49.34802017 + (-0.0e+00) i lam=sqrt(k)=    7.02481460, eig=   1, true=   49.34801942, rel-err=1.53e-08, multe=2 mult=1 VECT: max-err=2.39e-08, l2-err=1.72e-08, res=7.90e-12 resbc=0.00e+00
+Eigenvalue   3 : k=   78.95683160 + (-0.0e+00) i lam=sqrt(k)=    8.88576567, eig=   3, true=   78.95683012, rel-err=1.88e-08, multe=1 mult=1 VECT: max-err=2.75e-08, l2-err=2.44e-08, res=4.34e-12 resbc=0.00e+00
+Eigenvalue   4 : k=   98.69602342 + (-0.0e+00) i lam=sqrt(k)=    9.93458723, eig=   4, true=   98.69601498, rel-err=8.56e-08, multe=2 mult=1 VECT: max-err=1.17e-07, l2-err=1.32e-07, res=3.06e-12 resbc=0.00e+00
+Eigenvalue   5 : k=   98.69602342 + (-0.0e+00) i lam=sqrt(k)=    9.93458723, eig=   4, true=   98.69601498, rel-err=8.56e-08, multe=2 mult=1 VECT: max-err=1.47e-07, l2-err=1.23e-07, res=2.57e-12 resbc=0.00e+00
+Eigenvalue   6 : k=  128.30483485 + (-0.0e+00) i lam=sqrt(k)=   11.32717241, eig=   6, true=  128.30482567, rel-err=7.15e-08, multe=2 mult=1 VECT: max-err=1.59e-07, l2-err=1.29e-07, res=2.71e-12 resbc=0.00e+00
+
+SQUARE:
+mpirun -n 4 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square128.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square128Ev.show -numEigenValues=16 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+--> orthogonalize: *OK* now 
+Eigenvalue   0 : k=   19.73821793 + (-0.0e+00) i lam=sqrt(k)=    4.44277142, eig=   0, true=   19.73821793, rel-err=7.96e-12, multe=1 mult=1 VECT: max-err=6.89e-12, l2-err=1.93e-12, res=1.87e-09 resbc=0.00e+00 *RES*
+Eigenvalue   1 : k=   49.33960003 + (-0.0e+00) i lam=sqrt(k)=    7.02421526, eig=   1, true=   49.33960003, rel-err=1.45e-12, multe=2 mult=2 VECT: max-err=9.87e-12, l2-err=2.98e-12, res=2.56e-09 resbc=0.00e+00 *RES*
+Eigenvalue   2 : k=   49.33960003 + (-0.0e+00) i lam=sqrt(k)=    7.02421526, eig=   1, true=   49.33960003, rel-err=1.88e-13, multe=2 mult=2 VECT: max-err=9.90e-12, l2-err=3.33e-12, res=2.73e-09 resbc=0.00e+00 *RES*
+Eigenvalue   3 : k=   78.94098214 + (-0.0e+00) i lam=sqrt(k)=    8.88487378, eig=   3, true=   78.94098214, rel-err=3.33e-14, multe=1 mult=1 VECT: max-err=1.02e-10, l2-err=3.68e-11, res=5.05e-09 resbc=0.00e+00 *RES*
+Eigenvalue   4 : k=   98.65542452 + (-0.0e+00) i lam=sqrt(k)=    9.93254371, eig=   4, true=   98.65542452, rel-err=1.14e-12, multe=2 mult=2 VECT: max-err=1.33e-11, l2-err=4.35e-12, res=1.11e-09 resbc=0.00e+00 *RES*
+Eigenvalue   5 : k=   98.65542452 + (-0.0e+00) i lam=sqrt(k)=    9.93254371, eig=   4, true=   98.65542452, rel-err=3.50e-12, multe=2 mult=2 VECT: max-err=2.18e-11, l2-err=1.18e-11, res=2.49e-09 resbc=0.00e+00 *RES*
+
+-->  NO Orthogonalize: *OK*
+
+Eigenvalue  14 : k=  246.57319196 + (-0.0e+00) i lam=sqrt(k)=   15.70264920, eig=  13, true=  246.57319196, rel-err=1.43e-12, multe=2 mult=1 VECT: max-err=4.92e-11, l2-err=4.44e-11, res=9.10e-10 resbc=0.00e+00 *RES*
+Eigenvalue  15 : k=  256.29971923 + (-0.0e+00) i lam=sqrt(k)=   16.00936349, eig=  15, true=  256.29971923, rel-err=2.21e-12, multe=2 mult=1 VECT: max-err=4.47e-11, l2-err=3.57e-11, res=7.53e-10 resbc=0.00e+00 *RES*
+Eigenvalue  16 : k=  256.29971923 + (-0.0e+00) i lam=sqrt(k)=   16.00936349, eig=  15, true=  256.29971923, rel-err=6.49e-13, multe=2 mult=1 VECT: max-err=2.41e-11, l2-err=2.37e-11, res=2.97e-10 resbc=0.00e+00 *RES*
+ max-rel-err=7.96e-12, max-evect-err=1.37e-10
+ ==== SUMMARY: max-residual = 2.53e-09
+
+
+************************************************
+****** Thurs Oct 30, 2025
+
+
+ONE BUG FIXED -- getGlobalIndexMacro --> p = findProcNum(kv) 
+
+BUG FIXED -- includeParallelGhost in various places such as normalize 
+
+TEST orthogonalize: look ok
+
+mpirun -np 2 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square16.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square16Ev8.show -numEigenValues=8 -orthogonalize=1 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+
+Np=1 : OK 
+mpirun -np 1 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square16.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square16Ev8.show -numEigenValues=8 -orthogonalize=1 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+
+
+
+Np=4 : WORKS: 
+
+======================== GenEigs problem=laplace =======================
+ grid=/home/henshw/grids/square16.order2.hdf, np=4
+ orderOfAccuracy=2, numberOfComponents=1 numGhost=1 shift=0 
+ useAccurateInnerProduct=0, discreteEigenvalues=1
+ includePressure=0, useWideStencils=0, eigCase=square
+ bc = [d,d,d,d] for grid=0 (square)
+ eigenSolver=[KrylovSchur], linearSolver=ksp[gmres] pc[bjacobi] sub-ksp[preonly] sub-pc[lu]
+===================================================================
+
+ >>> Ogev::getEigenvaluesBox: return eigenvalues and eigenvectors...
+  resid = || A phi - lambda phi ||_max / |lambda| 
+  VECT max-err = max-norm( closest vector in 2 norm to eigenpsace )/( max-norm of phi)  
+  VECT l2-err  =      L2h( closest vector in 2 norm to eigenpsace )/( L2h norm of phi)  
+Eigenvalue   0 : k=   19.67587287 + (-0.0e+00) i lam=sqrt(k)=    4.43574941, eig=   0, true=   19.67587287, rel-err=5.80e-14, multe=1 mult=1 VECT: max-err=6.78e-01, l2-err=4.88e-01, res=1.69e-11 resbc=0.00e+00 @EV@
+Eigenvalue   1 : k=   48.81161579 + (-0.0e+00) i lam=sqrt(k)=    6.98653103, eig=   1, true=   48.81161579, rel-err=1.88e-14, multe=2 mult=1 VECT: max-err=2.21e-01, l2-err=1.48e-01, res=1.22e-11 resbc=0.00e+00 @EV@
+Eigenvalue   2 : k=   48.81161579 + (-0.0e+00) i lam=sqrt(k)=    6.98653103, eig=   1, true=   48.81161579, rel-err=6.26e-15, multe=2 mult=1 VECT: max-err=2.22e-01, l2-err=1.76e-01, res=1.30e-11 resbc=0.00e+00 @EV@
+Eigenvalue   3 : k=   77.94735871 + (-0.0e+00) i lam=sqrt(k)=    8.82878014, eig=   3, true=   77.94735871, rel-err=1.24e-14, multe=1 mult=1 VECT: max-err=3.19e-01, l2-err=2.61e-01, res=1.07e-11 resbc=0.00e+00 @EV@
+Eigenvalue   4 : k=   96.12549493 + (-0.0e+00) i lam=sqrt(k)=    9.80436102, eig=   4, true=   96.12549493, rel-err=1.48e-15, multe=2 mult=1 VECT: max-err=4.24e-01, l2-err=3.20e-01, res=2.66e-12 resbc=0.00e+00 @EV@
+Eigenvalue   5 : k=   96.12549493 + (-0.0e+00) i lam=sqrt(k)=    9.80436102, eig=   4, true=   96.12549493, rel-err=5.01e-14, multe=2 mult=1 VECT: max-err=8.37e-01, l2-err=7.95e-01, res=7.89e-12 resbc=0.00e+00 @EV@
+Eigenvalue   6 : k=  125.26123786 + (-0.0e+00) i lam=sqrt(k)=   11.19201670, eig=   6, true=  125.26123786, rel-err=3.40e-16, multe=2 mult=1 VECT: max-err=2.55e-01, l2-err=2.34e-01, res=2.89e-12 resbc=0.00e+00 @EV@
+Eigenvalue   7 : k=  125.26123786 + (-0.0e+00) i lam=sqrt(k)=   11.19201670, eig=   6, true=  125.26123786, rel-err=4.32e-14, multe=2 mult=1 VECT: max-err=7.15e-01, l2-err=8.13e-01, res=7.41e-12 resbc=0.00e+00 @EV@
+Eigenvalue   8 : k=  159.79926447 + (-0.0e+00) i lam=sqrt(k)=   12.64117338, eig=   8, true=  159.79926447, rel-err=7.15e-14, multe=2 mult=1 VECT: max-err=2.24e-01, l2-err=    -nan, res=4.04e-12 resbc=0.00e+00 @EV@
+ max-rel-err=7.15e-14, max-evect-err=8.37e-01
+ ==== SUMMARY: max-residual = 1.69e-11
+
+
+
+
+FIX ME: rediduals: 
+
+mpirun -np 2 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square16.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square16Ev8.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+
+Eigenvalue   0 : k=   19.67587287 + (-0.0e+00) i lam=sqrt(k)=    4.43574941, eig=   0, true=   19.67587287, rel-err=1.26e-15, multe=1 mult=1 VECT: max-err=4.03e-01, l2-err=3.89e-01, res=1.14e+01 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   1 : k=   48.81161579 + (-0.0e+00) i lam=sqrt(k)=    6.98653103, eig=   1, true=   48.81161579, rel-err=1.63e-14, multe=2 mult=1 VECT: max-err=3.98e-01, l2-err=3.66e-01, res=4.61e+00 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   2 : k=   48.81161579 + (-0.0e+00) i lam=sqrt(k)=    6.98653103, eig=   1, true=   48.81161579, rel-err=1.89e-15, multe=2 mult=1 VECT: max-err=4.90e-01, l2-err=4.79e-01, res=4.31e+00 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   3 : k=   77.94735871 + (-0.0e+00) i lam=sqrt(k)=    8.82878014, eig=   3, true=   77.94735871, rel-err=1.19e-14, multe=1 mult=1 VECT: max-err=3.39e-01, l2-err=3.17e-01, res=1.11e+00 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   4 : k=   96.12549493 + (-0.0e+00) i lam=sqrt(k)=    9.80436102, eig=   4, true=   96.12549493, rel-err=1.48e-16, multe=2 mult=1 VECT: max-err=2.31e-01, l2-err=2.34e-01, res=2.31e+00 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   5 : k=   96.12549493 + (-0.0e+00) i lam=sqrt(k)=    9.80436102, eig=   4, true=   96.12549493, rel-err=4.88e-15, multe=2 mult=1 VECT: max-err=4.11e-01, l2-err=3.51e-01, res=2.34e+00 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   6 : k=  125.26123786 + (-0.0e+00) i lam=sqrt(k)=   11.19201670, eig=   6, true=  125.26123786, rel-err=1.59e-15, multe=2 mult=1 VECT: max-err=3.19e-01, l2-err=2.97e-01, res=1.58e+00 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   7 : k=  125.26123786 + (-0.0e+00) i lam=sqrt(k)=   11.19201670, eig=   6, true=  125.26123786, rel-err=2.59e-14, multe=2 mult=1 VECT: max-err=4.42e-01, l2-err=3.73e-01, res=8.58e-01 resbc=0.00e+00 @EV@ *RES*
+ max-rel-err=2.59e-14, max-evect-err=4.90e-01
+
+
+
+
+mpirun -np 1 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square16.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square16Ev8.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+
+
+************************************************
+****** Wed Oct 29, 2025
+
+Even smaller case -- look at matrices
+
+SQUARE5 
+mpiexec -n 2 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square5.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square5Ev8.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+ ++++ Ogev::buildGlobalIndexing : globalIndexingIsComputed=0
+Ogev::buildGlobalIndexing: grid=0 p=0 local bounds=[-2,2][-2,7][0,0] 
+Ogev::buildGlobalIndexing: grid=0 p=1 local bounds=[3,7][-2,7][0,0] 
+ Ogev::buildGlobalIndexing >>>>>>>>>>> myid=0 numberOfGridPointsThisProcessor=50, numberOfGridPoints=100<<<<<<<<<<<<<<<<<<<
+computeEigenvalues: numberOfComponentGrids=1, numberOfGridPoints=100
+ Ogev::buildGlobalIndexing >>>>>>>>>>> myid=1 numberOfGridPointsThisProcessor=50, numberOfGridPoints=100<<<<<<<<<<<<<<<<<<<
+
+
+mpiexec -n 1 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square5.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square5Ev4.show -numEigenValues=4 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+
+
+
+Simpler case:
+
+mpiexec -n 2 xterm -e gdb --args $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square16.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square16Ev8.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+mpirun -np 2 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square16.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square16Ev8.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+Eigenvalue   0 : k=  -17.20373332 + (-0.0e+00) i lam=sqrt(k)=          -nan, eig=   0, true=   19.67587287, rel-err=1.87e+00, multe=1 mult=1 VECT: max-err=1.01e+00, l2-err=1.04e+00, res=1.02e+03 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   1 : k=   48.81161579 + (-0.0e+00) i lam=sqrt(k)=    6.98653103, eig=   1, true=   48.81161579, rel-err=3.67e-14, multe=2 mult=1 VECT: max-err=5.08e-01, l2-err=4.74e-01, res=3.45e-01 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   2 : k=   64.48763672 + (-0.0e+00) i lam=sqrt(k)=    8.03041946, eig=   3, true=   77.94735871, rel-err=1.73e-01, multe=1 mult=1 VECT: max-err=1.03e+00, l2-err=1.02e+00, res=1.96e+00 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   3 : k=   77.94735871 + (-0.0e+00) i lam=sqrt(k)=    8.82878014, eig=   3, true=   77.94735871, rel-err=5.47e-14, multe=1 mult=1 VECT: max-err=3.88e-01, l2-err=4.05e-01, res=2.12e-01 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   4 : k=   78.84393918 + (-0.0e+00) i lam=sqrt(k)=    8.87941097, eig=   3, true=   77.94735871, rel-err=1.15e-02, multe=1 mult=1 VECT: max-err=1.05e+00, l2-err=1.05e+00, res=1.30e+01 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   5 : k=   93.62337964 + (-0.0e+00) i lam=sqrt(k)=    9.67591751, eig=   4, true=   96.12549493, rel-err=2.60e-02, multe=2 mult=1 VECT: max-err=1.12e+00, l2-err=1.02e+00, res=1.35e+00 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   6 : k= -117.08997819 + (-0.0e+00) i lam=sqrt(k)=          -nan, eig=   0, true=   19.67587287, rel-err=6.95e+00, multe=1 mult=1 VECT: max-err=1.11e+00, l2-err=1.04e+00, res=1.02e+03 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   7 : k=  125.26123786 + (-0.0e+00) i lam=sqrt(k)=   11.19201670, eig=   6, true=  125.26123786, rel-err=3.95e-14, multe=2 mult=1 VECT: max-err=2.16e-01, l2-err=2.12e-01, res=1.27e-01 resbc=0.00e+00 @EV@ *RES*
+ max-rel-err=6.95e+00, max-evect-err=1.12e+00
+ ==== SUMMARY: max-residual = 1.02e+03
+
+
+mpirun -np 1 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square16.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square16Ev8.show -numEigenValues=8 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+Eigenvalue   0 : k=   19.67587287 + (-0.0e+00) i lam=sqrt(k)=    4.43574941, eig=   0, true=   19.67587287, rel-err=5.42e-16, multe=1 mult=1 VECT: max-err=1.11e-15, l2-err=7.97e-16, res=5.04e-14 resbc=0.00e+00
+Eigenvalue   1 : k=   48.81161579 + (-0.0e+00) i lam=sqrt(k)=    6.98653103, eig=   1, true=   48.81161579, rel-err=2.62e-15, multe=2 mult=1 VECT: max-err=5.35e-15, l2-err=3.26e-15, res=5.37e-14 resbc=0.00e+00
+Eigenvalue   2 : k=   48.81161579 + (-0.0e+00) i lam=sqrt(k)=    6.98653103, eig=   1, true=   48.81161579, rel-err=1.46e-15, multe=2 mult=1 VECT: max-err=1.07e-13, l2-err=7.20e-14, res=1.37e-12 resbc=0.00e+00
+Eigenvalue   3 : k=   77.94735871 + (-0.0e+00) i lam=sqrt(k)=    8.82878014, eig=   3, true=   77.94735871, rel-err=3.65e-16, multe=1 mult=1 VECT: max-err=2.66e-15, l2-err=1.80e-15, res=9.98e-15 resbc=0.00e+00
+Eigenvalue   4 : k=   96.12549493 + (-0.0e+00) i lam=sqrt(k)=    9.80436102, eig=   4, true=   96.12549493, rel-err=5.91e-16, multe=2 mult=1 VECT: max-err=5.33e-15, l2-err=5.19e-15, res=3.10e-14 resbc=0.00e+00
+Eigenvalue   5 : k=   96.12549493 + (-0.0e+00) i lam=sqrt(k)=    9.80436102, eig=   4, true=   96.12549493, rel-err=7.39e-16, multe=2 mult=1 VECT: max-err=4.23e-14, l2-err=3.78e-14, res=1.69e-13 resbc=0.00e+00
+Eigenvalue   6 : k=  125.26123786 + (-0.0e+00) i lam=sqrt(k)=   11.19201670, eig=   6, true=  125.26123786, rel-err=6.58e-15, multe=2 mult=1 VECT: max-err=4.04e-14, l2-err=4.37e-14, res=6.82e-14 resbc=0.00e+00
+Eigenvalue   7 : k=  125.26123786 + (-0.0e+00) i lam=sqrt(k)=   11.19201670, eig=   6, true=  125.26123786, rel-err=4.54e-16, multe=2 mult=1 VECT: max-err=1.41e-14, l2-err=1.01e-14, res=4.15e-14 resbc=0.00e+00
+Eigenvalue   8 : k=  159.79926447 + (-0.0e+00) i lam=sqrt(k)=   12.64117338, eig=   8, true=  159.79926447, rel-err=8.89e-16, multe=2 mult=1 VECT: max-err=6.38e-14, l2-err=4.51e-14, res=1.42e-13 resbc=0.00e+00
+ max-rel-err=6.58e-15, max-evect-err=1.07e-13
+ ==== SUMMARY: max-residual = 1.37e-12
+
+
+************************************************
+****** Mon/Tues Oct 27/28, 2025
+
+MAKE CHANGES FOR PARALLEL TO fillMatrixLaplacian.bC
+
+mpirun -np 2 valgrind --log-file=genEigs.out.np%p $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square32O2Ev64.show -numEigenValues=64 -go=go
+
+
+*** IN PARALLEL: use -st_pc_type bjacobi
+   MUMPS has a parallel ILU, or could use SuperLU
+
+NP=2 : This starts to work:
+mpirun -np 2 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square32O2Ev64.show -numEigenValues=64 -orthogonalize=0 -st_ksp_type gmres -st_pc_type bjacobi -st_sub_pc_type lu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -st_ksp_max_it 10000 -go=go
+
+Eigenvalue   0 : k=   49.21342551 + (-0.0e+00) i lam=sqrt(k)=    7.01522812, eig=   1, true=   49.21342551, rel-err=1.01e-15, multe=2 mult=1 VECT: max-err=1.76e-01, l2-err=1.59e-01, res=3.58e-01 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   1 : k=   56.33104259 + (-0.0e+00) i lam=sqrt(k)=    7.50540089, eig=   1, true=   49.21342551, rel-err=1.45e-01, multe=2 mult=1 VECT: max-err=2.97e-01, l2-err=2.22e-01, res=4.36e+00 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   2 : k=  -71.51827345 + (-0.0e+00) i lam=sqrt(k)=          -nan, eig=   0, true=   19.72335955, rel-err=4.63e+00, multe=1 mult=1 VECT: max-err=1.00e+00, l2-err=1.00e+00, res=4.10e+03 resbc=0.00e+00 @EV@ *RES*
+Eigenvalue   3 : k=   78.70349147 + (-0.0e+00) i lam=sqrt(k)=    8.87149883, eig=   3, true=   78.70349147, rel-err=5.60e-15, multe=1 mult=1 VECT: max-err=1.22e-01, l2-err=1.22e-01, res=2.23e-01 resbc=0.00e+00 @EV@ *RES*
+
+
+
+TRY GMRES ILU PC
+mpirun -np 1 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square32O2Ev64.show -numEigenValues=64 -orthogonalize=0 -st_ksp_type gmres -st_pc_type ilu -st_pc_factor_levels 2 -st_ksp_rtol 1e-12 -go=go
+
+Eigenvalue   0 : k=   19.72335955 + (-0.0e+00) i lam=sqrt(k)=    4.44109891, eig=   0, true=   19.72335955, rel-err=1.44e-15, multe=1 mult=1 VECT: max-err=2.21e-14, l2-err=1.65e-14, res=3.95e-13 resbc=0.00e+00
+Eigenvalue   1 : k=   49.21342551 + (-0.0e+00) i lam=sqrt(k)=    7.01522812, eig=   1, true=   49.21342551, rel-err=5.63e-15, multe=2 mult=1 VECT: max-err=3.07e-13, l2-err=2.08e-13, res=1.89e-12 resbc=0.00e+00
+Eigenvalue   2 : k=   49.21342551 + (-0.0e+00) i lam=sqrt(k)=    7.01522812, eig=   1, true=   49.21342551, rel-err=1.30e-15, multe=2 mult=1 VECT: max-err=1.90e-13, l2-err=1.23e-13, res=1.49e-12 resbc=0.00e+00
+Eigenvalue   3 : k=   78.70349147 + (-0.0e+00) i lam=sqrt(k)=    8.87149883, eig=   3, true=   78.70349147, rel-err=3.61e-15, multe=1 mult=1 VECT: max-err=2.04e-13, l2-err=1.42e-13, res=4.26e-13 resbc=0.00e+00
+Eigenvalue   4 : k=   98.04787220 + (-0.0e+00) i lam=sqrt(k)=    9.90191255, eig=   4, true=   98.04787220, rel-err=4.64e-15, multe=2 mult=1 VECT: max-err=4.95e-13, l2-err=5.13e-13, res=1.35e-12 resbc=0.00e+00
+Eigenvalue   5 : k=   98.04787220 + (-0.0e+00) i lam=sqrt(k)=    9.90191255, eig=   4, true=   98.04787220, rel-err=1.16e-15, multe=2 mult=1 VECT: max-err=1.40e-12, l2-err=9.56e-13, res=2.64e-12 resbc=0.00e+00
+
+
+
+NP=1 : 
+mpirun -np 1 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square32O2Ev64.show -numEigenValues=64 -go=go
+
+Eigenvalue   0 : k=   19.72335955 + (-0.0e+00) i lam=sqrt(k)=    4.44109891, eig=   0, true=   19.72335955, rel-err=1.62e-15, multe=1 mult=1 VECT: max-err=3.77e-15, l2-err=1.69e-15, res=2.71e-13 resbc=0.00e+00
+Eigenvalue   1 : k=   49.21342551 + (-0.0e+00) i lam=sqrt(k)=    7.01522812, eig=   1, true=   49.21342551, rel-err=2.17e-15, multe=2 mult=2 VECT: max-err=4.76e-15, l2-err=2.35e-15, res=2.51e-13 resbc=0.00e+00
+Eigenvalue   2 : k=   49.21342551 + (-0.0e+00) i lam=sqrt(k)=    7.01522812, eig=   1, true=   49.21342551, rel-err=1.01e-15, multe=2 mult=2 VECT: max-err=4.44e-15, l2-err=2.93e-15, res=1.47e-13 resbc=0.00e+00
+Eigenvalue   3 : k=   78.70349147 + (-0.0e+00) i lam=sqrt(k)=    8.87149883, eig=   3, true=   78.70349147, rel-err=2.17e-15, multe=1 mult=1 VECT: max-err=8.55e-15, l2-err=5.82e-15, res=1.37e-13 resbc=0.00e+00
+Eigenvalue   4 : k=   98.04787220 + (-0.0e+00) i lam=sqrt(k)=    9.90191255, eig=   4, true=   98.04787220, rel-err=3.48e-15, multe=2 mult=2 VECT: max-err=2.94e-15, l2-err=2.97e-15, res=9.33e-14 resbc=0.00e+00
+
+
+
+
+************************************************
+****** Sun Oct 26, 2025
+
+START PARALLEL VERSION:
+
+Test:
+
+np=1 : OK 
+
+np=2 : TROUBLE -- fillMatrixLaplacian
+
+mpirun -np 1 $genEigs -noplot eigs.cmd -problem=laplace -eigCase=square -g=square32.order2.hdf -discreteEigenvalues=1 -tol=1.0e-12 -bc1=d -show=square32O2Ev64.show -numEigenValues=64 -go=go
+
+
 
 ************************************************
 ****** Sun Sept 7, 2025

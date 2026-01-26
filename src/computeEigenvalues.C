@@ -16,6 +16,11 @@
 
 #define FOR3N(i1,i2,i3,n,n1a,n1b,n2a,n2b,n3a,n3b)       for( i3=n3a; i3<=n3b; i3++ )                        for( i2=n2a; i2<=n2b; i2++ )                      for( i1=n1a; i1<=n1b; i1++ )                    for( n=0; n<numberOfComponents; n++ )
 
+
+#define FOR_3D(i1,i2,i3,I1,I2,I3) int I1Base =I1.getBase(),   I2Base =I2.getBase(),  I3Base =I3.getBase();  int I1Bound=I1.getBound(),  I2Bound=I2.getBound(), I3Bound=I3.getBound(); for(i3=I3Base; i3<=I3Bound; i3++) for(i2=I2Base; i2<=I2Bound; i2++) for(i1=I1Base; i1<=I1Bound; i1++)  
+
+#define FOR_3(i1,i2,i3,I1,I2,I3) I1Base =I1.getBase(),   I2Base =I2.getBase(),  I3Base =I3.getBase();  I1Bound=I1.getBound(),  I2Bound=I2.getBound(), I3Bound=I3.getBound(); for(i3=I3Base; i3<=I3Bound; i3++) for(i2=I2Base; i2<=I2Bound; i2++) for(i1=I1Base; i1<=I1Bound; i1++)  
+
 #define ForBoundary(side,axis)   for( int axis=0; axis<numberOfDimensions; axis++ ) for( int side=0; side<=1; side++ )  
 
 // ============================================================================
@@ -32,6 +37,97 @@
 //    i1 = ig + n1a - nd1a*( (i2)-n2a + nd2a*(n) );
 // #endMacro
 
+
+
+// =============================================================================
+/// \brief Return the name of the PETSc linear solver  
+/// This code is taken from PETScSolver.bC   
+// =============================================================================
+static aString getLinearSolverName( KSP ksp, int debug ) 
+{
+  // extract a name of the solver -- here we get the name from petsc:
+    aString name="";
+    const int maxLen=100;
+    char buff[maxLen+1];
+    PetscBool     flg;
+    if( ksp !=NULL ) // *new* way June 20, 2017
+    {
+        KSPType type;
+        KSPGetType(ksp,&type);
+        name = name + "ksp[" + type + "]";
+    }
+    
+    PC pc;
+    int ierr=KSPGetPC(ksp,&pc); CHKERRQ(ierr);  
+
+    aString pcType;
+    if( pc!=NULL )
+    {
+        PCType type;
+        PCGetType(pc,&type);
+        name = name + " pc[" + type;
+        pcType=type;
+    }
+    
+    if( pcType=="hypre" )
+    {
+        PetscOptionsGetString(PETSC_NULL,PETSC_NULL,"-pc_hypre_type",buff,maxLen,&flg);
+        aString hypreType=buff;
+    // if( hypreType=="boomeramg" ) hypreType="AMG";
+        name = name + "-" + hypreType;
+    }
+    name = name + "]";
+    
+
+    if( pcType!="hypre" )
+    {
+
+        PetscBool isbjacobi=PETSC_FALSE, isasm=PETSC_FALSE;
+        int ierr = PetscObjectTypeCompare((PetscObject)pc,PCBJACOBI,&isbjacobi);CHKERRQ(ierr);
+        ierr = PetscObjectTypeCompare((PetscObject)pc,PCASM,&isasm);CHKERRQ(ierr);
+
+        if( debug & 4 )
+        {
+            printF(" Ogev::INFO: Using Block Jacobi =%i\n",(int)isbjacobi);
+            printF(" Ogev::INFO: Using Additive Schwartz=%i\n",(int)isasm);
+        }
+        
+        KSP *subksp=NULL;     /* array of local KSP contexts on this processor */
+    // Extract the array of KSP contexts for the local blocks
+        PetscInt nlocal,first; 
+        if( isbjacobi )
+        { // Block-joacobi in parallel
+            ierr = PCBJacobiGetSubKSP(pc,&nlocal,&first,&subksp);CHKERRQ(ierr);
+        }
+        else if( isasm )
+        {
+      // Alternating Schwartz
+            ierr = PCASMGetSubKSP(pc,&nlocal,&first,&subksp);CHKERRQ(ierr); 
+        }
+        
+        if( subksp!=NULL )
+        {
+            KSPType type;
+            KSPGetType(subksp[0],&type);  // get name from first block, assume these are all the same
+            name = name + " sub-ksp[" + type + "]";
+
+            PC subpc;
+            ierr = KSPGetPC(subksp[0],&subpc);CHKERRQ(ierr);
+            if( subpc!=NULL )
+            {
+                PCType type;
+                PCGetType(subpc,&type);
+                name = name + " sub-pc[" + type + "]";
+            }
+            
+        }
+            
+    }
+
+  // printF("--PETSc-- solver: %s\n",(const char*)name);
+
+    return name;
+}
 
 
 // ==================================================================================
@@ -91,10 +187,11 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
         }
     }
 
-    printF(" === computeEigenvalues: problem=%s, orderOfAccuracy=%d, numberOfComponents=%d isSingular=%d shift=%g complexProblem=%d, eigOption=%d (0: Ax=lam*B*x, 1:Bx=(1/lam)A*x)=====\n",
-              (const char*)problem,orderOfAccuracy, numberOfComponents,(int)isSingular,shift,(int)complexProblem, eigOption);
+    printF(" === computeEigenvalues: problem=%s, orderOfAccuracy=%d, numberOfComponents=%d isSingular=%d shift=%g complexProblem=%d =====\n",
+              (const char*)problem,orderOfAccuracy, numberOfComponents,(int)isSingular,shift,(int)complexProblem);
 
-
+    printF(" === computeEigenvalues: eigOption=%d (0: Ax=lam*B*x, 1:Bx=(1/lam)A*x), debug=%d =====\n",
+              eigOption,debug);
     const int myid=max(0,Communication_Manager::My_Process_Number);
 
     dbase.get<int>("orderOfAccuracy")=orderOfAccuracy; 
@@ -392,6 +489,8 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
     */
     ierr = EPSSetFromOptions(eps);CHKERRQ(ierr); // *wdh* added Aug 5, 2024
 
+
+
     PetscInt mpd = PETSC_DEFAULT; // numEigenVectors; // maximum projected dimension, decrease to save space
     if( maximumProjectedDimension>0 )
         mpd = maximumProjectedDimension;
@@ -401,42 +500,6 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
     PetscInt ncv = PETSC_DEFAULT; // numEigenValues*2+1; // size of column space 
     ierr = EPSSetDimensions(eps,numEigenValues,ncv,mpd); CHKERRQ(ierr);
 
-  // ----------- get info about ksp object ----------
-    ST st; // spectral transform
-    EPSGetST(eps,&st); 
-    KSP ksp;
-    STGetKSP(st,&ksp); 
-    aString name="";
-    const int maxLen=100;
-    if( ksp !=NULL ) // *new* way June 20, 2017
-    {
-        KSPType type;
-        ierr=KSPGetType(ksp,&type);CHKERRQ(ierr); 
-        name = name + "ksp[" + type + "]";
-    }
-    
-    PC pc;
-    ierr=KSPGetPC(ksp,&pc); CHKERRQ(ierr);  
-    if( pc!=NULL )
-    {
-        PCType type;
-        PCGetType(pc,&type);
-        if( type == PCILU )
-        {
-      // trouble here if -st_pc_type bjacobi
-            PetscInt levels=0;
-      // printF("computeEigenvalues: call PCFactorGetLevels...\n"); 
-            ierr = PCFactorGetLevels(pc, &levels); CHKERRQ(ierr);
-      // printF("computeEigenvalues: ... done call PCFactorGetLevels\n"); 
-
-            name = name + " pc[" + type + sPrintF("(%d)",levels) + "]";
-        }
-        else
-        {
-              name = name + " pc[" + type + "]";
-        }
-    } 
-    printF("****** computeEigenvalues: KSP name=%s\n",(const char *)name);
 
 
     /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -445,15 +508,31 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
 
     ierr = EPSSolve(eps);     CHKERRQ(ierr);
 
+    if( debug > 0 )
+        printF("\n @@@ after EPSSolve: ierr=%d @@@\n\n",ierr);
 
+  // ----------- get info about ksp object ----------
+    aString & linearSolverName = dbase.get<aString>("linearSolverName");
 
-    Real cpuTotal = getCPU()-cpu0;
+    ST st; // spectral transform
+    EPSGetST(eps,&st); 
+    KSP ksp;
+    STGetKSP(st,&ksp); 
+    linearSolverName = getLinearSolverName( ksp, debug );
+
+  // if( debug>0 )
+  //   printF("****** computeEigenvalues: KSP name=%s\n",(const char *)linearSolverName);
+
+    Real & cpuTotal = dbase.get<Real>("cpuTotal");
+
+    cpuTotal = getCPU()-cpu0;
     printF("--------------------------------------------------------------\n");
     printF("--------------- Ogev : computeEigenvalues --------------------\n");
-    printF("   numberOfGridPoints=%d, numEigenvalues=%d, numEigenVectors=%d\n",
-                    numberOfGridPoints,numEigenValues,numEigenVectors);
-    printF("      total cpu = %9.2e (s) (includes build matrix)\n",cpuTotal);
-    printF(" cpu/eigenvalue = %9.2e (s)\n",cpuTotal/numEigenValues);
+    printF("   numberOfGridPoints=%d, numEigenvalues=%d, numEigenVectors=%d, np=%d\n",
+                    numberOfGridPoints,numEigenValues,numEigenVectors,numberOfProcessors);
+    printF(" linearSolverName = %s\n",(const char *)linearSolverName);
+    printF("      total cpu = %9.2e (s) (includes build matrix) np=%d\n",cpuTotal,numberOfProcessors);
+    printF(" cpu/eigenvalue = %9.2e (s) (numEigs=%d)\n",cpuTotal/numEigenValues,numEigenValues);
 
 
     /*
@@ -573,7 +652,10 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
 
             if( i<numEigenVectors )
             {
-        // ---- Save the eigenvector ----
+        // --------------------------------
+        // ----- Save the eigenvector -----
+        // --------------------------------
+
         // printF("Save eigenvector %d to the grid function.\n",i);
 
                 PetscScalar *xrv, *xiv;
@@ -601,87 +683,149 @@ computeEigenvalues( const aString & problem, const int numberOfComponents,
                     complexEigFound=0; 
                 }
 
-                for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
-                {  
-                    realArray & ug= ucg[grid];
-                    realSerialArray uLocal; getLocalArrayWithGhostBoundaries(ug,uLocal); 
+                if( true )
+                {
+          // New way -- Oct 30, 2025 -- NOTE: this version is cleaner but old version may also be correct
 
-                    int n1a = uLocal.getBase(0) +ug.getGhostBoundaryWidth(0), 
-                            n1b = uLocal.getBound(0)-ug.getGhostBoundaryWidth(0);
-                    int n2a = uLocal.getBase(1) +ug.getGhostBoundaryWidth(1), 
-                            n2b = uLocal.getBound(1)-ug.getGhostBoundaryWidth(1);
-                    int n3a = uLocal.getBase(2) +ug.getGhostBoundaryWidth(2), 
-                            n3b = uLocal.getBound(2)-ug.getGhostBoundaryWidth(2);
-                        
-                    if( false )
-                        printf("Ogev: myid=%i local array bounds = [%i,%i][%i,%i][%i,%i]\n",myid,n1a,n1b,n2a,n2b,n3a,n3b);
+                    Index Iv[3], &I1=Iv[0], &I2=Iv[1], &I3=Iv[2];
+                    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                    {  
+                        MappedGrid & mg = cg[grid];
+                        realArray & ug= ucg[grid];
 
-                    i1=n1a, i2=n2a, i3=n3a;
-                    int n=0;
-                    int ig=getGlobalIndex( n, iv, grid, myid );  // get the global index for the first point
+            // OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
+                        OV_GET_SERIAL_ARRAY(Real,ug,uLocal);
 
-                    if( complexProblem==0 )
-                    {
+                        getIndex(mg.dimension(),I1,I2,I3);
 
+                        bool ok=ParallelUtility::getLocalArrayBounds(ug,uLocal,I1,I2,I3);
+                        if( !ok ) continue;
+
+                        int n=0;
                         const int nb=uLocal.getBase(3);
-                        const int nComp = nb + n + numberOfComponents*(i); // fill in this component
-                        FOR3N(i1,i2,i3,n,n1a,n1b,n2a,n2b,n3a,n3b)
+                        const int nComp = nb + n + numComp*(i);     // i counts the eigenvectors                 
+    
+                        if( complexProblem==0 )
                         {
-
-              // ******** NOTE we can probably just increment ig by 1 if we start correctly
-              // int ig=getGlobalIndex( iv, grid, myid );  // get the global index
-
-                            if( ig>=Istart && ig<=Iend )
+                            FOR_3D(i1,i2,i3,I1,I2,I3) 
                             {
-                // if( false ) printf(" myid=%i: i1,i2=%i,%i, ig=%i xrv[ig]=%6.4f\n",myid,i1,i2,ig,xrv[ig-Istart]);
+                                int ig=getGlobalIndex( n, iv, grid, myid );  // get the global index for the first point
+                                assert( ig>=Istart && ig<=Iend );
+
                                 if( complexEigFound<=1 )
-                                    uLocal(i1,i2,i3,nComp)=xrv[ig-Istart];  // use real part of eigenvector 
-                                else
-                                    uLocal(i1,i2,i3,nComp)=xiv[ig-Istart];  // use imaginary part of eigenvector 
+                                        uLocal(i1,i2,i3,nComp)=xrv[ig-Istart];  // use real part of eigenvector 
+                                    else
+                                        uLocal(i1,i2,i3,nComp)=xiv[ig-Istart];  // use imaginary part of eigenvector 
                             }
-                            else
-                            {
-                                int p=myid;
-                                printf("Ogev::ERROR: myid=%i, i1,i2=%i,%i, ig=%i Istart,Iend=[%i,%i]\n", myid,i1,i2,ig,Istart,Iend);
-                            }
-                            ig++;
                         }
-                    }
-                    else
-                    {
-            //  --- complex case: fill in Real and Imag parts ---
-
-                        const int nb=uLocal.getBase(3);
-                        const int nComp = nb + n + numComp*(i); 
-                        FOR3N(i1,i2,i3,n,n1a,n1b,n2a,n2b,n3a,n3b)
+                        else
                         {
-                            if( ig>=Istart && ig<=Iend )
+              
+                            FOR_3D(i1,i2,i3,I1,I2,I3) 
                             {
+                                int ig=getGlobalIndex( n, iv, grid, myid );  // get the global index for the first point
+                                assert( ig>=Istart && ig<=Iend );
                                 uLocal(i1,i2,i3,nComp  )=xrv[ig-Istart];  // real part of eigenvector       Re(phi)
                                 uLocal(i1,i2,i3,nComp+1)=xiv[ig-Istart];  // imaginary part of eigenvector  Im(phi) 
-                            }
-                            else
-                            {
-                                int p=myid;
-                                printf("Ogev::ERROR: myid=%i, i1,i2=%i,%i, ig=%i Istart,Iend=[%i,%i]\n", myid,i1,i2,ig,Istart,Iend);
-                            }
-                            ig++;
+
+                            }              
+
                         }
-
-
-                    }
-                    
+                    } // end for grid 
                 }
-                for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
-                {  
-                    ucg[grid].periodicUpdate();  // added for periodic box April 14, 2023
-                    ucg[grid].updateGhostBoundaries();
-                    if( debug & 8 )
-                        display(ucg[grid],sPrintF("Eigenvectors: ucg[%i]",grid),"%6.3f ");
-                }          
+                else
+                {
+          // --- start OLD WAY ------
+                    for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+                    {  
+                        realArray & ug= ucg[grid];
+
+
+                        realSerialArray uLocal; getLocalArrayWithGhostBoundaries(ug,uLocal); 
+
+                        int n1a = uLocal.getBase(0) +ug.getGhostBoundaryWidth(0), 
+                                n1b = uLocal.getBound(0)-ug.getGhostBoundaryWidth(0);
+                        int n2a = uLocal.getBase(1) +ug.getGhostBoundaryWidth(1), 
+                                n2b = uLocal.getBound(1)-ug.getGhostBoundaryWidth(1);
+                        int n3a = uLocal.getBase(2) +ug.getGhostBoundaryWidth(2), 
+                                n3b = uLocal.getBound(2)-ug.getGhostBoundaryWidth(2);
+                            
+                        if( false )
+                            printf("Ogev: myid=%i local array bounds = [%i,%i][%i,%i][%i,%i]\n",myid,n1a,n1b,n2a,n2b,n3a,n3b);
+
+                        i1=n1a, i2=n2a, i3=n3a;
+                        int n=0;
+                        int ig=getGlobalIndex( n, iv, grid, myid );  // get the global index for the first point
+
+                        if( complexProblem==0 )
+                        {
+
+                            const int nb=uLocal.getBase(3);
+                            const int nComp = nb + n + numberOfComponents*(i); // fill in this component
+                            FOR3N(i1,i2,i3,n,n1a,n1b,n2a,n2b,n3a,n3b)
+                            {
+
+                // ******** NOTE we can probably just increment ig by 1 if we start correctly
+                // int ig=getGlobalIndex( iv, grid, myid );  // get the global index
+
+                                if( ig>=Istart && ig<=Iend )
+                                {
+                  // if( false ) printf(" myid=%i: i1,i2=%i,%i, ig=%i xrv[ig]=%6.4f\n",myid,i1,i2,ig,xrv[ig-Istart]);
+                                    if( complexEigFound<=1 )
+                                        uLocal(i1,i2,i3,nComp)=xrv[ig-Istart];  // use real part of eigenvector 
+                                    else
+                                        uLocal(i1,i2,i3,nComp)=xiv[ig-Istart];  // use imaginary part of eigenvector 
+                                }
+                                else
+                                {
+                                    int p=myid;
+                                    printf("Ogev::ERROR: myid=%i, i1,i2=%i,%i, ig=%i Istart,Iend=[%i,%i]\n", myid,i1,i2,ig,Istart,Iend);
+                                }
+                                ig++;
+                            }
+                        }
+                        else
+                        {
+              //  --- complex case: fill in Real and Imag parts ---
+
+                            const int nb=uLocal.getBase(3);
+                            const int nComp = nb + n + numComp*(i); 
+                            FOR3N(i1,i2,i3,n,n1a,n1b,n2a,n2b,n3a,n3b)
+                            {
+                                if( ig>=Istart && ig<=Iend )
+                                {
+                                    uLocal(i1,i2,i3,nComp  )=xrv[ig-Istart];  // real part of eigenvector       Re(phi)
+                                    uLocal(i1,i2,i3,nComp+1)=xiv[ig-Istart];  // imaginary part of eigenvector  Im(phi) 
+                                }
+                                else
+                                {
+                                    int p=myid;
+                                    printf("Ogev::ERROR: myid=%i, i1,i2=%i,%i, ig=%i Istart,Iend=[%i,%i]\n", myid,i1,i2,ig,Istart,Iend);
+                                }
+                                ig++;
+                            }
+
+
+                        }
+                        
+                    } // end for grid
+                    
+                } // --- end OLD WAY ---
+
 
             }
-        }
+
+
+        } // end for i
+
+        for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
+        {  
+            ucg[grid].periodicUpdate(); 
+            ucg[grid].updateGhostBoundaries();
+            if( debug & 8 )
+                display(ucg[grid],sPrintF("Eigenvectors: ucg[%i]",grid),"%6.3f ");
+        } 
+
     // ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
     }
 

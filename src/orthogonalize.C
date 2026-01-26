@@ -184,7 +184,8 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
                 getIndex(mg.dimension(),I1,I2,I3);
                 OV_GET_SERIAL_ARRAY(Real,uev[grid],uevLocal);
                 OV_GET_SERIAL_ARRAY(Real,u[grid],uLocal);
-                bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3);
+                int includeParallelGhost=1;
+                bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3,includeParallelGhost);
                 if( ok )
                     uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,i)*uevLocal(I1,I2,I3,i);
             }
@@ -194,7 +195,8 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
                 MappedGrid & mg = cg[grid];
                 getIndex(mg.dimension(),I1,I2,I3);
                 OV_GET_SERIAL_ARRAY(Real,uev[grid],uevLocal);
-                bool ok=ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3);
+                int includeParallelGhost=1;
+                bool ok=ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3,includeParallelGhost);
                 if( ok )
                     uevLocal(I1,I2,I3,i) *= (1./eNorm);
             }
@@ -236,7 +238,8 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
                     getIndex(mg.gridIndexRange(),I1,I2,I3);
                     OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
                     OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
-                    bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3);
+                    int includeParallelGhost=0;
+                    bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3,includeParallelGhost);
                     if( ok )
                         uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,i)*uevLocal(I1,I2,I3,j);
                 }
@@ -295,7 +298,8 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
                                 getIndex(mg.gridIndexRange(),I1,I2,I3);
                                 OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
                                 OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
-                                bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3);
+                                int includeParallelGhost=0;
+                                bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3,includeParallelGhost);
                                 if( ok )
                                     uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,k)*uevLocal(I1,I2,I3,j);
                             }
@@ -307,7 +311,8 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
                         MappedGrid & mg = cg[grid];
                         getIndex(mg.dimension(),I1,I2,I3);
                         OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
-                        bool ok=ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3);
+                        int includeParallelGhost=1;
+                        bool ok=ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3,includeParallelGhost);
                         if( ok )
                             uevLocal(I1,I2,I3,j) -= dotProduct*uevLocal(I1,I2,I3,k);
                     }
@@ -320,7 +325,8 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
                         getIndex(mg.dimension(),I1,I2,I3);
                         OV_GET_SERIAL_ARRAY(Real,uev[grid],uevLocal);
                         OV_GET_SERIAL_ARRAY(Real,u[grid],uLocal);
-                        bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3);
+                        int includeParallelGhost=1;
+                        bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3,includeParallelGhost);
                         if( ok )
                             uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,j)*uevLocal(I1,I2,I3,j);
                     }
@@ -330,7 +336,8 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
                         MappedGrid & mg = cg[grid];
                         getIndex(mg.dimension(),I1,I2,I3);
                         OV_GET_SERIAL_ARRAY(Real,uev[grid],uevLocal);
-                        bool ok=ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3);
+                        int includeParallelGhost=1;
+                        bool ok=ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3,includeParallelGhost);
                         if( ok )
                             uevLocal(I1,I2,I3,j) *= (1./eNorm);
                     }
@@ -346,7 +353,8 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
                             getIndex(mg.gridIndexRange(),I1,I2,I3);
                             OV_GET_SERIAL_ARRAY(real,uev[grid],uevLocal);
                             OV_GET_SERIAL_ARRAY(real,u[grid],uLocal);
-                            bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3);
+                            int includeParallelGhost=0;
+                            bool ok=ParallelUtility::getLocalArrayBounds(u[grid],uLocal,I1,I2,I3,includeParallelGhost);
                             if( ok )
                                 uLocal(I1,I2,I3) = uevLocal(I1,I2,I3,k)*uevLocal(I1,I2,I3,j);
                         }
@@ -442,6 +450,9 @@ int Ogev::normalizeEigenvectors( const aString & problem, const int numberOfComp
                 MappedGrid & mg = cg[grid];
                 getIndex(mg.dimension(),I1,I2,I3);
                 OV_GET_SERIAL_ARRAY(Real,uev[grid],uevLocal);
+                int includeParallelGhost=1;
+                bool ok= ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3,includeParallelGhost);
+
                 uevLocal(I1,I2,I3,i  ) *= 1./uMax;
                 uevLocal(I1,I2,I3,i+1) *= 1./uMax;
             }      
@@ -457,6 +468,9 @@ int Ogev::normalizeEigenvectors( const aString & problem, const int numberOfComp
                 MappedGrid & mg = cg[grid];
                 getIndex(mg.dimension(),I1,I2,I3);
                 OV_GET_SERIAL_ARRAY(Real,uev[grid],uevLocal);
+                int includeParallelGhost=1;
+                bool ok= ParallelUtility::getLocalArrayBounds(uev[grid],uevLocal,I1,I2,I3,includeParallelGhost);
+                
                 uevLocal(I1,I2,I3,i) *= 1./uMax;
             }
 

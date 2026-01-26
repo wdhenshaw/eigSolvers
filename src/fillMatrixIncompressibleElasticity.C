@@ -1422,6 +1422,9 @@ int Ogev::getPressureFromDisplacement( realCompositeGridFunction & uv, realCompo
         realMappedGridFunction & uvg = uv[grid];
         OV_GET_SERIAL_ARRAY(Real,f[grid],fLocal);
 
+        #ifdef USE_PPP
+            OV_ABORT("finish me for parallel")
+        #else
         ForBoundary(side,axis)
         {
             getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
@@ -1459,7 +1462,8 @@ int Ogev::getPressureFromDisplacement( realCompositeGridFunction & uv, realCompo
         // printF("getPressure: set pressure traction BC on (side,axis)=(%d,%d) max(|f|)=%e\n",side,axis,
         //      max(fabs(fLocal(Ib1,Ib2,Ib3))) );
             }
-        }
+        } // end for boundary
+        #endif
     }
 
     p=0.;  // initial guess for iterative solvers
@@ -1700,7 +1704,7 @@ checkResidualsInPsi( int eigc, RealArray & eig, realMappedGridFunction & u, Comp
           // p = 2*mu*u1.x =  2*mu*psi.xy     x=0 
           //   = 2*mu*u2.y = -2*mu*psi.xy     y=0      
                     Real sign = axis==0 ? 1. : -1; 
-                    resLocal(Ig1,Ig2,Ig3) = u(Ib1,Ib2,Ib3,pm) - 2.*sign*mu*uxy(Ib1,Ib2,Ib3);                 
+                    resLocal(Ig1,Ig2,Ig3) = uLocal(Ib1,Ib2,Ib3,pm) - 2.*sign*mu*uxy(Ib1,Ib2,Ib3);                 
 
           // display(resLocal(Ig1,Ig2,Ig3),"traction BC residual","%8.1e ");
 

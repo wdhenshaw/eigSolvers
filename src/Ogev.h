@@ -19,6 +19,7 @@
 typedef struct _p_Mat *Mat;
 class CompositeGridOperators;
 
+
 #define KK_DEBUG
 #include "DBase.hh"
 using namespace DBase;
@@ -60,7 +61,7 @@ public:
                           int maximumProjectedDimension=-1  );
 
   int 
-  fillInterpolationCoefficients( Mat & A, realCompositeGridFunction & uu );
+  fillInterpolationCoefficients( Mat & A, realCompositeGridFunction & uu , int countMatrixEntries = 0 );
 
   int 
   fillMatrixIncompressibleElasticity( const int numberOfComponents, int orderOfAccuracy, MappedGrid & mg, Mat & A, Mat & B, 
@@ -172,6 +173,9 @@ protected:
 
   int 
   getGlobalIndex( int n, int i1, int i2, int i3, int grid, int p );
+
+  void 
+  equationToIndex( const int eqnNo0, int & n, int & i1, int & i2, int & i3, int & grid,  int numberOfComponentGrids);
 
   int debug;
 
