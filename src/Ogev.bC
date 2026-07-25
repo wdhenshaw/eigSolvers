@@ -237,6 +237,7 @@ bool Ogev::isComplexProblem() const
 int Ogev::setIsComplexProblem( bool isComplex /* =true */ )
 {
   dbase.get<int>("complexProblem")=isComplex;
+  return 0;
 }
 
 // ==============================================================================

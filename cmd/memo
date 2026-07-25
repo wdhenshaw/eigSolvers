@@ -7,6 +7,18 @@ RUN GDB in xterms and start immediately:
 mpiexec -n 2 xterm -e gdb -ex run --args $genEigs -noplot
 
 
+************************************************
+****** Sat July 25, 2026
+
+TEST CASE ON cgpc
+
+cp $ovg/sampleGrids/cicArg.cmd .
+ogen -noplot cicArg -order=2 -inter=e -factor=2
+
+mkdir debug
+
+$genEigs -noplot eigs.cmd -problem=laplace -g=cice2.order2 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -show=cicO4Ev64.show -orthogonalize=1 -matlabFileName=junk -matlab=0 -go=go
+
 
 ************************************************
 ****** Wed July 8, 2026
