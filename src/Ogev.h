@@ -40,6 +40,12 @@ public:
      traction      = 2, // for elasticity
   };
 
+  enum RadiationBoundaryConditionEnum
+  {
+    engquistMajda=1,
+    sommerfeld   =2
+  };
+
   Ogev();
   ~Ogev();
 
@@ -150,6 +156,15 @@ public:
 
   // Set interpolation stencil width for coarse-to-fine transfers
   int setInterpolationWidth( int interpolationWidth );
+
+  // set the tolerance for checking if two eigenvalues are equal (used to determine the multiplicity)
+  int setEigenValueTolForMultiplicity( Real eigTol );
+
+  // set the tolerance for checking if two eignevectors are orthogonal
+  int setOrthogonalityTol( Real orthogTol );
+
+  // set the Radiation condition type
+  int setRadiationBoundaryCondition( RadiationBoundaryConditionEnum rbc );
 
   // Use accurate inner product for the Rayleigh quotient
   int setUseAccurateInnerProduct( int useAccurateInnerProduct );

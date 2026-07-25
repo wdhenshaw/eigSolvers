@@ -1,6 +1,14 @@
 
 genEigs = $(HOME)/research/eigSolvers/bin/genEigs
 WAHO= $(HOME)/Dropbox/AMP/waho
+CWH = $(HOME)/Dropbox/complexWaveHoltz
+
+
+# ============== RUNS FOR COMPLEX WAVEHOLTZ PAPER=======
+
+complexWaveHoltz:
+	$(genEigs) -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareG128O4BrrrrEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG128O4BrrrrEv1024 -matlab=1 -go=go
+	cp squareG128O4BrrrrEv1024.m $(CWH)/results
 
 
 # ============= Files for cgWave checks in checkEigen/grids

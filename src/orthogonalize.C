@@ -39,6 +39,7 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
 
 
     Real & eigTol              = dbase.get<Real>("eigenValueTolForMultiplicity");
+    Real & orthogonalityTol    = dbase.get<Real>("orthogonalityTol");
     int & numberOfEigenvectors = dbase.get<int>("numberOfEigenvectors");
 
     numberOfEigenvectors = numEigenVectors;
@@ -88,6 +89,11 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
     eigenVectorIsNormalized.redim(numEigenVectors);
     eigenVectorIsNormalized=0; 
 
+  // eigStartIndex(i) = index of first eig for a multiple eig
+    eigStartIndex.redim(numEigenVectors);
+    eigStartIndex=-1; 
+    eigStartIndex(0)=0;   
+
     RealArray lambdaNorm(numEigenVectors); // holds modulus of each eigenvalue
 
   // -------- Determine multiplicities -------
@@ -97,6 +103,7 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
     {  
 
         lambdaNorm(i)= sqrt( SQR(eig(0,i)) + SQR(eig(1,i)) );
+
     // if( i>0 && lambdaNorm(i) < lambdaNorm(i-1) ) 
         if( i>0 && (lambdaNorm(i) - lambdaNorm(i-1)) < -fabs(lambdaNorm(i))*lamTol ) 
         {
@@ -150,6 +157,9 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
             if( !matchFound ) break;
         }
         eigMultiplicity(i) = multiplicity;
+
+        eigStartIndex(i)=ie;
+
         if( debug>2 )
             printF(" i=%3d : eig=%14.6e, multiplicity=%d (maxEigDiff=%9.2e, eigTol=%9.2e)\n",i,eig(0,i),eigMultiplicity(i),maxEigDiff,eigTol);
 
@@ -165,6 +175,13 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
   // if( true )
   //   return 0;  // ############################
 
+    printF("------- AFTER FINDING MULTIPLICITY, eigTol=%9.2e-----\n",eigTol);
+    for( int ie=0; ie<numEigenVectors; ie++ )
+    {
+          printF(" ie=%4d: eig=(%14.8e,%14.8e) multi=%2d eigStartIndex=%4d\n",
+                    ie,eig(0,ie),eig(1,ie),eigMultiplicity(ie),eigStartIndex(ie));
+    }    
+
 
   // ---- Normalize and orthogonalize the eigenvectors ----
 
@@ -176,6 +193,8 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
     realCompositeGridFunction u(cg); // for work-space
     u=0.;
 
+  // --- NORMALIZE EIGENVECTORS ---
+    printF("Normalize eigenvectors...\n");
     for( int i=0; i<numEigenVectors; i++ )
     {
             for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
@@ -201,7 +220,9 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
                     uevLocal(I1,I2,I3,i) *= (1./eNorm);
             }
         evNorm2(i) = eNorm;   
-        printF("i=%4d : orig. eigenvector L2 norm = %9.2e\n",i,evNorm2(i));
+
+        if( false )
+            printF("i=%4d : orig. eigenvector L2 norm = %9.2e\n",i,evNorm2(i));
 
     }
 
@@ -213,16 +234,13 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
 
   // ----- orthogonalize the eigenvectors for multiple eigenvalues -----
     Real dotProduct;
-    Real epsOrthog=1.e-8; // tolerance for dot-product being small (adjusted below)
+    Real epsOrthog=orthogonalityTol; // tolerance for dot-product being small (adjusted below)
     Real maxDotProductForOrthognality = 1e-2;  // max value of a dot product for orthogonality test
 
     Real maxEigTol=1.e-2; // maximum allowable relative tolerance for multiple eigenvalues
     Real minRelativeEigDist = 1e-3; // min relative distance between eigenvalues to assume eigenvalues are the same 
 
-  // eigStartIndex(i) = index of first eig for a multiple eig
-    eigStartIndex.redim(numEigenVectors);
-    eigStartIndex=-1; 
-    eigStartIndex(0)=0; 
+
     int numErrors=0; 
     if( true )
     {
@@ -259,25 +277,25 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
 
             if( fabs(dotProduct) < epsOrthog )
             {
-                printF("i=%4d, j=%4d  (phi[i],phi[j]) = %9.2e  (orthogonal)\n",i,j,dotProduct);
-                eigStartIndex(j)=j; 
+        // eigStartIndex(j)=j; 
+                printF("i=%4d, j=%4d  (phi[i],phi[j]) = %9.2e  eigStartIndex(j)=%d (orthogonal)\n",i,j,dotProduct,eigStartIndex(j));
             }
             else
             {
         // -- this must be a multiple eig
-                eigStartIndex(j)=eigStartIndex(i);   // points to the index of the first instance of this multiple eig
+        // eigStartIndex(j)=eigStartIndex(i);   // points to the index of the first instance of this multiple eig
 
 
 
                 printF("i=%4d, j=%4d  (phi[i],phi[j]) = %9.2e,  lam[i]=%14.6e lam[j]=%14.6e mult(i)=%d mult(j)=%d eigStartIndex(i)=%d eigStartIndex(j)=%d eigDist/eigNorm=%9.2e\n",i,j,dotProduct,
                                           eig(0,i),eig(0,j), eigMultiplicity(i),eigMultiplicity(j),eigStartIndex(i),eigStartIndex(j),eigDist/eigNorm );
 
-                if( relEigDist > eigTol )
+                if( relEigDist > epsOrthog )
                 {
-                    printF("WARNING: inner product is NOT small but eigenvalues are not so close ?!  |lam[i]-lam[j]|/|lam[i]| = %9.2e,  eigTol=%9.2e\n",eigDist/eigNorm, eigTol);
+                    printF("WARNING: inner product is NOT small but eigenvalues are not so close ?!  |lam[i]-lam[j]|/|lam[i]| = %9.2e,  epsOrthog=%9.2e\n",eigDist/eigNorm,epsOrthog);
                     if( relEigDist < maxEigTol ) 
                     {
-                        eigTol = max(eigTol, 1.5*relEigDist );
+                        epsOrthog = max(epsOrthog, 1.5*relEigDist );
                         printF(" ... increasing eigTol to %9.2e (relative error in multiple eigenvalues.\n",eigTol);
                     }
                     else
@@ -369,7 +387,8 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
                     printF("\n ++++ INFO: multiplicity has increased from %d to %d\n\n",eigMultiplicity(i),newMultiplicity);
                     for( int k=j; k>=eigStartIndex(i); k-- )
                     {    
-                          eigMultiplicity(k)=newMultiplicity;
+                          eigMultiplicity(k) = newMultiplicity;
+                          eigStartIndex(k)   = eigStartIndex(j-1);  // Feb 27, 2206 **CHECK ME**
                     }        
                 }
 
@@ -388,6 +407,12 @@ int Ogev::orthogonalizeEigenvectors( const aString & problem, const int numberOf
     // OV_ABORT("stop here for now");
     }
 
+    printF("------- AFTER ORTHOGONALIZE -----\n");
+    for( int ie=0; ie<numEigenVectors; ie++ )
+    {
+          printF(" ie=%4d: eig=(%14.8e,%14.8e) multi=%2d eigStartIndex=%4d\n",
+                    ie,eig(0,ie),eig(1,ie),eigMultiplicity(ie),eigStartIndex(ie));
+    }    
 
   //  ::display(eigMultiplicity,"eigMultiplicity ... done orthogonalize");
 

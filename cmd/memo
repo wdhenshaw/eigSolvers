@@ -7,6 +7,1097 @@ RUN GDB in xterms and start immediately:
 mpiexec -n 2 xterm -e gdb -ex run --args $genEigs -noplot
 
 
+
+************************************************
+****** Wed July 8, 2026
+
+
+Wave guide eigs SOMMERFELD (for Ngan)
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=d -bc4=d -rbc=SF -show=squareG256O4BrrddSFEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG256O4BrrddSFEv2048 -matlab=1 -go=go > squareG256O4BrrddSFEv2048.out 
+
+cp squareG256O4BrrddSFEv2048 $cwh/results/
+
+************************************************
+****** Tues June 2, 2026
+
+
+ANNULUS- G8 SF 2048 .. RUNNING ...DONE
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=annulusScatGrid8.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -rbc=SF -show=annulusG8O4BdrSFEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=annulusG8O4BdrSFEv2048 -matlab=1 -go=go > annulusG8O4BdrSFEv2048.out
+
+cp annulusG8O4BdrSFEv2048.m $cwh/results/
+
+
+
+************************************************
+****** Mon May 25, 2026
+
+>>>>>>>>> DISK SOMMERFELD 
+
+DISK G16 EV2048 .. running .. done
+cp diskG16O4SFEv2048.m $cwh/results
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske16.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=SF -show=diskG16O4SFEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=diskG16O4SFEv2048 -matlab=1 -go=go > diskG16O4SFEv2048.out
+
+
+
+DISK G16 EV1024 ... running .. done
+cp diskG16O4SFEv1024.m $cwh/results
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske16.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=SF -show=diskG16O4SFEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=diskG16O4SFEv1024 -matlab=1 -go=go > diskG16O4SFEv1024.out
+
+
+DISK G8 O4 EV=2048 
+cp diskG8O4SFEv2048.m $cwh/results
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske8.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=SF -show=diskG8O4SFEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=diskG8O4SFEv2048 -matlab=1 -go=go > diskG8O4SFEv2048.out
+
+
+DISK G8 O4
+cp diskG8O4SFEv1024.m $cwh/results
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske8.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=SF -show=diskG8O4SFEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=diskG8O4SFEv1024 -matlab=1 -go=go > diskG8O4SFEv1024.out
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+
+Quarter plane on a rectangle [0,0.5]x[0,1]
+
+
+G32 .. running ... done
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=rectangle0p5By1Grid32.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=EM -show=rectangle0p5By1G32BdrdrEMEV1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=rectangle0p5By1G32BdrdrEMEV1024 -matlab=1 -go=go > rectangle0p5By1G32BdrdrEMEV1024.out
+
+cp rectangle0p5By1G32BdrdrEMEV1024.m $cwh/results/
+
+G16 .. running ...
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=rectangle0p5By1Grid16.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=EM -show=rectangle0p5By1G16BdrdrEMEV1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=rectangle0p5By1G16BdrdrEMEV1024 -matlab=1 -go=go > rectangle0p5By1G16BdrdrEMEV1024.out
+
+cp rectangle0p5By1G16BdrdrEMEV1024.m $cwh/results/
+
+DID 4096 by mistake
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=rectangle0p5By1Grid8.order4 -numEigenValues=4096 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=EM -show=rectangle0p5By1G8BdrdrEMEV1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=rectangle0p5By1G8BdrdrEMEV1024 -matlab=1 -go=go > rectangle0p5By1G8BdrdrEMEV1024.out
+
+cp rectangle0p5By1G8BdrdrEMEV1024.m $cwh/results
+
+************************************************
+****** Sun May 24, 2026
+
+HALF PLANE: 
+
+G256 O4 -- running ...
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=r -bc4=r -rbc=EM -show=square256O4BdrrrEMEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=square256O4BdrrrEMEv2048 -matlab=1 -go=go > square256O4BdrrrEMEv2048.out
+
+
+G128 O4 -- OK 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=r -bc4=r -rbc=EM -show=square128O4BdrrrEMEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=square128O4BdrrrEMEv1024 -matlab=1 -go=go > square128O4BdrrrEMEv1024.out
+
+
+
+************************************************
+****** Sat May 23, 2026
+
+PLOT WORST CASE EIGS
+
+plotStuff plotEig.cmd -show=annulusG4O4BdrEMEv1024.show -name=annulusG4O4 -lines=0 -start=4094 -comp=absphi -numToSave=2
+
+
+
+
+START TEST SOMMERFELD CURVILINEAR
+
+ANNULUS- SF 2048 .. DONE
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=annulusScatGrid4.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -rbc=SF -show=annulusG4O4BdrSFEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=annulusG4O4BdrSFEv2048 -matlab=1 -go=go > annulusG4O4BdrSFEv2048.out
+
+cp annulusG4O4BdrSFEv2048.m $cwh/results/
+
+
+ANNULUS- SF 1024 .. DONE
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=annulusScatGrid4.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -rbc=SF -show=annulusG4O4BdrSFEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=annulusG4O4BdrSFEv1024 -matlab=1 -go=go > annulusG4O4BdrSFEv1024.out
+
+cp annulusG4O4BdrSFEv1024.m $cwh/results/
+
+
+G8 more eigs RUNNING ..DONE
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=annulusScatGrid8.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -rbc=EM -show=annulusG8O4BdrEMEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=annulusG8O4EMBdrEv2048 -matlab=1 -go=go > annulusG8O4BdrEMEv2048.out
+
+cp annulusG8O4EMBdrEv2048.m  $cwh/results
+
+G4 -- even more eigs RUNNING ... DONE
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=annulusScatGrid4.order4 -numEigenValues=4096 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -rbc=EM -show=annulusG4O4BdrEMEv4096.show -orthogonalize=0 -solveComplex=1 -matlabFileName=annulusG4O4BdrEMEv4096 -matlab=1 -go=go > annulusG4O4BdrEMEv4096.out
+
+cp annulusG4O4BdrEMEv4096.m $cwh/results
+
+
+
+DISK G4 Sf 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske2.order4 -numEigenValues=128 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=SF -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+Eigenvalue   0 : k=    0.00000000 + (   -0.00000000) i m=1 res=4.80e-12 resbc=3.92e-12
+Eigenvalue   1 : k=   -1.54513025 + (   -0.00000000) i m=1 res=2.04e-12 resbc=1.38e+00
+Eigenvalue   2 : k=   -1.54513025 + (   -0.00000000) i m=1 res=2.15e-12 resbc=7.63e-01
+Eigenvalue   3 : k=   -1.27963032 + (   -2.98037104) i m=1 res=3.34e-12 resbc=2.40e+01
+Eigenvalue   4 : k=   -1.27963032 + (   +2.98037104) i m=1 res=3.34e-12 resbc=2.40e+01
+Eigenvalue   5 : k=   -1.49136909 + (   -4.35861528) i m=1 res=1.57e-12 resbc=8.82e+01
+Eigenvalue   6 : k=   -1.49136909 + (   +4.35861528) i m=1 res=1.57e-12 resbc=8.82e+01
+Eigenvalue   7 : k=   -1.49136954 + (   -4.35861595) i m=1 res=2.43e-12 resbc=2.60e+01
+Eigenvalue   8 : k=   -1.49136954 + (   +4.35861595) i m=1 res=2.43e-12 resbc=2.60e+01
+Eigenvalue   9 : k=   -4.56341931 + (   -0.00000000) i m=1 res=7.91e-13 resbc=4.68e+01
+Eigenvalue  10 : k=   -4.56343058 + (   -0.00000000) i m=1 res=1.61e-12 resbc=9.00e+01
+Eigenvalue  11 : k=   -1.57851688 + (   -5.47872588) i m=1 res=1.94e-12 resbc=1.70e+02
+Eigenvalue  12 : k=   -1.57851688 + (   +5.47872588) i m=1 res=1.94e-12 resbc=1.70e+02
+Eigenvalue  13 : k=   -1.57862684 + (   -5.47872072) i m=1 res=1.54e-12 resbc=1.10e+02
+Eigenvalue  14 : k=   -1.57862684 + (   +5.47872072) i m=1 res=1.54e-12 resbc=1.10e+02
+Eigenvalue  15 : k=   -1.61979811 + (   -6.17534661) i m=1 res=3.71e-12 resbc=1.82e+02
+
+
+
+
+Non-square 04 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=nonSquare16.order4 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=SF -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+Eigenvalue   0 : k=   -1.24645085 + (   -0.00000000) i m=1 res=5.72e-13 resbc=1.06e-03
+Eigenvalue   1 : k=   -1.24644005 + (   -4.44279987) i m=1 res=6.60e-13 resbc=6.51e-01
+Eigenvalue   2 : k=   -1.24644005 + (   +4.44279987) i m=1 res=6.60e-13 resbc=6.51e-01
+Eigenvalue   3 : k=   -1.49967668 + (   -6.97371734) i m=1 res=5.90e-13 resbc=1.35e+01
+Eigenvalue   4 : k=   -1.49967668 + (   +6.97371734) i m=1 res=5.90e-13 resbc=1.35e+01
+Eigenvalue   5 : k=   -1.49967668 + (   -6.97371734) i m=1 res=4.27e-11 resbc=1.38e+01
+Eigenvalue   6 : k=   -1.49967668 + (   +6.97371734) i m=1 res=4.27e-11 resbc=1.38e+01
+Eigenvalue   7 : k=   -1.24654553 + (   -8.88411989) i m=1 res=4.58e-13 resbc=1.72e+01
+Eigenvalue   8 : k=   -1.24654553 + (   +8.88411989) i m=1 res=4.58e-13 resbc=1.72e+01
+Eigenvalue   9 : k=   -1.82057338 + (   -9.83338238) i m=1 res=4.43e-13 resbc=8.44e+01
+Eigenvalue  10 : k=   -1.82057338 + (   +9.83338238) i m=1 res=4.43e-13 resbc=8.44e+01
+
+
+ROTATED SQUARE O2 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=rotatedSquare16.order2 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=SF -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+Eigenvalue   0 : k=   -1.24736824 + (   -0.00000000) i m=1 res=3.79e-13 resbc=6.44e-15
+Eigenvalue   1 : k=   -1.23174647 + (   -4.44270504) i m=1 res=4.95e-13 resbc=5.06e-14
+Eigenvalue   2 : k=   -1.23174647 + (   +4.44270504) i m=1 res=4.95e-13 resbc=5.06e-14
+Eigenvalue   3 : k=   -1.41215965 + (   -6.98873900) i m=1 res=3.72e-13 resbc=6.31e-14
+Eigenvalue   4 : k=   -1.41215965 + (   +6.98873900) i m=1 res=3.72e-13 resbc=6.31e-14
+Eigenvalue   5 : k=   -1.41215965 + (   -6.98873900) i m=1 res=5.88e-13 resbc=1.01e-13
+Eigenvalue   6 : k=   -1.41215965 + (   +6.98873900) i m=1 res=5.88e-13 resbc=1.01e-13
+Eigenvalue   7 : k=   -1.18613086 + (   -8.84180413) i m=1 res=3.28e-13 resbc=7.02e-14
+Eigenvalue   8 : k=   -1.18613086 + (   +8.84180413) i m=1 res=3.28e-13 resbc=7.02e-14
+
+NON-SQUARE BC=drdr
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=nonSquare16.order2 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=SF -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+Eigenvalue   0 : k=   -1.24736824 + (   -0.00000000) i m=1 res=3.79e-13 resbc=6.44e-15
+Eigenvalue   1 : k=   -1.23174647 + (   -4.44270504) i m=1 res=4.95e-13 resbc=5.06e-14
+Eigenvalue   2 : k=   -1.23174647 + (   +4.44270504) i m=1 res=4.95e-13 resbc=5.06e-14
+Eigenvalue   3 : k=   -1.41215965 + (   -6.98873900) i m=1 res=3.72e-13 resbc=6.31e-14
+Eigenvalue   4 : k=   -1.41215965 + (   +6.98873900) i m=1 res=3.72e-13 resbc=6.31e-14
+Eigenvalue   5 : k=   -1.41215965 + (   -6.98873900) i m=1 res=5.88e-13 resbc=1.01e-13
+
+SQUARE O2 BC=drdr
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=SF -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+Eigenvalue   0 : k=   -1.24736824 + (   -0.00000000) i m=1 res=4.57e-13 resbc=3.77e-15
+Eigenvalue   1 : k=   -1.23174647 + (   -4.44270504) i m=1 res=4.44e-13 resbc=5.11e-14
+Eigenvalue   2 : k=   -1.23174647 + (   +4.44270504) i m=1 res=4.44e-13 resbc=5.11e-14
+Eigenvalue   3 : k=   -1.41215965 + (   -6.98873900) i m=1 res=3.36e-13 resbc=4.62e-14
+Eigenvalue   4 : k=   -1.41215965 + (   +6.98873900) i m=1 res=3.36e-13 resbc=4.62e-14
+Eigenvalue   5 : k=   -1.41215965 + (   -6.98873900) i m=1 res=4.23e-13 resbc=9.95e-14
+Eigenvalue   6 : k=   -1.41215965 + (   +6.98873900) i m=1 res=4.23e-13 resbc=9.95e-14
+Eigenvalue   7 : k=   -1.18613086 + (   -8.84180413) i m=1 res=4.56e-13 resbc=7.62e-14
+
+>>>>>>>>>   ANNULUS
+
+
+
+
+
+DONE
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=annulusScatGrid8.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -rbc=EM -show=annulusG8O4BdrEMEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=annulusG8O4EMBdrEv1024 -matlab=1 -go=go > annulusG8O4BdrEMEv1024.out
+
+
+
+
+cp annulusG8O4EMBdrEv1024.m $cwh/results 
+
+G4 -- more eigs .. WRONG NAME for show 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=annulusScatGrid4.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -rbc=EM -show=annulusG4O4BdrEMEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=annulusG4O4BdrEMEv2048 -matlab=1 -go=go > annulusG4O4BdrEMEv2048.out
+
+cp annulusG4O4BdrEMEv2048.m $cwh/results 
+
+DONE:
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=annulusScatGrid4.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -rbc=EM -show=annulusG4O4BdrEMEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=annulusG4O4BdrEMEv1024 -matlab=1 -go=go > annulusG4O4BdrEMEv1024.out
+
+cp annulusG4O4BdrEMEv1024.m $cwh/results
+
+************************************************
+****** Fri May 22, 2026
+
+>>>>>>>>>>>>>>>>>> START EM ORDER=4:
+
+
+DISK G16 EV2048 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske16.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=EM -show=diskG16O4EMEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=diskG16O4EMEv2048 -matlab=1 -go=go > diskG16O4EMEv2048.out
+
+
+DISK G16 EV1024 
+cp diskG16O4EMEv1024.m $cwh/results
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske16.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=EM -show=diskG16O4EMEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=diskG16O4EMEv1024 -matlab=1 -go=go > diskG16O4EMEv1024.out
+
+
+DISK G8 O4
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske8.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=EM -show=diskG8O4EMEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=diskG8O4EMEv1024 -matlab=1 -go=go > diskG8O4EMEv1024.out
+
+cp diskG8O4EMEv1024.m $cwh/results
+
+DISK G32 -- OK 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske32.order2 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=EM -show=diskG32O2EMEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=diskG32O2EMEv1024 -matlab=1 -go=go > diskG32O2EMEv1024.out
+
+cp diskG32O2EMEv1024.m $cwh/results
+
+DISK G16 **OK**
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske16.order2 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=EM -show=diskG16O2EMEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=diskG16O2EMEv1024 -matlab=1 -go=go > diskG16O2EMEv1024.out
+
+cp diskG16O2EMEv1024.m $cwh/results
+
+
+
+DISK G8
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske8.order2 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=EM -show=diskG8O2EMEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=diskG8O2EMEv1024 -matlab=1 -go=go > diskG8O2EMEv1024.out
+
+cp diskG8O2EMEv1024.m $cwh/results
+
+
+
+
+DISK G4 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske2.order4 -numEigenValues=128 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+CBC=extrap: 
+Eigenvalue   0 : k=    0.00000011 + (   -0.00000000) i m=1 res=7.69e-12 resbc=8.30e-09
+Eigenvalue   1 : k=   -0.00000010 + (   -0.00000000) i m=1 res=8.06e-12 resbc=8.23e-09
+Eigenvalue   2 : k=   -0.00000010 + (   -0.00000003) i m=1 res=8.09e-12 resbc=8.34e-09
+Eigenvalue   3 : k=   -0.00000010 + (   +0.00000003) i m=1 res=8.09e-12 resbc=8.34e-09
+Eigenvalue   4 : k=   -0.69268611 + (   -0.00000000) i m=1 res=2.77e-12 resbc=1.71e+01
+Eigenvalue   5 : k=   -0.69268620 + (   -0.00000000) i m=1 res=2.93e-12 resbc=1.71e+01
+Eigenvalue   6 : k=   -1.72747928 + (   -0.00000000) i m=1 res=2.92e-12 resbc=1.38e+02
+Eigenvalue   7 : k=   -1.72747944 + (   -0.00000000) i m=1 res=2.05e-12 resbc=1.38e+02
+Eigenvalue   8 : k=   -2.78180332 + (   -0.00000000) i m=1 res=5.29e-12 resbc=1.20e+01
+Eigenvalue   9 : k=   -2.78180346 + (   -0.00000000) i m=1 res=2.56e-12 resbc=1.20e+01
+Eigenvalue  10 : k=   -3.09046537 + (   -0.00000000) i m=1 res=4.52e-12 resbc=5.91e+02
+Eigenvalue  11 : k=   -3.09046654 + (   -0.00000000) i m=1 res=3.90e-12 resbc=5.90e+02
+Eigenvalue  12 : k=   -2.23624276 + (   -3.38211126) i m=1 res=1.02e-11 resbc=4.20e+00
+Eigenvalue  13 : k=   -2.23624276 + (   +3.38211126) i m=1 res=1.02e-11 resbc=4.20e+00
+Eigenvalue  14 : k=   -4.78224294 + (   -0.00000000) i m=1 res=4.97e-12 resbc=1.85e+03
+Eigenvalue  15 : k=   -4.78224682 + (   -0.00000000) i m=1 res=4.20e-12 resbc=1.85e+03
+Eigenvalue  16 : k=   -2.59875680 + (   -4.73561135) i m=1 res=3.80e-12 resbc=3.86e+01
+
+
+NON- SQUARE BC=drdr
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=nonSquare16.order4 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+CBC = EXTRAP -- GHOST 
+
+Eigenvalue   0 : k=    0.00000000 + (   -0.00000000) i m=1 res=6.35e-13 resbc=9.46e-10
+Eigenvalue   1 : k=   -1.70328041 + (   -0.00000000) i m=1 res=4.24e-12 resbc=6.26e+00
+Eigenvalue   2 : k=   -1.70328041 + (   -0.00000000) i m=1 res=8.67e-12 resbc=1.65e+00
+Eigenvalue   3 : k=   -2.49293838 + (   -0.00000000) i m=1 res=1.00e-11 resbc=1.41e+01
+Eigenvalue   4 : k=   -2.49246888 + (   -4.44238003) i m=1 res=1.18e-11 resbc=4.91e+02
+Eigenvalue   5 : k=   -2.49246888 + (   +4.44238003) i m=1 res=1.18e-11 resbc=4.91e+02
+Eigenvalue   6 : k=   -2.92720586 + (   -6.82581932) i m=1 res=1.02e-11 resbc=2.72e+03
+Eigenvalue   7 : k=   -2.92720586 + (   +6.82581932) i m=1 res=1.02e-11 resbc=2.72e+03
+Eigenvalue   8 : k=   -2.92720586 + (   -6.82581932) i m=1 res=9.59e-12 resbc=2.50e+03
+Eigenvalue   9 : k=   -2.92720586 + (   +6.82581932) i m=1 res=9.59e-12 resbc=2.50e+03
+Eigenvalue  10 : k=   -2.49300686 + (   -8.87829651) i m=1 res=5.61e-12 resbc=8.33e+03
+Eigenvalue  11 : k=   -2.49300686 + (   +8.87829651) i m=1 res=5.61e-12 resbc=8.33e+03
+Eigenvalue  12 : k=   -3.17425143 + (   -9.47208083) i m=1 res=5.09e-12 resbc=5.25e+03
+Eigenvalue  13 : k=   -3.17425143 + (   +9.47208083) i m=1 res=5.09e-12 resbc=5.25e+03
+Eigenvalue  14 : k=   -6.97501476 + (   -7.08613992) i m=1 res=6.03e-12 resbc=4.29e+03
+Eigenvalue  15 : k=   -6.97501476 + (   +7.08613992) i m=1 res=6.03e-12 resbc=4.29e+03
+Eigenvalue  16 : k=   -9.78556901 + (   -0.00000000) i m=1 res=4.93e-12 resbc=4.81e+03
+
+
+SQUARE BC=drdr
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order4 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+Eigenvalue   0 : k=   -0.00000000 + (   -0.00000000) i m=1 res=6.44e-13 resbc=2.04e-10
+Eigenvalue   1 : k=   -1.70335388 + (   -0.00000000) i m=1 res=1.37e-11 resbc=1.25e-08
+Eigenvalue   2 : k=   -1.70384145 + (   -0.00000000) i m=1 res=6.46e-13 resbc=6.28e-10
+Eigenvalue   3 : k=   -2.49921721 + (   -0.00000000) i m=1 res=7.65e-13 resbc=9.29e-10
+Eigenvalue   4 : k=   -2.49896869 + (   -4.41010592) i m=1 res=1.70e-12 resbc=2.74e-09
+Eigenvalue   5 : k=   -2.49896869 + (   +4.41010592) i m=1 res=1.70e-12 resbc=2.74e-09
+Eigenvalue   6 : k=   -3.03337765 + (   -6.59996948) i m=1 res=4.22e-12 resbc=8.63e-09
+Eigenvalue   7 : k=   -3.03337765 + (   +6.59996948) i m=1 res=4.22e-12 resbc=8.63e-09
+Eigenvalue   8 : k=   -3.00512126 + (   -6.87479741) i m=1 res=2.05e-11 resbc=7.11e-08
+Eigenvalue   9 : k=   -3.00512126 + (   +6.87479741) i m=1 res=2.05e-11 resbc=7.11e-08
+Eigenvalue  10 : k=   -2.59734381 + (   -8.71043370) i m=1 res=1.09e-11 resbc=1.93e-08
+Eigenvalue  11 : k=   -2.59734381 + (   +8.71043370) i m=1 res=1.09e-11 resbc=1.93e-08
+Eigenvalue  12 : k=   -8.34476223 + (   -3.39753123) i m=1 res=7.66e-11 resbc=2.28e-07
+Eigenvalue  13 : k=   -8.34476223 + (   +3.39753123) i m=1 res=7.66e-11 resbc=2.28e-07
+Eigenvalue  14 : k=   -4.47454172 + (   -8.32618831) i m=1 res=3.83e-11 resbc=1.30e-07
+Eigenvalue  15 : k=   -4.47454172 + (   +8.32618831) i m=1 res=3.83e-11 resbc=1.30e-07
+
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+
+
+
+
+
+
+START ADD EM CURVLINEAR
+
+BUG FOUND -- FILL UNSED POINTS ON GHOST ON BC=0 boundaries
+
+BUG FOUND -- WRONG BC IN ALLOCATE SPACE !!!
+
+
+TEST CASE
+
+FIX RESIDUALS , CURV, EM -- OK 
+
+
+ROTATED-SQUARE ** OK **
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=rotatedSquare16.order2 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+
+quarterAnnulus: bc=2 : outer circle
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=quarterAnnuluse2.order2 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -b3=d -bc4=d -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+
+CIC : bc=dddd + r OK 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice2.order2 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -bc5=r -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+FIRST EIG LOOKS SPURIOUS 
+
+Eigenvalue   0 : k=   -0.10000000 + (   -0.00000000) i m=1 res=1.81e+02 resbc=1.18e+02
+Eigenvalue   1 : k=   -0.19679824 + (   -0.98465893) i m=1 res=3.14e-12 resbc=1.89e-12
+Eigenvalue   2 : k=   -0.19679824 + (   +0.98465893) i m=1 res=3.14e-12 resbc=1.89e-12
+Eigenvalue   3 : k=   -0.03344391 + (   -1.57897600) i m=1 res=2.01e-12 resbc=1.85e-12
+
+
+
+CIC : bc = drdr + d OK 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice2.order2 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -bc5=d -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+
+
+
+DISK G4 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske2.order2 -numEigenValues=128 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+
+DISK G2 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske2.order2 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+Eigenvalue   0 : k=   -0.00000000 + (   -0.00000005) i m=1 res=5.05e-12 resbc=1.55e-12
+Eigenvalue   1 : k=   -0.00000000 + (   +0.00000005) i m=1 res=5.05e-12 resbc=1.55e-12
+Eigenvalue   2 : k=   -0.00010538 + (   -0.00000000) i m=1 res=4.52e-12 resbc=1.50e-12
+Eigenvalue   3 : k=   -0.00010887 + (   -0.00000000) i m=1 res=5.11e-12 resbc=1.58e-12
+Eigenvalue   4 : k=   -0.10000000 + (   -0.00000000) i m=1 res=1.00e+01 resbc=5.31e+00  *** SPURIOUS EIG ****
+Eigenvalue   5 : k=   -0.69134421 + (   -0.00000000) i m=1 res=3.17e-12 resbc=2.08e-12
+Eigenvalue   6 : k=   -0.69134631 + (   -0.00000000) i m=1 res=2.76e-12 resbc=1.87e-12
+Eigenvalue   7 : k=   -1.70830008 + (   -0.00000000) i m=1 res=8.55e-13 resbc=1.26e-12
+Eigenvalue   8 : k=   -1.70839587 + (   -0.00000000) i m=1 res=2.46e-12 resbc=1.76e-12
+
+
+
+USE NEW DISK: (NO EXTRA GHOST) ... still a problem ... FIXED 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=diske1.order2 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=d -bc3=d -bc4=d -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+Eigenvalue   0 : k=    0.00000000 + (   -2.39773499) i m=1 res=2.13e-13 resbc=0.00e+00
+Eigenvalue   1 : k=    0.00000000 + (   +2.39773499) i m=1 res=2.13e-13 resbc=0.00e+00
+Eigenvalue   2 : k=    0.00002191 + (   -3.81178402) i m=1 res=2.64e-13 resbc=0.00e+00
+Eigenvalue   3 : k=    0.00002191 + (   +3.81178402) i m=1 res=2.64e-13 resbc=0.00e+00
+Eigenvalue   4 : k=   -0.00002191 + (   -3.81178402) i m=1 res=4.30e-13 resbc=0.00e+00
+Eigenvalue   5 : k=   -0.00002191 + (   +3.81178402) i m=1 res=4.30e-13 resbc=0.00e+00
+Eigenvalue   6 : k=    0.00000000 + (   -5.09888751) i m=1 res=4.45e-12 resbc=0.00e+00
+Eigenvalue   7 : k=    0.00000000 + (   +5.09888751) i m=1 res=4.45e-12 resbc=0.00e+00
+Eigenvalue   8 : k=    0.00000000 + (   -5.10031601) i m=1 res=1.55e-11 resbc=0.00e+00
+Eigenvalue   9 : k=    0.00000000 + (   +5.10031601) i m=1 res=1.55e-11 resbc=0.00e+00
+Eigenvalue  10 : k=    0.00000000 + (   -5.46015418) i m=1 res=1.95e-13 resbc=0.00e+00
+Eigenvalue  11 : k=    0.00000000 + (   +5.46015418) i m=1 res=1.95e-13 resbc=0.00e+00
+
+
+DISK 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice2.order2 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=d -bc3=d -bc4=d -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+SHIFT A -> A + shift*B ...
+... done shifting A
+computeEigenvalues: set SLEPSc eigenSolver: ESPSetType=[KrylovSchur]
+Setting numEigenValues=32, numEigenVectors=32, maximumProjectedDimension=-1, maxIterations=200000
+[0]PETSC ERROR: --------------------- Error Message --------------------------------------------------------------
+[0]PETSC ERROR: Object is in wrong state
+[0]PETSC ERROR: Matrix is missing diagonal entry 37
+
+
+35 35  1.0000000000000000e+00
+36 36  1.0000000000000000e+00
+37 37  1.0000000000000000e+00
+69 69  1.0000000000000000e+00
+70 70  1.0000000000000000e+00
+71 71  1.0000000000000000e+00
+73 73  1.0000000000000000e+00
+74 74  1.0000000000000000e+00
+
+
+
+RSIS bc=rrrr : **OK**
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=rsise2.order2 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+
+ANNULUS G2  OK 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=annulus2.order2 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+ROTATED-SQUARE
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=rotatedSquare16.order2 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+Eigenvalue   0 : k=   -0.00000000 + (   -0.00000000) i m=1 res=4.26e-13 resbc=2.01e-13
+Eigenvalue   1 : k=   -1.69176702 + (   -0.00000000) i m=1 res=4.07e-13 resbc=6.02e-13
+Eigenvalue   2 : k=   -1.69176702 + (   -0.00000000) i m=1 res=4.18e-13 resbc=6.28e-13
+Eigenvalue   3 : k=   -2.51290817 + (   -0.00000000) i m=1 res=4.29e-13 resbc=8.30e-13
+Eigenvalue   4 : k=   -2.43873738 + (   -4.50306447) i m=1 res=6.57e-13 resbc=1.68e-12
+Eigenvalue   5 : k=   -2.43873738 + (   +4.50306447) i m=1 res=6.57e-13 resbc=1.68e-12
+Eigenvalue   6 : k=   -5.83557999 + (   -0.00000000) i m=1 res=7.03e-13 resbc=2.60e-12
+Eigenvalue   7 : k=   -5.83557999 + (   -0.00000000) i m=1 res=1.63e-12 resbc=4.59e-12
+Eigenvalue   8 : k=   -3.97516744 + (   -5.39825726) i m=1 res=1.75e-12 resbc=7.23e-12
+Eigenvalue   9 : k=   -3.97516744 + (   +5.39825726) i m=1 res=1.75e-12 resbc=7.23e-12
+Eigenvalue  10 : k=   -3.97516744 + (   -5.39825726) i m=1 res=9.95e-13 resbc=3.42e-12
+Eigenvalue  11 : k=   -3.97516744 + (   +5.39825726) i m=1 res=9.95e-13 resbc=3.42e-12
+Eigenvalue  12 : k=   -2.29091202 + (   -7.23378926) i m=1 res=3.28e-11 resbc=1.05e-10
+Eigenvalue  13 : k=   -2.29091202 + (   +7.23378926) i m=1 res=3.28e-11 resbc=1.05e-10
+Eigenvalue  14 : k=   -2.29091202 + (   -7.23378926) i m=1 res=4.68e-12 resbc=1.75e-11
+Eigenvalue  15 : k=   -2.29091202 + (   +7.23378926) i m=1 res=4.68e-12 resbc=1.75e-11
+Eigenvalue  16 : k=   -7.87873952 + (   -0.00000000) i m=1 res=1.07e-11 resbc=5.76e-11
+
+
+
+NON-SQUARE
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=nonSquare16.order2 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+
+Eigenvalue   0 : k=   -0.00000000 + (   -0.00000000) i m=1 res=4.26e-13 resbc=2.01e-13
+Eigenvalue   1 : k=   -1.69176702 + (   -0.00000000) i m=1 res=4.07e-13 resbc=6.16e-13
+Eigenvalue   2 : k=   -1.69176702 + (   -0.00000000) i m=1 res=4.18e-13 resbc=6.28e-13
+Eigenvalue   3 : k=   -2.51290817 + (   -0.00000000) i m=1 res=4.29e-13 resbc=8.44e-13
+Eigenvalue   4 : k=   -2.43873738 + (   -4.50306447) i m=1 res=6.57e-13 resbc=1.68e-12
+Eigenvalue   5 : k=   -2.43873738 + (   +4.50306447) i m=1 res=6.57e-13 resbc=1.68e-12
+Eigenvalue   6 : k=   -5.83557999 + (   -0.00000000) i m=1 res=7.03e-13 resbc=2.60e-12
+Eigenvalue   7 : k=   -5.83557999 + (   -0.00000000) i m=1 res=1.63e-12 resbc=4.59e-12
+Eigenvalue   8 : k=   -3.97516744 + (   -5.39825726) i m=1 res=1.75e-12 resbc=7.23e-12
+Eigenvalue   9 : k=   -3.97516744 + (   +5.39825726) i m=1 res=1.75e-12 resbc=7.23e-12
+Eigenvalue  10 : k=   -3.97516744 + (   -5.39825726) i m=1 res=9.95e-13 resbc=3.42e-12
+Eigenvalue  11 : k=   -3.97516744 + (   +5.39825726) i m=1 res=9.95e-13 resbc=3.42e-12
+Eigenvalue  12 : k=   -2.29091202 + (   -7.23378926) i m=1 res=3.28e-11 resbc=1.05e-10
+Eigenvalue  13 : k=   -2.29091202 + (   +7.23378926) i m=1 res=3.28e-11 resbc=1.05e-10
+Eigenvalue  14 : k=   -2.29091202 + (   -7.23378926) i m=1 res=4.68e-12 resbc=1.75e-11
+Eigenvalue  15 : k=   -2.29091202 + (   +7.23378926) i m=1 res=4.68e-12 resbc=1.75e-11
+Eigenvalue  16 : k=   -7.87873952 + (   -0.00000000) i m=1 res=1.07e-11 resbc=5.76e-11
+
+SQUARE BC=drdr
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square16.order2 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=EM -show=junk.show -orthogonalize=0 -solveComplex=1 -matlabFileName=junk -matlab=1 -go=go
+
+Eigenvalue   0 : k=   -0.00000000 + (   -0.00000000) i m=1 res=4.26e-13 resbc=3.42e-13
+Eigenvalue   1 : k=   -1.69176702 + (   -0.00000000) i m=1 res=7.73e-13 resbc=9.89e-13
+Eigenvalue   2 : k=   -1.69176702 + (   -0.00000000) i m=1 res=5.76e-13 resbc=6.98e-13
+Eigenvalue   3 : k=   -2.51290817 + (   -0.00000000) i m=1 res=6.13e-13 resbc=1.70e-12
+Eigenvalue   4 : k=   -2.43873738 + (   -4.50306447) i m=1 res=9.64e-13 resbc=4.38e-12
+Eigenvalue   5 : k=   -2.43873738 + (   +4.50306447) i m=1 res=9.64e-13 resbc=4.38e-12
+Eigenvalue   6 : k=   -5.83557999 + (   -0.00000000) i m=1 res=6.37e-13 resbc=4.61e-12
+Eigenvalue   7 : k=   -5.83557999 + (   -0.00000000) i m=1 res=8.30e-13 resbc=4.01e-12
+Eigenvalue   8 : k=   -3.97516744 + (   -5.39825726) i m=1 res=1.58e-12 resbc=6.54e-12
+Eigenvalue   9 : k=   -3.97516744 + (   +5.39825726) i m=1 res=1.58e-12 resbc=6.54e-12
+Eigenvalue  10 : k=   -3.97516744 + (   -5.39825726) i m=1 res=8.80e-13 resbc=6.31e-12
+Eigenvalue  11 : k=   -3.97516744 + (   +5.39825726) i m=1 res=8.80e-13 resbc=6.31e-12
+Eigenvalue  12 : k=   -2.29091202 + (   -7.23378926) i m=1 res=5.32e-12 resbc=1.99e-11
+Eigenvalue  13 : k=   -2.29091202 + (   +7.23378926) i m=1 res=5.32e-12 resbc=1.99e-11
+Eigenvalue  14 : k=   -2.29091202 + (   -7.23378926) i m=1 res=9.55e-12 resbc=3.44e-11
+Eigenvalue  15 : k=   -2.29091202 + (   +7.23378926) i m=1 res=9.55e-12 resbc=3.44e-11
+
+
+
+
+************************************************
+****** Thurs May 21, 2026
+
+
+DISK AND ANNULUS -- NEED RBC ON A CURVILINEAR GRID 
+
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice8.order2 -numEigenValues=128 -shift=-1 -tol=1.0e-12 -bc1=r -rbc=SF -show=diskG6BrSFEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=diskG6BrSFEv128 -matlab=1 -go=go > diskG6BrSFEv128.out
+
+fillMatrixLaplacianComplex:ERROR: SOMMERFELD BC on a curvlinear grid -- FINISH ME Bill
+
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice8.order2 -numEigenValues=128 -shift=-1 -tol=1.0e-12 -bc1=r -rbc=EMEMshow=diskG6BrEMEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=diskG6BrEMEv128 -matlab=1 -go=go > diskG6BrEMEv128.out
+
+fillMatrixLaplacianComplex:ERROR: characteristic BC on a curvlinear grid -- FINISH ME Bill
+
+
+************************************************
+****** Sat/Sun May 16/17, 2026
+
+** NAME FILES WITH SF !!
+
+SOMMERFELD EIGS -- QUARTER PLANE ----
+
+O4
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order4 -numEigenValues=4096 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=SF -show=square256O4BdrdrSFEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=square256O4BdrdrSFEv4096 -matlab=1 -go=go > square256O4BdrdrSFEv4096.out
+
+
+O2
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order2 -numEigenValues=4096 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=SF -show=square256O2BdrdrSFEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=square256O2BdrdrSFEv4096 -matlab=1 -go=go > square256O2BdrdrSFEv4096.out
+
+mv square256O2BdrdrEv4096.m  square256O2BdrdrSFEv4096.m 
+cp square256O2BdrdrSFEv4096.m  $cwh/results
+
+OK 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order2 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=SF -show=square128O2BdrdrEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=square128O2BdrdrEv1024 -matlab=1 -go=go > square128O2BdrdrEv1024.out
+
+
+cp square128O2BdrdrEv1024.m $cwh/results
+
+************************************************
+****** Fri May 15, 2026
+
+START TEST SOMMERFELD ... SEEMS TO WORK 
+
+
+TEST 3D 
+
+BOX ORDER=24 -bc=rrrrrr
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=box1.order4 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -bc5=r -bc6=r -rbc=SF -show=squareG64O4BdrdrEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG64O4BdrdrEv128 -matlab=1 -go=go 
+
+Eigenvalue   0 : k=    0.00000000 + (   -0.00000000) i m=1 res=2.71e-12 resbc=3.44e-12
+Eigenvalue   1 : k=   -1.19333565 + (   -0.00000000) i m=1 res=2.51e-12 resbc=7.47e-12
+Eigenvalue   2 : k=   -1.19333565 + (   -0.00000000) i m=1 res=2.58e-12 resbc=7.53e-12
+Eigenvalue   3 : k=   -1.19333565 + (   -0.00000000) i m=1 res=6.33e-13 resbc=3.05e-12
+Eigenvalue   4 : k=   -1.85198663 + (   -0.00000000) i m=1 res=2.44e-13 resbc=2.64e-12
+Eigenvalue   5 : k=   -1.85198663 + (   -0.00000000) i m=1 res=3.04e-13 resbc=1.70e-12
+Eigenvalue   6 : k=   -1.85198663 + (   -0.00000000) i m=1 res=4.06e-13 resbc=1.80e-12
+Eigenvalue   7 : k=   -2.28102851 + (   -0.00000000) i m=1 res=4.66e-13 resbc=2.70e-12
+
+
+
+BOX ORDER=2 -bc=rrrrrr **OK**
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=box1.order2 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -bc5=r -bc6=r -rbc=SF -show=squareG64O4BdrdrEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG64O4BdrdrEv128 -matlab=1 -go=go 
+
+Eigenvalue   0 : k=   -0.00000000 + (   -0.00000000) i m=1 res=1.21e-12 resbc=1.35e-14
+Eigenvalue   1 : k=   -1.18865600 + (   -0.00000000) i m=1 res=2.72e-13 resbc=1.49e-14
+Eigenvalue   2 : k=   -1.18865600 + (   -0.00000000) i m=1 res=3.61e-13 resbc=1.27e-14
+Eigenvalue   3 : k=   -1.18865600 + (   -0.00000000) i m=1 res=1.20e-12 resbc=4.26e-14
+Eigenvalue   4 : k=   -1.85247007 + (   -0.00000000) i m=1 res=2.22e-13 resbc=2.13e-14
+Eigenvalue   5 : k=   -1.85247007 + (   -0.00000000) i m=1 res=1.95e-13 resbc=1.95e-14
+Eigenvalue   6 : k=   -1.85247007 + (   -0.00000000) i m=1 res=1.28e-13 resbc=5.55e-15
+
+BOX ORDER=2
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=box1.order2 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=SF -show=squareG64O4BdrdrEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG64O4BdrdrEv128 -matlab=1 -go=go 
+
+Eigenvalue   0 : k=   -0.35538064 + (   -5.33243545) i m=1 res=1.57e-13 resbc=1.95e-14
+Eigenvalue   1 : k=   -0.35538064 + (   +5.33243545) i m=1 res=1.57e-13 resbc=1.95e-14
+Eigenvalue   2 : k=   -0.17110032 + (   -7.57000932) i m=1 res=6.87e-13 resbc=1.31e-13
+Eigenvalue   3 : k=   -0.17110032 + (   +7.57000932) i m=1 res=6.87e-13 resbc=1.31e-13
+Eigenvalue   4 : k=   -0.17110032 + (   -7.57000932) i m=1 res=7.92e-13 resbc=1.57e-13
+Eigenvalue   5 : k=   -0.17110032 + (   +7.57000932) i m=1 res=7.92e-13 resbc=1.57e-13
+Eigenvalue   6 : k=   -0.80619426 + (   -7.52822043) i m=1 res=5.57e-13 resbc=1.26e-13
+Eigenvalue   7 : k=   -0.80619426 + (   +7.52822043) i m=1 res=5.57e-13 resbc=1.26e-13
+Eigenvalue   8 : k=   -0.11315125 + (   -9.26647040) i m=1 res=4.22e-13 resbc=7.95e-14
+Eigenvalue   9 : k=   -0.11315125 + (   +9.26647040) i m=1 res=4.22e-13 resbc=7.95e-14
+
+
+SMALL TEST ... BUG FIXED 
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square8.order4 -numEigenValues=16 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=SF -show=squareG64O4BdrdrEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG64O4BdrdrEv128 -matlab=1 -go=go 
+
+
+SF: ORDER=4
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order4 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -rbc=SF -show=squareG64O4BdrdrEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG64O4BdrdrEv128 -matlab=1 -go=go 
+
+Eigenvalue   0 : k=   -0.00000000 + (   -0.00000000) i m=1 res=5.85e-11 resbc=7.28e-10
+Eigenvalue   1 : k=   -1.70331201 + (   -0.00000000) i m=1 res=1.56e-11 resbc=4.49e-10
+Eigenvalue   2 : k=   -1.70331201 + (   -0.00000000) i m=1 res=1.84e-11 resbc=5.74e-10
+Eigenvalue   3 : k=   -2.49290094 + (   -0.00000000) i m=1 res=1.07e-11 resbc=6.29e-10
+Eigenvalue   4 : k=   -2.49290094 + (   -4.44288341) i m=1 res=5.28e-11 resbc=2.40e-09
+Eigenvalue   5 : k=   -2.49290094 + (   +4.44288341) i m=1 res=5.28e-11 resbc=2.40e-09
+Eigenvalue   6 : k=   -2.96249174 + (   -6.83721892) i m=1 res=1.32e-11 resbc=2.10e-09
+Eigenvalue   7 : k=   -2.96249174 + (   +6.83721892) i m=1 res=1.32e-11 resbc=2.10e-09
+Eigenvalue   8 : k=   -2.96249174 + (   -6.83721892) i m=1 res=1.35e-11 resbc=2.22e-09
+Eigenvalue   9 : k=   -2.96249174 + (   +6.83721892) i m=1 res=1.35e-11 resbc=2.22e-09
+
+
+
+SF: ORDER=4
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order4 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=d -bc3=d -bc4=d -rbc=SF -show=squareG64O4BdrdrEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG64O4BdrdrEv128 -matlab=1 -go=go 
+
+
+
+SF: ORDER=4
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order4 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=SF -show=squareG64O4BdrdrEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG64O4BdrdrEv128 -matlab=1 -go=go 
+
+Eigenvalue   0 : k=   -1.24610213 + (   -0.00000000) i m=1 res=1.97e-11 resbc=1.02e+01
+Eigenvalue   1 : k=   -1.25056085 + (   -4.44040908) i m=1 res=2.58e-11 resbc=4.55e+02
+Eigenvalue   2 : k=   -1.25056085 + (   +4.44040908) i m=1 res=2.58e-11 resbc=4.55e+02
+Eigenvalue   3 : k=   -1.52769313 + (   -6.95141715) i m=1 res=1.34e-11 resbc=2.67e+03
+Eigenvalue   4 : k=   -1.52769313 + (   +6.95141715) i m=1 res=1.34e-11 resbc=2.67e+03
+Eigenvalue   5 : k=   -1.52769313 + (   -6.95141715) i m=1 res=2.08e-11 resbc=2.98e+03
+Eigenvalue   6 : k=   -1.52769313 + (   +6.95141715) i m=1 res=2.08e-11 resbc=2.98e+03
+Eigenvalue   7 : k=   -1.26419974 + (   -8.88088167) i m=1 res=1.64e-11 resbc=3.04e+03
+Eigenvalue   8 : k=   -1.26419974 + (   +8.88088167) i m=1 res=1.64e-11 resbc=3.04e+03
+Eigenvalue   9 : k=   -1.95907639 + (   -9.70888760) i m=1 res=1.95e-11 resbc=1.12e+04
+Eigenvalue  10 : k=   -1.95907639 + (   +9.70888760) i m=1 res=1.95e-11 resbc=1.12e+04
+
+
+
+SF: ORDER=2
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order2 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -rbc=SF -show=squareG64O2BdrdrEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG64O2BdrdrEv128 -matlab=1 -go=go 
+
+
+
+SF: ORDER=2
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order2 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -rbc=SF -show=squareG64O2BdrdrEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG64O2BdrdrEv128 -matlab=1 -go=go 
+
+Eigenvalue   0 : k=   -1.24650775 + (   -0.00000000) i m=1 res=9.39e-12 resbc=1.64e-14
+Eigenvalue   1 : k=   -1.24553002 + (   -4.44287968) i m=1 res=1.18e-11 resbc=8.95e-14
+Eigenvalue   2 : k=   -1.24553002 + (   +4.44287968) i m=1 res=1.18e-11 resbc=8.95e-14
+Eigenvalue   3 : k=   -1.49459125 + (   -6.97746442) i m=1 res=1.04e-11 resbc=1.92e-13
+Eigenvalue   4 : k=   -1.49459125 + (   +6.97746442) i m=1 res=1.04e-11 resbc=1.92e-13
+Eigenvalue   5 : k=   -1.49459125 + (   -6.97746442) i m=1 res=3.93e-11 resbc=1.28e-12
+Eigenvalue   6 : k=   -1.49459125 + (   +6.97746442) i m=1 res=3.93e-11 resbc=1.28e-12
+Eigenvalue   7 : k=   -1.24260176 + (   -8.88307972) i m=1 res=9.68e-12 resbc=1.79e-13
+Eigenvalue   8 : k=   -1.24260176 + (   +8.88307972) i m=1 res=9.68e-12 resbc=1.79e-13
+Eigenvalue   9 : k=   -1.79868704 + (   -9.86767439) i m=1 res=4.51e-10 resbc=2.28e-11
+Eigenvalue  10 : k=   -1.79868704 + (   +9.86767439) i m=1 res=4.51e-10 resbc=2.28e-11
+Eigenvalue  11 : k=   -1.79868704 + (   -9.86767439) i m=1 res=1.26e-11 resbc=3.27e-13
+Eigenvalue  12 : k=   -1.79868704 + (   +9.86767439) i m=1 res=1.26e-11 resbc=3.27e-13
+Eigenvalue  13 : k=   -1.33030493 + (  -11.31001954) i m=1 res=9.97e-12 resbc=3.98e-13
+Eigenvalue  14 : k=   -1.33030493 + (  +11.31001954) i m=1 res=9.97e-12 resbc=3.98e-13
+
+
+
+
+EM: 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square64.order2 -numEigenValues=32 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -show=squareG64O2BdrdrEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG64O2BdrdrEv128 -matlab=1 -go=go 
+
+
+Eigenvalue   0 : k=   -0.00000000 + (   -0.00000000) i m=1 res=1.18e-11 resbc=6.88e-12
+Eigenvalue   1 : k=   -1.70258021 + (   -0.00000000) i m=1 res=2.01e-11 resbc=1.89e-11
+Eigenvalue   2 : k=   -1.70258021 + (   -0.00000000) i m=1 res=2.01e-11 resbc=2.02e-11
+Eigenvalue   3 : k=   -2.49411971 + (   -0.00000000) i m=1 res=2.14e-11 resbc=2.98e-11
+Eigenvalue   4 : k=   -2.48973585 + (   -4.44689843) i m=1 res=4.52e-11 resbc=1.11e-10
+Eigenvalue   5 : k=   -2.48973585 + (   +4.44689843) i m=1 res=4.52e-11 resbc=1.11e-10
+Eigenvalue   6 : k=   -2.95646375 + (   -6.92621903) i m=1 res=1.17e-10 resbc=4.41e-10
+Eigenvalue   7 : k=   -2.95646375 + (   +6.92621903) i m=1 res=1.17e-10 resbc=4.41e-10
+Eigenvalue   8 : k=   -2.95646375 + (   -6.92621903) i m=1 res=5.79e-11 resbc=2.77e-10
+Eigenvalue   9 : k=   -2.95646375 + (   +6.92621903) i m=1 res=5.79e-11 resbc=2.77e-10
+Eigenvalue  10 : k=   -2.47670601 + (   -8.89095391) i m=1 res=8.44e-11 resbc=3.31e-10
+Eigenvalue  11 : k=   -2.47670601 + (   +8.89095391) i m=1 res=8.44e-11 resbc=3.31e-10
+Eigenvalue  12 : k=   -5.54124292 + (   -7.82831218) i m=1 res=6.98e-11 resbc=3.61e-10
+Eigenvalue  13 : k=   -5.54124292 + (   +7.82831218) i m=1 res=6.98e-11 resbc=3.61e-10
+Eigenvalue  14 : k=   -5.54124292 + (   -7.82831218) i m=1 res=8.44e-11 resbc=5.19e-10
+Eigenvalue  15 : k=   -5.54124292 + (   +7.82831218) i m=1 res=8.44e-11 resbc=5.19e-10
+Eigenvalue  16 : k=   -9.44401729 + (   -0.00000000) i m=1 res=6.67e-11 resbc=3.94e-10
+
+
+************************************************
+****** Wed May 13 12, 2026
+
+CAN WE COMPARE EM BC's TO SOMMERFELD IN 2D ??
+
+Quarter-plane O2 
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order2 -numEigenValues=128 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -show=squareG128O2BdrdrEv128.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG128O2BdrdrEv128 -matlab=1 -go=go > squareG128O2BdrdrEv128.out 
+
+
+======================== GenEigs problem=laplace =======================
+ grid=/home/henshw/grids/square128.order2.hdf, np=1
+ orderOfAccuracy=2, numberOfComponents=1 numGhost=1 shift=-1 
+ useAccurateInnerProduct=0, discreteEigenvalues=0
+ includePressure=0, useWideStencils=0, eigCase=none
+      total cpu =  1.15e+01 (s) (includes build matrix)
+ cpu/eigenvalue =  7.70e-02 (s)
+ bc = [d,r,d,r] for grid=0 (square)
+ eigenSolver=[KrylovSchur], linearSolver=ksp[preonly] pc[lu]
+===================================================================
+
+ **** INFO: genEigs: unknown eigCase=[none]
+
+  resid = || A phi - lambda phi ||_max / |lambda| 
+  VECT max-err = max-norm( closest vector in 2 norm to eigenpsace )/( max-norm of phi)  
+  VECT l2-err  =      L2h( closest vector in 2 norm to eigenpsace )/( L2h norm of phi)  
+  lma = sqrt(k), me=exact multiplicity, m=computed multiplicity
+Eigenvalue   0 : k=    0.00000000 + (   -0.00000000) i m=1 res=1.82e-10 resbc=7.47e-11
+Eigenvalue   1 : k=   -1.70312894 + (   -0.00000000) i m=1 res=1.82e-10 resbc=1.07e-10
+Eigenvalue   2 : k=   -1.70312894 + (   -0.00000000) i m=1 res=4.97e-10 resbc=1.38e-10
+Eigenvalue   3 : k=   -2.49320527 + (   -0.00000000) i m=1 res=2.65e-10 resbc=2.34e-10
+Eigenvalue   4 : k=   -2.49211279 + (   -4.44388977) i m=1 res=6.26e-10 resbc=7.51e-10
+Eigenvalue   5 : k=   -2.49211279 + (   +4.44388977) i m=1 res=6.26e-10 resbc=7.51e-10
+Eigenvalue   6 : k=   -2.96305760 + (   -6.85846194) i m=1 res=7.43e-10 resbc=1.69e-09
+Eigenvalue   7 : k=   -2.96305760 + (   +6.85846194) i m=1 res=7.43e-10 resbc=1.69e-09
+Eigenvalue   8 : k=   -2.96305760 + (   -6.85846194) i m=1 res=8.84e-10 resbc=2.27e-09
+Eigenvalue   9 : k=   -2.96305760 + (   +6.85846194) i m=1 res=8.84e-10 resbc=2.27e-09
+Eigenvalue  10 : k=   -2.48884291 + (   -8.88709991) i m=1 res=9.62e-10 resbc=2.14e-09
+Eigenvalue  11 : k=   -2.48884291 + (   +8.88709991) i m=1 res=9.62e-10 resbc=2.14e-09
+
+************************************************
+****** Tues May 12, 2026
+
+
+ANNULUS -- for scattering 
+
+FINISH EM BC FOR CURVILINEAR
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=annulusScatGrid8.order2 -numEigenValues=512 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -show=annulusScatG8O2BdrEv512.show -orthogonalize=0 -solveComplex=1 -matlabFileName=annulusScatG8O2BdrEv512 -matlab=1 -go=go > annulusScatG8O2BdrEv512.out 
+
+fillMatrixLaplacianComplex:ERROR: characteristic BC on a curvlinear grid -- FINISH ME Bill
+
+
+************************************************
+****** Sat May 9, 2026
+
+OPEN DOMAIN -- 
+ PLOT EV CORRESPONDING TO A SMALL IMAG PART
+
+Eih 1754 : Solution 3509 k = -5.05 - 102.6 i 
+plotStuff squareG256O4BrrrrEv2048.show
+
+plotStuff plotEig.cmd -show=squareG256O4BrrrrEv2048.show -name=quarterPlaneG256O4 -lines=0 -start=3509 -comp=phi -numToSave=2
+
+
+QUARTER PLANE - PLOT EV CORRESPONDING TO A SMALL IMAG PART
+
+plotStuff plotEig.cmd -show=squareG256O4BdrdrEv2048.show -name=quarterPlane -lines=0 -start=3045 -numToSave=2
+
+
+************************************************
+****** Fri May 8, 2026
+
+Quarter-plane O2 **TRY** square512
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square512.order2 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -show=squareG512O2BdrdrEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG512O2BdrdrEv2048 -matlab=1 -go=go > squareG512O2BdrdrEv2048.out 
+
+cp squareG512O2BdrdrEv2048.m $cwh/results
+
+
+
+
+Quarter-plane O2 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order2 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -show=squareG256O2BdrdrEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG256O2BdrdrEv2048 -matlab=1 -go=go > squareG256O2BdrdrEv2048.out 
+
+cp squareG256O2BdrdrEv2048.m $cwh/results
+
+
+Quarter-plane O4 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=d -bc2=r -bc3=d -bc4=r -show=squareG256O4BdrdrEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG256O4BdrdrEv2048 -matlab=1 -go=go > squareG256O4BdrdrEv2048.out 
+
+cp squareG256O4BdrdrEv2048.m $cwh/results
+
+WHCIH MODES HAVE SMALLEST IMAG PART
+
+Good exmaple: 
+--> eig  1522 (solution=3044, 3045): k=-2.49 - 97.7 i 
+
+
+
+Eigenvalue 374 : k=   -2.64835663 + (  -49.66430866) i m=1 res=6.89e-08 resbc=8.99e-02
+Eigenvalue 375 : k=   -2.64835663 + (  +49.66430866) i m=1 res=6.89e-08 resbc=8.99e-02
+Eigenvalue 376 : k=   -2.64915688 + (  -49.66538009) i m=1 res=8.76e-08 resbc=1.46e-01
+Eigenvalue 377 : k=   -2.64915688 + (  +49.66538009) i m=1 res=8.76e-08 resbc=1.46e-01
+
+Eigenvalue 695 : k=   -2.51341925 + (  +66.78991685) i m=1 res=1.78e-07 resbc=2.25e-01
+Eigenvalue 696 : k=   -2.51538217 + (  -66.79220260) i m=1 res=1.26e-07 resbc=3.05e-01
+
+************************************************
+****** Sun/Mon May 3/4, 2026
+
+512 more RUNNING ...
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square512.order2 -numEigenValues=4096 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareG512O2BrrrrEv4096.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG512O2BrrrrEv4096 -matlab=1 -go=go > squareG512O2BrrrrEv4096.out 
+
+cp squareG512O2BrrrrEv4096.m $cwh/results
+
+
+************************************************
+****** Sun May 3, 2026
+
+square 512 order 2 OK 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square512.order2 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareG512O2BrrrrEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG512O2BrrrrEv2048 -matlab=1 -go=go > squareG512O2BrrrrEv2048.out 
+
+
+square 256 order 2
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order2 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareG256O2BrrrrEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG256O2BrrrrEv2048 -matlab=1 -go=go > squareG256O2BrrrrEv2048.out 
+
+
+cp squareG256O2BrrrrEv2048.m $cwh/results
+
+
+************************************************
+****** Wed April 29, 2026
+
+
+G512 Open Domain FINER GRID eigs :.
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square512.order4 -numEigenValues=4000 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareG512O4BrrrrEv4000.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG512O4BrrrrEv4000 -matlab=1 -go=go > squareG512O4BrrrrEv4000.out 
+
+
+************************************************
+****** Sun April 26, 2026
+
+FINER GRID CIC8 .. running ...
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice8.order4 -numEigenValues=5000 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=cicG8O4BrrrrdEv5000.show -orthogonalize=0 -solveComplex=1 -matlabFileName=cicG8O4BrrrrdEv5000 -matlab=1 -go=go > cicG8O4BrrrrdEv5000.out
+
+cp cicG8O4BrrrrdEv5000 $cwh/results
+
+
+CIC : more eigs .. done.. there are some "spurious" numerical moddes here 
+
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=cice4.order4 -numEigenValues=5000 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=cicG4O4BrrrrdEv5000.show -orthogonalize=0 -solveComplex=1 -matlabFileName=cicG4O4BrrrrdEv5000 -matlab=1 -go=go > cicG4O4BrrrrdEv5000.out
+
+
+cp cicG4O4BrrrrdEv5000.m $cwh/results
+
+
+
+Open Domain eigs : 8000 running ...
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order4 -numEigenValues=8000 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareG256O4BrrrrEv8000.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG256O4BrrrrEv8000 -matlab=1 -go=go > squareG256O4BrrrrEv8000.out 
+
+cp squareG256O4BrrrrEv8000.m $cwh/results
+
+************************************************
+****** Sat April 25, 2026
+
+
+
+Open Domain eigs : square512: **To-do ***
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square512.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareG512O4BrrrrEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG512O4BrrrrEv2048 -matlab=1 -go=go > squareG512O4BrrrrEv2048.out 
+
+
+
+
+
+Open Domain eigs : 2048 OK 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareG256O4BrrrrEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG256O4BrrrrEv2048 -matlab=1 -go=go > squareG256O4BrrrrEv2048.out 
+
+
+cp squareG256O4BrrrrEv2048 $cwh/results
+
+************************************************
+****** Fri April 24, 2026
+
+
+Wave guide eigs : .. more 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=d -bc4=d -show=squareG256O4BrrddEv2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG256O4BrrddEv2048 -matlab=1 -go=go > squareG256O4BrrddEv2048.out 
+
+Nearly trapped mode: eig=2085 lam = 114.2 - i 0.076
+                     eig=2086 lam=  -114  - 4.275 i 
+plotStuff plotEig.cmd -show=squareG256O4BrrddEv2048.show -name=waveGuideG256O4 -lines=0 -start=4171 -numToSave=4
+
+
+cp squareG256O4BrrddEv2048.m $cwh/results
+
+Wave guide eigs : Ok
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square256.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=d -bc4=d -show=squareG256O4BrrddEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG256O4BrrddEv1024 -matlab=1 -go=go
+
+
+cp squareG256O4BrrddEv1024.m $cwh/results
+
+
+
+Eigenvalue   0 : k=   -0.62547517 + (   -2.99170594) i m=1 res=1.65e-09 resbc=2.62e-04
+Eigenvalue   1 : k=   -0.62547517 + (   +2.99170594) i m=1 res=1.65e-09 resbc=2.62e-04
+Eigenvalue   2 : k=   -3.55134674 + (   -2.85852729) i m=1 res=6.15e-10 resbc=7.45e-05
+Eigenvalue   3 : k=   -3.55134674 + (   +2.85852729) i m=1 res=6.15e-10 resbc=7.45e-05
+Eigenvalue   4 : k=   -0.50260515 + (   -6.54113585) i m=1 res=9.99e-10 resbc=6.58e-04
+Eigenvalue   5 : k=   -0.50260515 + (   +6.54113585) i m=1 res=9.99e-10 resbc=6.58e-04
+Eigenvalue   6 : k=   -1.88938767 + (   -7.54665446) i m=1 res=1.86e-09 resbc=5.14e-04
+Eigenvalue   7 : k=   -1.88938767 + (   +7.54665446) i m=1 res=1.86e-09 resbc=5.14e-04
+Eigenvalue   8 : k=   -0.31088528 + (   -9.73790460) i m=1 res=2.17e-09 resbc=6.70e-04
+Eigenvalue   9 : k=   -0.31088528 + (   +9.73790460) i m=1 res=2.17e-09 resbc=6.70e-04
+Eigenvalue  10 : k=   -6.73744870 + (   -6.43131024) i m=1 res=2.04e-09 resbc=7.96e-04
+Eigenvalue  11 : k=   -6.73744870 + (   +6.43131024) i m=1 res=2.04e-09 resbc=7.96e-04
+
+
+Eigenvalue 442 : k=   -0.05426381 + (  -53.76880032) i m=1 res=8.57e-09 resbc=2.57e-02
+Eigenvalue 443 : k=   -0.05426381 + (  +53.76880032) i m=1 res=8.57e-09 resbc=2.57e-02
+
+
+--- OLD
+SQUARE: OPEN AND WAVE GUIDE
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order2 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=d -bc4=d -show=squareG128O2BrrddEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG128O2BrrddEv1024 -matlab=1 -go=go
+
+
+
+************************************************
+****** Sun April 19, 2026
+
+CHECK ZERO EIGS:
+
+plotStuff plotEig.cmd -show=threeHolesG8O4Ev2048.show -name=threeHolesG8O4 -lines=0 -start=0 -numToSave=8
+
+
+plotStuff threeHolesG8O4Ev2048.show
+
+************************************************
+****** Fri April 17, 2026
+
+plotStuff plotEig.cmd -show=threeHolesG8O4Ev4096.show -name=threeHolesG8O4 -lines=0 -start=6619 -numToSave=2
+
+plotStuff plotEig.cmd -show=threeHolesG8O4Ev4096.show -name=threeHolesG8O4 -lines=0 -start=183 -numToSave=2
+
+plotStuff threeHolesG8O4Ev4096.show
+
+
+i=91 lam=[ -6.82e+00, -1.84e-01]  ** EIG with small negative imag part FOUND 
+i=92 lam=[  6.82e+00, -1.84e-01]  ** EIG with small negative imag part FOUND 
+
+i=1229 lam=[ -2.28e+01, -7.86e-01]  ** EIG with small negative imag part FOUND 
+i=1230 lam=[  2.28e+01, -7.86e-01]  ** EIG with small negative imag part FOUND 
+i=1991 lam=[ -2.88e+01, -5.76e-01]  ** EIG with small negative imag part FOUND 
+i=1992 lam=[  2.88e+01, -5.76e-01]  ** EIG with small negative imag part FOUND 
+i=3309 lam=[ -3.69e+01, -3.79e-01]  ** EIG with small negative imag part FOUND 
+i=3310 lam=[  3.69e+01, -3.79e-01]  ** EIG with small negative imag part FOUND 
+
+
+
+plotStuff plotEig.cmd -show=threeHolesG8O4Ev2048.show -name=threeHolesG8O4 -lines=0 -start=181 -numToSave=2
+
+
+
+************************************************
+****** Thurs April 16, 2026
+
+RUNS FOR COMPLEX WAVE HOLTZ PAPER
+
+REMOVED "d" FROM NAMES
+
+G8 --  Run for more 4096 : OK 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=threeHolesGridN2M1e8.order4 -numEigenValues=4096 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -bc5=d -show=threeHolesG8O4Ev4096.show -orthogonalize=0 -solveComplex=1 -matlabFileName=threeHolesG8O4Ev4096 -matlab=1 -go=go > threeHolesG8O4dEv4096.out
+
+
+
+
+G8 --  Run for more 2048 : OK 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=threeHolesGridN2M1e8.order4 -numEigenValues=2048 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -bc5=d -show=threeHolesG8O4Ev2048.show -orthogonalize=0 -solveComplex=1 -matlabFileName=threeHolesG8O4Ev2048 -matlab=1 -go=go > threeHolesG8O4dEv2048.out
+
+
+
+G8 --  OK 
+setsid $genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=threeHolesGridN2M1e8.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -bc5=d -show=threeHolesG8O4Ev1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=threeHolesG8O4Ev1024 -matlab=1 -go=go > threeHolesG8O4dEv1024.out
+
+PLOT near-trapped mode:
+eig = 90 and 91 --> solution = 180 , 181
+
+REMOVE "d" from the name
+cp threeHolesG8O4dEv1024.m $cwh/results/threeHolesG8O4Ev1024.m
+
+
+Eigenvalue  87 : k=   -1.62868019 + (   +6.10638484) i m=1 res=2.74e-10 resbc=7.78e-06
+Eigenvalue  88 : k=   -1.49939657 + (   -6.23341722) i m=1 res=2.43e-10 resbc=7.32e-06
+Eigenvalue  89 : k=   -1.49939657 + (   +6.23341722) i m=1 res=2.43e-10 resbc=7.32e-06
+Eigenvalue  90 : k=   -0.18375395 + (   -6.81984035) i m=1 res=1.46e-10 resbc=9.13e-06    *****
+Eigenvalue  91 : k=   -0.18375395 + (   +6.81984035) i m=1 res=1.46e-10 resbc=9.13e-06
+Eigenvalue  92 : k=   -1.76460603 + (   -6.41471591) i m=1 res=4.60e-10 resbc=1.04e-05
+Eigenvalue  93 : k=   -1.76460603 + (   +6.41471591) i m=1 res=4.60e-10 resbc=1.04e-05
+Eigenvalue  94 : k=   -1.39517146 + (   -6.68486905) i m=1 res=3.11e-10 resbc=1.21e-05
+
+
+cp threeHolesG4O2dEv1024.m $cwh/results/threeHolesG4O4dEv1024.m
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=threeHolesGridN2M1e4.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -bc5=d -show=threeHolesG4O4Ev1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=threeHolesG4O4Ev1024 -matlab=1 -go=go
+
+
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=threeHolesGridN2M1e4.order2 -numEigenValues=256 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -bc5=d -show=threeHolesG4O4Ev256.show -orthogonalize=0 -solveComplex=1 -matlabFileName=threeHolesG4O2Ev256 -matlab=1 -go=go
+
+Eigenvalue   0 : k=    0.00000032 + (   -0.00000000) i m=1 res=4.54e-11 resbc=1.60e-11
+Eigenvalue   1 : k=    0.00000000 + (   -0.00000000) i m=1 res=3.36e-11 resbc=1.50e-11
+Eigenvalue   2 : k=   -0.00000000 + (   -0.00000000) i m=1 res=1.06e-11 resbc=6.39e-12
+Eigenvalue   3 : k=   -0.00000000 + (   -0.00000000) i m=1 res=2.06e-11 resbc=9.49e-12
+Eigenvalue   4 : k=   -0.00000032 + (   -0.00000000) i m=1 res=4.68e-11 resbc=1.60e-11
+Eigenvalue   5 : k=   -0.12055743 + (   -0.00000000) i m=1 res=3.42e-11 resbc=1.43e-11
+Eigenvalue   6 : k=   -0.12506943 + (   -0.00000000) i m=1 res=2.10e-11 resbc=8.49e-12
+Eigenvalue   7 : k=   -0.31123470 + (   -0.00000000) i m=1 res=1.58e-11 resbc=7.40e-12
+Eigenvalue   8 : k=   -0.70029545 + (   -0.00000000) i m=1 res=3.39e-11 resbc=1.41e-11
+Eigenvalue   9 : k=   -0.82904707 + (   -0.00000000) i m=1 res=1.97e-11 resbc=5.81e-12
+Eigenvalue  10 : k=   -0.84995373 + (   -0.00000000) i m=1 res=3.41e-11 resbc=4.66e-12
+Eigenvalue  11 : k=   -0.85830082 + (   -0.00000000) i m=1 res=2.97e-11 resbc=3.72e-12
+Eigenvalue  12 : k=   -1.23316815 + (   -0.00000000) i m=1 res=1.98e-11 resbc=4.33e-12
+Eigenvalue  13 : k=   -1.24905503 + (   -0.00000000) i m=1 res=1.70e-11 resbc=4.05e-12
+Eigenvalue  14 : k=   -1.51436456 + (   -0.00000000) i m=1 res=1.55e-11 resbc=1.04e-11
+Eigenvalue  15 : k=   -1.51591620 + (   -0.00000000) i m=1 res=1.19e-11 resbc=7.39e-12
+Eigenvalue  16 : k=   -1.55360539 + (   -2.12363580) i m=1 res=1.18e-11 resbc=1.14e-11
+Eigenvalue  17 : k=   -1.55360539 + (   +2.12363580) i m=1 res=1.18e-11 resbc=1.14e-11
+Eigenvalue  18 : k=   -2.22662952 + (   -1.31306276) i m=1 res=6.58e-12 resbc=1.35e-11
+Eigenvalue  19 : k=   -2.22662952 + (   +1.31306276) i m=1 res=6.58e-12 resbc=1.35e-11
+Eigenvalue  20 : k=   -2.21461345 + (   -1.46465755) i m=1 res=7.13e-12 resbc=1.38e-11
+Eigenvalue  21 : k=   -2.21461345 + (   +1.46465755) i m=1 res=7.13e-12 resbc=1.38e-11
+Eigenvalue  22 : k=   -2.15538666 + (   -1.64890418) i m=1 res=6.70e-12 resbc=1.63e-11
+Eigenvalue  23 : k=   -2.15538666 + (   +1.64890418) i m=1 res=6.70e-12 resbc=1.63e-11
+Eigenvalue  24 : k=   -1.51752767 + (   -2.58242637) i m=1 res=1.68e-11 resbc=1.33e-11
+Eigenvalue  25 : k=   -1.51752767 + (   +2.58242637) i m=1 res=1.68e-11 resbc=1.33e-11
+Eigenvalue  26 : k=   -2.44063346 + (   -1.23182098) i m=1 res=7.21e-12 resbc=1.39e-11
+Eigenvalue  27 : k=   -2.44063346 + (   +1.23182098) i m=1 res=7.21e-12 resbc=1.39e-11
+Eigenvalue  28 : k=   -1.66165761 + (   -2.69763896) i m=1 res=1.67e-11 resbc=2.27e-11
+Eigenvalue  29 : k=   -1.66165761 + (   +2.69763896) i m=1 res=1.67e-11 resbc=2.27e-11
+Eigenvalue  30 : k=   -1.34122323 + (   -3.25004558) i m=1 res=1.01e-11 resbc=2.30e-11
+Eigenvalue  31 : k=   -1.34122323 + (   +3.25004558) i m=1 res=1.01e-11 resbc=2.30e-11
+Eigenvalue  32 : k=   -1.51253072 + (   -3.26928324) i m=1 res=1.09e-11 resbc=3.08e-11
+Eigenvalue  33 : k=   -1.51253072 + (   +3.26928324) i m=1 res=1.09e-11 resbc=3.08e-11
+Eigenvalue  34 : k=   -3.33087639 + (   -0.00000000) i m=1 res=5.90e-12 resbc=1.42e-11
+Eigenvalue  35 : k=   -3.40213337 + (   -0.00000000) i m=1 res=3.64e-12 resbc=1.34e-11
+Eigenvalue  36 : k=   -3.43070022 + (   -0.00000000) i m=1 res=6.07e-12 resbc=1.24e-11
+Eigenvalue  37 : k=   -3.44533748 + (   -0.00000000) i m=1 res=6.66e-12 resbc=2.47e-11
+Eigenvalue  38 : k=   -1.40986084 + (   -3.79943499) i m=1 res=1.36e-11 resbc=3.96e-11
+Eigenvalue  39 : k=   -1.40986084 + (   +3.79943499) i m=1 res=1.36e-11 resbc=3.96e-11
+Eigenvalue  40 : k=   -1.43847205 + (   -3.88884021) i m=1 res=1.13e-11 resbc=3.74e-11
+
+
+Eigenvalue   0 : k=    0.00000032 + (   -0.00000000) i m=1 res=4.54e-11 resbc=1.60e-11
+Eigenvalue   1 : k=    0.00000000 + (   -0.00000000) i m=1 res=3.36e-11 resbc=1.50e-11
+Eigenvalue   2 : k=   -0.00000000 + (   -0.00000000) i m=1 res=1.06e-11 resbc=6.39e-12
+Eigenvalue   3 : k=   -0.00000000 + (   -0.00000000) i m=1 res=2.06e-11 resbc=9.49e-12
+Eigenvalue   4 : k=   -0.00000032 + (   -0.00000000) i m=1 res=4.68e-11 resbc=1.60e-11
+Eigenvalue   5 : k=   -0.12055743 + (   -0.00000000) i m=1 res=3.42e-11 resbc=1.43e-11
+Eigenvalue   6 : k=   -0.12506943 + (   -0.00000000) i m=1 res=2.10e-11 resbc=8.49e-12
+Eigenvalue   7 : k=   -0.31123470 + (   -0.00000000) i m=1 res=1.58e-11 resbc=7.40e-12
+Eigenvalue   8 : k=   -0.70029545 + (   -0.00000000) i m=1 res=3.39e-11 resbc=1.41e-11
+Eigenvalue   9 : k=   -0.82904707 + (   -0.00000000) i m=1 res=1.97e-11 resbc=5.81e-12
+Eigenvalue  10 : k=   -0.84995373 + (   -0.00000000) i m=1 res=3.41e-11 resbc=4.66e-12
+
+************************************************
+****** Sun feb 22, 2026
+
+RUNS FOR COMPLEX WAVE HOLTZ PAPER
+
+ADD TO THE MAKE FILE 
+
+squareGO2BrrrrEv1024
+
+SQUARE: OPEN AND WAVE GUIDE
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order2 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=d -bc4=d -show=squareG128O2BrrddEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG128O2BrrddEv1024 -matlab=1 -go=go
+
+OPEN: 
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order2 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareG128O2BrrrrEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG128O2BrrrrEv1024 -matlab=1 -go=go
+
+$genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=square128.order4 -numEigenValues=1024 -shift=-1 -tol=1.0e-12 -bc1=r -bc2=r -bc3=r -bc4=r -show=squareG128O4BrrrrEv1024.show -orthogonalize=0 -solveComplex=1 -matlabFileName=squareG128O4BrrrrEv1024 -matlab=1 -go=go
+
+
+************************************************
+****** Sun feb 22, 2026
+
+TEST for eigenwave and deflation
+
+genEigs -noplot eigs.cmd -problem=laplace -eigCase=none -g=sice16.order4.ml4 -numEigenValues=256 -tol=1.0e-14 -bc1=d -show=diskG16O4Ev256.show -orthogonalize=1 -go=go
+
+
+
+  resid = || A phi - lambda phi ||_max / |lambda| 
+  VECT max-err = max-norm( closest vector in 2 norm to eigenpsace )/( max-norm of phi)  
+  VECT l2-err  =      L2h( closest vector in 2 norm to eigenpsace )/( L2h norm of phi)  
+  lma = sqrt(k), me=exact multiplicity, m=computed multiplicity
+Eigenvalue   0 : k=    5.78318596 + (-0.0e+00) i lam=    2.40482556 m=1 res=1.39e-10 resbc=0.00e+00
+Eigenvalue   1 : k=   14.68197062 + (-0.0e+00) i lam=    3.83170597 m=2 res=5.50e-11 resbc=0.00e+00
+Eigenvalue   2 : k=   14.68197062 + (-0.0e+00) i lam=    3.83170597 m=2 res=6.27e-11 resbc=0.00e+00
+Eigenvalue   3 : k=   26.37461624 + (-0.0e+00) i lam=    5.13562228 m=2 res=3.47e-11 resbc=0.00e+00
+Eigenvalue   4 : k=   26.37461633 + (-0.0e+00) i lam=    5.13562229 m=2 res=3.82e-11 resbc=0.00e+00
+Eigenvalue   5 : k=   30.47126213 + (-0.0e+00) i lam=    5.52007809 m=1 res=3.72e-11 resbc=0.00e+00
+Eigenvalue   6 : k=   40.70646529 + (-0.0e+00) i lam=    6.38016185 m=2 res=2.26e-11 resbc=0.00e+00
+Eigenvalue   7 : k=   40.70646529 + (-0.0e+00) i lam=    6.38016185 m=2 res=2.33e-11 resbc=0.00e+00
+Eigenvalue   8 : k=   49.21845544 + (-0.0e+00) i lam=    7.01558661 m=2 res=1.47e-11 resbc=0.00e+00
+Eigenvalue   9 : k=   49.21845544 + (-0.0e+00) i lam=    7.01558661 m=2 res=1.67e-11 resbc=0.00e+00
+Eigenvalue  10 : k=   57.58293938 + (-0.0e+00) i lam=    7.58834233 m=2 res=1.48e-11 resbc=0.00e+00
+
 ************************************************
 ****** Mon Jan 26, 2026
 

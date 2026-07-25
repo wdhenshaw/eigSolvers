@@ -414,6 +414,13 @@ for( int m1=-halfWidth1; m1<=halfWidth1; m1++)
 // ======================================================================================
 #beginMacro fillCoeffNeumann()
 
+  printF(" ======== fillMatrixLaplacianComplex: FILL coeff for Neumann BC grid=%d (side,axis)=(%d,%d) orderOfAccuracy=%d ====\n",grid,side,axis,orderOfAccuracy);
+  if( orderOfAccuracy != 2 )
+  {
+    printf(" fill coeff Neumann : orderOfAccuracy=%d FINISH ME\n",orderOfAccuracy);
+    OV_ABORT("finish me");
+  }
+
   getAdjustedBoundaryIndex( mg, side, axis, Ib1,Ib2,Ib3 ); // skip ends with adjacent Dirichlet BC
 
   if( isRectangular  )
@@ -811,17 +818,16 @@ for( int m1=-halfWidth1; m1<=halfWidth1; m1++)
 
 
 // ======================================================================================
-//  Macro: Fill coefficients for a CHARACTERISTIC BC 
+//  Macro: Fill coefficients for an Engquist Majda Radiation BC
 //
 //  Engquist Majda BC:
 //     u.xt - sigma*c*( u.xx + .5*u.yy ) = 0   
 // ======================================================================================
-#beginMacro fillCoeffCharacteristic()
+#beginMacro fillCoeffEngquistMajdaRBC()
+  printF("[side,axis]=[%d,%d] FILL ENGQUIST-MAJDA RBC psiStart=%d (is1,is2,is3)=(%d,%d,%d) is=%d\n",side,axis,psiStart,is1,is2,is3,is);
   if( isRectangular  )
   {
-    // ========== CHARACTERISTIC RECTANGULAR ========  
-
-    // printF("[side,axis]=[%d,%d] FILL CHARACTERISTIC RBC psiStart=%d (is1,is2,is3)=(%d,%d,%d) is=%d\n",side,axis,psiStart,is1,is2,is3,is);
+    // ========== ENGQUIST MAJDA RECTANGULAR ========  
 
     Real dx[3]={1.,1.,1.};
     mg.getDeltaX(dx);
@@ -871,7 +877,7 @@ for( int m1=-halfWidth1; m1<=halfWidth1; m1++)
              getGlobalIndexMacro( i1+iw1,i2+iw2,i3+iw3,n, ig );
              Real coeffLap= lapCoeff(iw1,iw2,iw3);
              ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
-             // printF("EM (side,axis)=(%d,%d) fill A with DeltaEM (i1,i2)=(%3d,%3d) (iw1,iw2)=(%2d,%2d) coeffLap=%10.2e\n",side,axis,i1,i2,iw1,iw2,coeffLap);
+             // printF("EM (side,axis)=(%d,%d) fill A with lapCoeff (i1,i2)=(%3d,%3d) (iw1,iw2)=(%2d,%2d) coeffLap=%10.2e\n",side,axis,i1,i2,iw1,iw2,coeffLap);
           }
 
           if( xCoeff(iw1,iw2,iw3) != 0. )
@@ -882,7 +888,7 @@ for( int m1=-halfWidth1; m1<=halfWidth1; m1++)
             // Adjust "column" index: (shift from phi to psi=nu*phi)
             ierr = MatSetValue(A,ig0,ig+psiStart,coeffx,INSERT_VALUES);CHKERRQ(ierr);
 
-            // printF("EM (side,axis)=(%d,%d) fill A with psi.x (i1,i2)=(%3d,%3d) (iw1,iw2)=(%2d,%2d) coeffx=%10.2e\n",side,axis,i1,i2,iw1,iw2,coeffx);
+            // printF("EM (side,axis)=(%d,%d) fill A with xCoeff (i1,i2)=(%3d,%3d) (iw1,iw2)=(%2d,%2d) coeffx=%10.2e\n",side,axis,i1,i2,iw1,iw2,coeffx);
           }                
 
         }
@@ -954,11 +960,841 @@ for( int m1=-halfWidth1; m1<=halfWidth1; m1++)
   }
   else
   {
-    // ========== CHARACTERISTIC CURVILINEAR ========     
-    printF("fillMatrixLaplacianComplex:ERROR: characteristic BC on a curvlinear grid -- FINISH ME Bill\n");
-    OV_ABORT("ERROR");                 
+    // ========== ENGQUIST MAJDA CURVILINEAR ========     
+    printF("fillMatrixLaplacianComplex: FILL ENGQUIST MAJDA BC on a curvlinear grid=%d, (side,axis)=(%d,%d)\n",grid,side,axis);
+    // ---------------------------------------------------------
+    //     ----- Engquist Majda BC : curvilinear -----
+    // 
+    //   i omega D_n u = c*Dnn u + (.5*c)( L - Dnn ) u 
+    //    where 
+    //         u = ur + i ui 
+    // Real part: 
+    //     -omega* Dn ui = c*Dnn ur + .5*c*( L - Dnn) ur 
+    // Imag part:
+    //    +omega* Dn ur = c*Dnn ui + .5*c*( L - Dnn ) ui   
+    // ---------------------------------------------------------
 
-  }  
+    const Real c=1.0; // wave speed 
+
+    const int is = isv[axis];
+    Range Rw(-halfWidth1,halfWidth1);
+    RealArray nCoeffr(Rw,Rw,Rw), nnCoeffr(Rw,Rw,Rw);
+    nCoeffr=0.; nnCoeffr=0.; 
+
+    mg.update(MappedGrid::THEinverseVertexDerivative );
+
+    OV_GET_SERIAL_ARRAY(Real,mg.inverseVertexDerivative(),rxLocal);
+    // macro to make the rxLocal array look 5-dimensional 
+    #define DD(i1,i2,i3,m1,m2) rxLocal(i1,i2,i3,(m1)+numberOfDimensions*(m2))     
+
+
+    // mg.update(MappedGrid::THEvertexBoundaryNormal);
+    // OV_GET_VERTEX_BOUNDARY_NORMAL(mg,side,axis,normal); 
+
+    getAdjustedBoundaryIndex( mg, side, axis, Ib1,Ib2,Ib3 ); // skip ends with adjacent Dirichlet BC    
+
+
+    // rCoeff holds D_r, D_s or D_t 
+    realSerialArray rCoeff(M0,Ib1,Ib2,Ib3), rrCoeff(M0,Ib1,Ib2,Ib3);
+    if( axis==0 )
+    {
+      mgop.assignCoefficients(MappedGridOperators::r1Derivative  ,rCoeff,  Ib1,Ib2,Ib3,0,0);
+      mgop.assignCoefficients(MappedGridOperators::r1r1Derivative,rrCoeff, Ib1,Ib2,Ib3,0,0);
+    }
+    else if( axis==1 )
+    {
+      mgop.assignCoefficients(MappedGridOperators::r2Derivative  ,rCoeff,  Ib1,Ib2,Ib3,0,0);
+      mgop.assignCoefficients(MappedGridOperators::r2r2Derivative,rrCoeff, Ib1,Ib2,Ib3,0,0);      
+    }
+    else
+    {
+      mgop.assignCoefficients(MappedGridOperators::r3Derivative  ,rCoeff,  Ib1,Ib2,Ib3,0,0);
+      mgop.assignCoefficients(MappedGridOperators::r3r3Derivative,rrCoeff, Ib1,Ib2,Ib3,0,0);      
+    }
+
+    realSerialArray lapCoeff(M0,Ib1,Ib2,Ib3);
+    mgop.assignCoefficients( MappedGridOperators::laplacianOperator,lapCoeff,Ib1,Ib2,Ib3,0,0);
+
+    // realSerialArray xxCoeff(M0,Ib1,Ib2,Ib3), yyCoeff(M0,Ib1,Ib2,Ib3), zzCoeff; 
+    // mgop.assignCoefficients(MappedGridOperators::xxDerivative ,xxCoeff, Ib1,Ib2,Ib3,0,0);
+    // mgop.assignCoefficients(MappedGridOperators::yyDerivative ,yyCoeff, Ib1,Ib2,Ib3,0,0);
+    // if( numberOfDimensions==3 )
+    // {
+    //   zzCoeff.redim(M0,Ib1,Ib2,Ib3);
+    //   mgop.assignCoefficients(MappedGridOperators::zzDerivative ,zzCoeff, Ib1,Ib2,Ib3,0,0);
+    // }
+
+    const int startGhost = orderOfAccuracy/2 +1;
+    const int n=0; 
+    FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+    {
+
+      ForStencil(m1,m2,m3)
+      {
+        int m0 = M123(m1,m2,m3);
+        Real normRx;
+        if( numberOfDimensions==2 )
+        {
+          normRx = sqrt( SQR(DD(i1,i2,i3,axis,0)) + SQR(DD(i1,i2,i3,axis,1)) );
+        }
+        else
+        {
+          normRx = sqrt( SQR(DD(i1,i2,i3,axis,0)) + SQR(DD(i1,i2,i3,axis,1)) + SQR(DD(i1,i2,i3,axis,2)) );
+        }
+
+        nCoeffr(m1,m2,m3) = -is*normRx*rCoeff(m0,i1,i2,i3);  // approximation to D_n 
+
+        nnCoeffr(m1,m2,m3) = SQR(normRx)*rrCoeff(m0,i1,i2,i3); // D_n^2 
+      }
+
+      int ghost=1; 
+      int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // first ghost point          
+      getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+
+      if( maskLocal(i1,i2,i3)>0 )
+      {
+        // --- loop over stencil ---
+        int inz=0;
+        ForStencil(iw1,iw2,iw3)
+        {
+          int m0 = M123(iw1,iw2,iw3);
+          // lapCoeff =  cxx*D_xx + cyy*D_yy + czz*D_zz
+          Real coeffLap = c*nnCoeffr(iw1,iw2,iw3) + .5*c*( lapCoeff(m0,i1,i2,i3) - nnCoeffr(iw1,iw2,iw3) );
+
+          // if( coeffLap==0. ){ coeffLap=1.e-3; }
+          if( coeffLap != 0. )
+          {
+            inz++;
+            // printF("EM (side,axis)=(%d,%d) fill A with coeffLap (i1,i2)=(%3d,%3d) (j1,j2)=(%3d,%3d) (iw1,iw2)=(%2d,%2d) ig0=%4d coeffx=%10.2e inz=%3d nzzAlloc[ig0]=%d\n",
+            //              side,axis,i1,i2,j1,j2,iw1,iw2,ig0,coeffLap,inz,nzzAlloc[ig0]);      
+
+             getGlobalIndexMacro( i1+iw1,i2+iw2,i3+iw3,n, ig );
+             ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
+        
+          }
+
+          Real coeffx= nCoeffr(iw1,iw2,iw3);
+          // if( coeffx==0. ){ coeffx=1.e-3; }
+          if( coeffx != 0. )
+          {
+            //   w.tx --> psi.x 
+            getGlobalIndexMacro( i1+iw1,i2+iw2,i3+iw3,n, ig );
+           
+            // Adjust "column" index: (shift from phi to psi=nu*phi)
+            inz++;
+            // printF("EM (side,axis)=(%d,%d) fill A with nCoeffr (i1,i2)=(%3d,%3d) (j1,j2)=(%3d,%3d) (iw1,iw2)=(%2d,%2d) ig0=%4d coeffx=%10.2e inz=%3d nzzAlloc[ig0]=%d\n",
+            //              side,axis,i1,i2,j1,j2,iw1,iw2,ig0,coeffx,inz,nzzAlloc[ig0]);
+            ierr = MatSetValue(A,ig0,ig+psiStart,coeffx,INSERT_VALUES);CHKERRQ(ierr);
+
+          }                
+
+        }
+
+        assert( inz<=nzzAlloc[ig0] );
+
+        // Fill additional ghost with extrapolation
+        for( int ghost=startGhost; ghost<=numGhost; ghost++ )
+        {
+          int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+          getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+
+          // extrapolate      
+          for( int k=0; k<=extrapOrder; k++ )
+          {
+            getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3+is3*k,n, ig);
+            ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+          }
+        }         
+      }
+      else if( maskLocal(i1,i2,i3)==0 )
+      {
+        // unused point : set A = I 
+        ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+      }
+    } // end for3d
+
+
+    if( orderOfAccuracy==4 )
+    {
+      // ---- Assign the first CBC ----
+      printF("fillMatrixLaplacianComplex: FILL ENGQUIST MAJDA BC on a curvlinear grid ORDER 4 CBC \n");
+      printF("   >>> USE EXTRAP FOR CBC FOR NOW, extrapOrder=%d\n",extrapOrder);
+
+      // OV_ABORT("finish me");
+
+      FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+      {
+
+        // ForStencil(m1,m2,m3)
+        // {
+        //   int m0 = M123(m1,m2,m3);
+        //   Real normRx;
+        //   if( numberOfDimensions==2 )
+        //   {
+        //     normRx = sqrt( SQR(DD(i1,i2,i3,axis,0)) + SQR(DD(i1,i2,i3,axis,1)) );
+        //   }
+        //   else
+        //   {
+        //     normRx = sqrt( SQR(DD(i1,i2,i3,axis,0)) + SQR(DD(i1,i2,i3,axis,1)) + SQR(DD(i1,i2,i3,axis,2)) );
+        //   }
+
+        //   nCoeffr(m1,m2,m3) = -is*normRx*rCoeff(m0,i1,i2,i3);  // approximation to D_n 
+
+        //   nnCoeffr(m1,m2,m3) = SQR(normRx)*rrCoeff(m0,i1,i2,i3); // D_n^2 
+        // }
+
+        int ghost=2; 
+        int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // first ghost point          
+        getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+
+        if( maskLocal(i1,i2,i3)>0 )
+        {
+          // --- loop over stencil ---
+          // ForStencil(iw1,iw2,iw3)
+          // {
+          //   int m0 = M123(iw1,iw2,iw3);
+          //   // lapCoeff =  cxx*D_xx + cyy*D_yy + czz*D_zz
+          //   Real coeffLap = c*nnCoeffr(iw1,iw2,iw3) + .5*c*( lapCoeff(m0,i1,i2,i3) - nnCoeffr(iw1,iw2,iw3) );
+
+          //   // if( coeffLap==0. ){ coeffLap=1.e-3; }
+          //   if( coeffLap != 0. )
+          //   {
+          //     inz++;
+          //     // printF("EM (side,axis)=(%d,%d) fill A with coeffLap (i1,i2)=(%3d,%3d) (j1,j2)=(%3d,%3d) (iw1,iw2)=(%2d,%2d) ig0=%4d coeffx=%10.2e inz=%3d nzzAlloc[ig0]=%d\n",
+          //     //              side,axis,i1,i2,j1,j2,iw1,iw2,ig0,coeffLap,inz,nzzAlloc[ig0]);      
+
+          //      getGlobalIndexMacro( i1+iw1,i2+iw2,i3+iw3,n, ig );
+          //      ierr = MatSetValue(A,ig0,ig,coeffLap,INSERT_VALUES);CHKERRQ(ierr);
+          
+          //   }
+
+          //   Real coeffx= nCoeffr(iw1,iw2,iw3);
+          //   // if( coeffx==0. ){ coeffx=1.e-3; }
+          //   if( coeffx != 0. )
+          //   {
+          //     //   w.tx --> psi.x 
+          //     getGlobalIndexMacro( i1+iw1,i2+iw2,i3+iw3,n, ig );
+             
+          //     // Adjust "column" index: (shift from phi to psi=nu*phi)
+          //     inz++;
+          //     // printF("EM (side,axis)=(%d,%d) fill A with nCoeffr (i1,i2)=(%3d,%3d) (j1,j2)=(%3d,%3d) (iw1,iw2)=(%2d,%2d) ig0=%4d coeffx=%10.2e inz=%3d nzzAlloc[ig0]=%d\n",
+          //     //              side,axis,i1,i2,j1,j2,iw1,iw2,ig0,coeffx,inz,nzzAlloc[ig0]);
+          //     ierr = MatSetValue(A,ig0,ig+psiStart,coeffx,INSERT_VALUES);CHKERRQ(ierr);
+
+          //   }                
+
+          // }
+
+
+          // Fill additional ghost with extrapolation
+          int startGhost=2; // ** FIX ME ***
+          for( int ghost=startGhost; ghost<=numGhost; ghost++ )
+          {
+            int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+            getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+
+            // extrapolate      
+            for( int k=0; k<=extrapOrder; k++ )
+            {
+              getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3+is3*k,n, ig);
+              ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+            }
+          }         
+        }
+        else if( maskLocal(i1,i2,i3)==0 )
+        {
+          // unused point : set A = I 
+          ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+        }
+      } // end for3d
+
+    }
+
+    // FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) // loop over points on the boundary
+    // {              
+
+    //   ForStencil(m1,m2,m3)
+    //   {
+    //     int m0 = M123(m1,m2,m3);
+    //     Real normRx;
+    //     if( numberOfDimensions==2 )
+    //     {
+    //       normRx = sqrt( SQR(DD(i1,i2,i3,axis,0)) + SQR(DD(i1,i2,i3,axis,1)) );
+    //       // lapCoeff(m1,m2,m3) = xxCoeff(m0,i1,i2,i3) + yyCoeff(m0,i1,i2,i3);
+    //     }
+    //     else
+    //     {
+    //       normRx = sqrt( SQR(DD(i1,i2,i3,axis,0)) + SQR(DD(i1,i2,i3,axis,1)) + SQR(DD(i1,i2,i3,axis,2)) );
+    //       // lapCoeff(m1,m2,m3) = xxCoeff(m0,i1,i2,i3) + yyCoeff(m0,i1,i2,i3) + zzCoeff(m0,i1,i2,i3);
+    //     }
+
+    //     nCoeffr(m1,m2,m3) = -is*normRx*rCoeff(m0,i1,i2,i3);  // approximation to D_n 
+
+    //     nnCoeffr(m1,m2,m3) = SQR(normRx)*rrCoeff(m0,i1,i2,i3); // D_n^2 
+    //   }
+
+    //   const int ghost=1; 
+    //   int i1m=i1-is1*ghost, i2m=i2-is2*ghost, i3m=i3-is3*ghost; //  ghost point is (i1m,i2m,i3m)
+
+    //   // Specify that this a "real" equation on the first ghost line: 
+    //   // (A "real" equation has a possible non-zero right-hand-side)
+    //   setClassify(eq1,i1m,i2m,i3m, SparseRepForMGF::ghost1);              
+    //   setClassify(eq2,i1m,i2m,i3m, SparseRepForMGF::ghost1);              
+
+    //   ForStencil(m1,m2,m3)
+    //   {
+    //     int m0 = M123(m1,m2,m3); 
+    //     // -- Equation 1 : Real part 
+    //     //    - omega* Dn ui = c* Dnn ur + .5*c*(L -Dnn) ur 
+
+    //     int mr  = M123CE(m1,m2,m3,ic1,eq1);                        // equation 1, component 1
+    //     coeffLocal(mr,i1m,i2m,i3m) = ca*nnCoeffr(m1,m2,m3) + .5*ca*( lapCoeff(m0,i1,i2,i3) - nnCoeffr(m1,m2,m3) );
+    //     int j1=i1+m1, j2=i2+m2, j3=i3+m3;                          // the stencil is centred on the boundary pt (i1,i2,i3)
+    //     setEquationNumber(mr, eq1,i1m,i2m,i3m,  ic1,j1,j2,j3 );    
+
+    //     int mi  = M123CE(m1,m2,m3,ic2,eq1);                        // equation 1, component 2
+    //     coeffLocal(mi,i1m,i2m,i3m) = omega*nCoeffr(m1,m2,m3);      // *check sign**   
+    //     setEquationNumber(mi, eq1,i1m,i2m,i3m,  ic2,j1,j2,j3 );    
+
+    //     // -- Equation 2 : imaginary part: 
+    //     //    +omega* Dn ur = c*Dnn ui + .5*c*( L - Dnn ) ui = 0   
+
+    //     mi  = M123CE(m1,m2,m3,ic2,eq2);                            // equation 2, component 2
+    //     coeffLocal(mi,i1m,i2m,i3m) =  ca*nnCoeffr(m1,m2,m3) + .5*ca*( lapCoeff(m0,i1,i2,i3) - nnCoeffr(m1,m2,m3) );
+    //     setEquationNumber(mi, eq2,i1m,i2m,i3m,  ic2,j1,j2,j3 );    
+
+    //     mr  = M123CE(m1,m2,m3,ic1,eq2);                            // equation 2, component 1
+    //     coeffLocal(mr,i1m,i2m,i3m) = -omega*nCoeffr(m1,m2,m3);      // *check sign**   
+    //     setEquationNumber(mr, eq2,i1m,i2m,i3m,  ic1,j1,j2,j3 );  
+
+
+    //   }
+
+    // } // end FOR_3D
+
+
+  }  //  end EM curvlinear 
+#endMacro
+
+
+
+
+// =============================================================================
+// Macro: get the coefficients for SOMMERFELD radiation BC
+//   u.t - sigma*c*( u.x ) = 0    
+// CBC:
+//   u.xxt - sigma*c*( u.xxx ) = 0  
+// =============================================================================
+#beginMacro getSommerfeldCoefficientsRectangular()
+  // Real dx2i = 1./(dx[0]*dx[0]);
+  // Real dy2i = 1./(dx[1]*dx[1]);
+  // Real diag = 2.*dx2i + 2.*dy2i; 
+
+  // printF("getSommerfeldCoefficientsRectangular: cx=%e, cy=%e, cxx=%e, cyy=%e dx=[%e,%e]\n",cx,cy,cxx,cyy,dx[0],dx[1]);
+
+  const int hw = orderOfAccuracy/2; // stencil half with
+  const int hw3 = numberOfDimensions==3 ? hw : 0;
+
+  RealArray iCoeff, xCoeff;
+  RealArray xxCoeff, xxxCoeff; // for CBC 
+  Range S(-hw,hw); // stencil
+
+  Real cx,cy,cz;
+  cx=0.; cy=0.; cz=0; 
+  if( axis==0 )
+    cx=-is*c; 
+  else if( axis==1 )
+    cy=-is*c; 
+  else
+    cz=-is*c; 
+
+
+  if( numberOfDimensions==2 )
+  {
+    iCoeff.redim(S,S); iCoeff=0.; iCoeff(0,0)=1.; 
+    xCoeff.redim(S,S); xCoeff=0.; 
+    if( orderOfAccuracy==2 )
+    {
+      // ----  order=2 ----
+      xCoeff(-1, 0) = -cx/(2.*dx[0]);
+      xCoeff(+1, 0) =  cx/(2.*dx[0]);
+
+      xCoeff( 0,-1) = -cy/(2.*dx[1]);
+      xCoeff( 0,+1) =  cy/(2.*dx[1]);
+
+    }
+    else if( orderOfAccuracy==4 )
+    {
+      // ----  order=4 ----
+      xxCoeff.redim(S,S);     xxCoeff=0.;
+      xxxCoeff.redim(S,S);    xxxCoeff=0.;
+
+      const Real dx2 = dx[0]*dx[0];
+      const Real dx3 = dx[0]*dx[0]*dx[0];
+      //const Real dx4 = dx[0]*dx[0]*dx[0]*dx[0];
+
+      const Real dy2 = dx[1]*dx[1];
+      const Real dy3 = dx[1]*dx[1]*dx[1];
+      //const Real dy4 = dx[1]*dx[1]*dx[1]*dx[1];
+
+      Real cxx=0., cyy=0., czz=0., cxxx=0., cyyy=0.;
+      if( axis==0 )
+      {
+        cxx  = (1./(12.*dx2));
+        cxxx = (-is*c/(2.*dx3)); 
+      }
+      else
+      {
+        cyy  = 1./(12.*dy2); 
+        cyyy = -is*c/(2.*dy3);
+      }
+
+      xCoeff(-2, 0) =     cx/(12.*dx[0]);      
+      xCoeff(-1, 0) = -8.*cx/(12.*dx[0]);
+      xCoeff(+1, 0) =  8.*cx/(12.*dx[0]);
+      xCoeff(+2, 0) =    -cx/(12.*dx[0]);
+
+      xCoeff( 0,-2) =     cy/(12.*dx[1]);
+      xCoeff( 0,-1) = -8.*cy/(12.*dx[1]);
+      xCoeff( 0,+1) =  8.*cy/(12.*dx[1]);
+      xCoeff( 0,+2) =    -cy/(12.*dx[1]);
+
+      // For the CBC:
+      xxCoeff( 0,0,0) = -30.*cxx -30.*cyy;
+      
+      xxCoeff(-2,0,0) = -1.*cxx;
+      xxCoeff(-1,0,0) = 16.*cxx;
+      xxCoeff(+1,0,0) = 16.*cxx;
+      xxCoeff(+2,0,0) = -1.*cxx;
+
+      xxCoeff(0,-2,0) = -1.*cyy;
+      xxCoeff(0,-1,0) = 16.*cyy;
+      xxCoeff(0,+1,0) = 16.*cyy;   
+      xxCoeff(0,+2,0) = -1.*cyy; 
+
+      // xxCoeff( 0,0,0) = -2.*cxx -2.*cyy;
+      
+      // xxCoeff(-1,0,0) = 1.*cxx;
+      // xxCoeff(+1,0,0) = 1.*cxx;
+
+      // xxCoeff(0,-1,0) = 1.*cyy;
+      // xxCoeff(0,+1,0) = 1.*cyy;   
+
+       // D0 D+D-
+      xxxCoeff(-2, 0) =    -cxxx;      
+      xxxCoeff(-1, 0) =  2.*cxxx;
+      xxxCoeff(+1, 0) = -2.*cxxx;
+      xxxCoeff(+2, 0) =    +cxxx;
+
+      xxxCoeff( 0,-2) =    -cyyy;
+      xxxCoeff( 0,-1) =  2.*cyyy;
+      xxxCoeff( 0,+1) = -2.*cyyy;
+      xxxCoeff( 0,+2) =    +cyyy;      
+
+    }
+    else
+    {
+      OV_ABORT("emCoeff: finish me - orderOfAccuracy");
+    }
+  }
+  else
+  {
+    // -------- THREE DIMENSIONS ------------
+    iCoeff.redim(S,S,S); iCoeff =0.; iCoeff(0,0,0)=1.; 
+    xCoeff.redim(S,S,S); xCoeff =0.;
+    if( orderOfAccuracy==2 )
+    {
+      // ----  order=2 ----
+      xCoeff(-1, 0, 0) = -cx/(2.*dx[0]);
+      xCoeff(+1, 0, 0) =  cx/(2.*dx[0]);
+
+      xCoeff( 0,-1, 0) = -cy/(2.*dx[1]);
+      xCoeff( 0,+1, 0) =  cy/(2.*dx[1]);
+
+      xCoeff( 0, 0,-1) = -cz/(2.*dx[2]);
+      xCoeff( 0, 0,+1) =  cz/(2.*dx[2]);
+
+    }  
+    else if( orderOfAccuracy==4 )
+    {
+      // ----  order=4 ----
+      xxCoeff.redim(S,S,S);   xxCoeff=0.;
+      xxxCoeff.redim(S,S,S);  xxxCoeff=0.;
+
+      const Real dx2 = dx[0]*dx[0];
+      const Real dx3 = dx[0]*dx[0]*dx[0];
+      // const Real dx4 = dx[0]*dx[0]*dx[0]*dx[0];
+
+      const Real dy2 = dx[1]*dx[1];
+      const Real dy3 = dx[1]*dx[1]*dx[1];
+      // const Real dy4 = dx[1]*dx[1]*dx[1]*dx[1];
+
+      const Real dz2 = dx[2]*dx[2];
+      const Real dz3 = dx[2]*dx[2]*dx[2];
+      // const Real dz4 = dx[2]*dx[2]*dx[2]*dx[2];      
+
+      Real cxx=0., cyy=0., czz=0., cxxx=0., cyyy=0., czzz=0.;
+      if( axis==0 )
+      {
+        cxx = 1./(12.*dx2); cxxx = -is*c/(2.*dx3); 
+      }
+      else if( axis==1 )
+      {
+        cyy = 1./(12.*dy2); cyyy = -is*c/(2.*dy3); 
+      }
+      else
+      {
+        czz = 1./(12.*dz2); czzz = -is*c/(2.*dz3); 
+      }
+
+      xCoeff(-2, 0, 0) =     cx/(12.*dx[0]);      
+      xCoeff(-1, 0, 0) = -8.*cx/(12.*dx[0]);
+      xCoeff(+1, 0, 0) =  8.*cx/(12.*dx[0]);
+      xCoeff(+2, 0, 0) =    -cx/(12.*dx[0]);
+
+      xCoeff( 0,-2, 0) =     cy/(12.*dx[1]);
+      xCoeff( 0,-1, 0) = -8.*cy/(12.*dx[1]);
+      xCoeff( 0,+1, 0) =  8.*cy/(12.*dx[1]);
+      xCoeff( 0,+2, 0) =    -cy/(12.*dx[1]);
+
+      xCoeff( 0, 0,-2) =     cz/(12.*dx[2]);
+      xCoeff( 0, 0,-1) = -8.*cz/(12.*dx[2]);
+      xCoeff( 0, 0,+1) =  8.*cz/(12.*dx[2]);
+      xCoeff( 0, 0,+2) =    -cz/(12.*dx[2]);      
+
+      // --- CBC: 
+      xxCoeff( 0,0,0) = -30.*cxx -30.*cyy -30.*czz;
+      
+      xxCoeff(-2,0,0) = -1.*cxx;
+      xxCoeff(-1,0,0) = 16.*cxx;
+      xxCoeff(+1,0,0) = 16.*cxx;
+      xxCoeff(+2,0,0) = -1.*cxx;
+
+      xxCoeff(0,-2,0) = -1.*cyy;
+      xxCoeff(0,-1,0) = 16.*cyy;
+      xxCoeff(0,+1,0) = 16.*cyy;   
+      xxCoeff(0,+2,0) = -1.*cyy; 
+
+      xxCoeff(0,0,-2) = -1.*czz;
+      xxCoeff(0,0,-1) = 16.*czz;
+      xxCoeff(0,0,+1) = 16.*czz;   
+      xxCoeff(0,0,+2) = -1.*czz; 
+
+
+      // D0 D+D-
+      xxxCoeff(-2, 0, 0) =    -cxxx;      
+      xxxCoeff(-1, 0, 0) =  2.*cxxx;
+      xxxCoeff(+1, 0, 0) = -2.*cxxx;
+      xxxCoeff(+2, 0, 0) =    +cxxx;
+
+      xxxCoeff( 0,-2, 0) =    -cyyy;
+      xxxCoeff( 0,-1, 0) =  2.*cyyy;
+      xxxCoeff( 0,+1, 0) = -2.*cyyy;
+      xxxCoeff( 0,+2, 0) =    +cyyy;  
+
+      xxxCoeff( 0, 0,-2) =    -czzz;
+      xxxCoeff( 0, 0,-1) =  2.*czzz;
+      xxxCoeff( 0, 0,+1) = -2.*czzz;
+      xxxCoeff( 0, 0,+2) =    +czzz;    
+      
+    }    
+    else
+    {
+      OV_ABORT("emCoeff: rectangular 3d: finish me - orderOfAccuracy");
+    }       
+
+  }
+#endMacro 
+
+
+
+// ======================================================================================
+//  Macro: Fill coefficients for a SOMMERFELD  Radiation BC
+//
+//  Engquist Majda BC:
+//     u.t - sigma*c*( u.x ) = 0   
+// ======================================================================================
+#beginMacro fillCoeffSommerfeldRBC()
+  if( isRectangular  )
+  {
+    // ========== SOMMERFELD RECTANGULAR ========  
+
+    printF("[side,axis]=[%d,%d] FILL SOMMERFELD RBC psiStart=%d (is1,is2,is3)=(%d,%d,%d) is=%d\n",side,axis,psiStart,is1,is2,is3,is);
+
+    Real dx[3]={1.,1.,1.};
+    mg.getDeltaX(dx);
+
+    const Real c=1.0; // wave speed 
+
+
+    getSommerfeldCoefficientsRectangular();
+
+    // getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+
+    getAdjustedBoundaryIndex( mg, side, axis, Ib1,Ib2,Ib3 ); // skip ends with adjacent Dirichlet BC    
+
+    const int startGhost = orderOfAccuracy/2 +1;
+    const int n=0; 
+    FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+    {
+      int ghost=1; 
+      int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // first ghost point          
+      getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+
+      if( maskLocal(i1,i2,i3)>0 )
+      {
+        // --- loop over stencil ---
+        ForStencil(iw1,iw2,iw3)
+        {
+          // lapCoeff =  cx*D_x + cy*D_y + cz*D_z
+          if( xCoeff(iw1,iw2,iw3) != 0. )
+          {
+             getGlobalIndexMacro( i1+iw1,i2+iw2,i3+iw3,n, ig );
+             Real coeffx= xCoeff(iw1,iw2,iw3);
+             ierr = MatSetValue(A,ig0,ig,coeffx,INSERT_VALUES);CHKERRQ(ierr);
+             // printF("EM (side,axis)=(%d,%d) fill A with DeltaEM (i1,i2)=(%3d,%3d) (iw1,iw2)=(%2d,%2d) coeffLap=%10.2e\n",side,axis,i1,i2,iw1,iw2,coeffLap);
+          }
+
+          if( iCoeff(iw1,iw2,iw3) != 0. )
+          {
+            //   w.t --> psi 
+            getGlobalIndexMacro( i1+iw1,i2+iw2,i3+iw3,n, ig );
+            Real coeffi= iCoeff(iw1,iw2,iw3);
+            // Adjust "column" index: (shift from phi to psi=nu*phi)
+            ierr = MatSetValue(A,ig0,ig+psiStart,coeffi,INSERT_VALUES);CHKERRQ(ierr);
+
+            // printF("EM (side,axis)=(%d,%d) fill A with psi.x (i1,i2)=(%3d,%3d) (iw1,iw2)=(%2d,%2d) coeffx=%10.2e\n",side,axis,i1,i2,iw1,iw2,coeffx);
+          }                
+
+        }
+
+        // Fill additional ghost with extrapolation
+        for( int ghost=startGhost; ghost<=numGhost; ghost++ )
+        {
+          int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+          getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+
+          // extrapolate      
+          for( int k=0; k<=extrapOrder; k++ )
+          {
+            getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3+is3*k,n, ig);
+            ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+          }
+        }         
+      }
+      else if( maskLocal(i1,i2,i3)==0 )
+      {
+        // unused point : set A = I 
+        ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+      }
+    }
+
+    if( orderOfAccuracy==4 )
+    {
+      // ---- Assign the first CBC ----
+      FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+      {
+        int ghost=2; 
+        int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost 2
+        getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+
+        if( maskLocal(i1,i2,i3)>0 )
+        {
+          // --- loop over stencil ---
+          ForStencil(iw1,iw2,iw3)          
+          {
+            if( xxxCoeff(iw1,iw2,iw3) != 0. )
+            {
+               getGlobalIndexMacro( i1+iw1,i2+iw2,i3+iw3,n, ig );
+               Real coeffxxx= xxxCoeff(iw1,iw2,iw3);
+               ierr = MatSetValue(A,ig0,ig,coeffxxx,INSERT_VALUES);CHKERRQ(ierr);
+            }
+
+            if( xxCoeff(iw1,iw2,iw3) != 0. )
+            {
+              //   w.txx --> psi.xx 
+              getGlobalIndexMacro( i1+iw1,i2+iw2,i3+iw3,n, ig );
+              Real coeffxx= xxCoeff(iw1,iw2,iw3);
+              // Adjust "column" index: (shift from phi to psi=nu*phi)
+              ierr = MatSetValue(A,ig0,ig+psiStart,coeffxx,INSERT_VALUES);CHKERRQ(ierr);
+
+            }                
+
+          }
+        }
+        else if( maskLocal(i1,i2,i3)==0 )
+        {
+          // unused point : set A = I 
+          ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+        }
+      } // end for 3d
+
+
+    }
+
+  } // end if isRectangular 
+  else
+  {
+    // ========== SOMMERFELD CURVILINEAR ========     
+    printF("fillMatrixLaplacianComplex: FILL SOMMERFELD BC on a curvilinear grid=%d, (side,axis)=(%d,%d)\n",grid,side,axis);
+    // ---------------------------------------------------------
+    //     ----- SOMMERFELD BC : curvilinear -----
+    // 
+    //   i lambda u + Dn u = 0 
+    //    where 
+    //         u = ur + i ui 
+    // ---------------------------------------------------------
+
+    const Real c=1.0; // wave speed 
+
+    const int is = isv[axis];
+
+    Range Rw(-halfWidth1,halfWidth1);
+    RealArray iCoeff(Rw,Rw,Rw); iCoeff=0.; iCoeff(0,0,0)=1.;
+
+    RealArray nCoeffr(Rw,Rw,Rw);
+    nCoeffr=0.; 
+
+    mg.update(MappedGrid::THEinverseVertexDerivative );
+
+    OV_GET_SERIAL_ARRAY(Real,mg.inverseVertexDerivative(),rxLocal);
+    // macro to make the rxLocal array look 5-dimensional 
+    #define DD(i1,i2,i3,m1,m2) rxLocal(i1,i2,i3,(m1)+numberOfDimensions*(m2))     
+
+
+    // mg.update(MappedGrid::THEvertexBoundaryNormal);
+    // OV_GET_VERTEX_BOUNDARY_NORMAL(mg,side,axis,normal); 
+
+    getAdjustedBoundaryIndex( mg, side, axis, Ib1,Ib2,Ib3 ); // skip ends with adjacent Dirichlet BC    
+
+
+    // rCoeff holds D_r, D_s or D_t 
+    realSerialArray rCoeff(M0,Ib1,Ib2,Ib3);
+    if( axis==0 )
+      mgop.assignCoefficients(MappedGridOperators::r1Derivative  ,rCoeff,  Ib1,Ib2,Ib3,0,0);
+    else if( axis==1 )
+      mgop.assignCoefficients(MappedGridOperators::r2Derivative  ,rCoeff,  Ib1,Ib2,Ib3,0,0);
+    else
+      mgop.assignCoefficients(MappedGridOperators::r3Derivative  ,rCoeff,  Ib1,Ib2,Ib3,0,0);
+
+    const int startGhost = orderOfAccuracy/2 +1;
+    const int n=0; 
+    FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+    {
+
+      ForStencil(m1,m2,m3)
+      {
+        int m0 = M123(m1,m2,m3);
+        Real normRx;
+        if( numberOfDimensions==2 )
+        {
+          normRx = sqrt( SQR(DD(i1,i2,i3,axis,0)) + SQR(DD(i1,i2,i3,axis,1)) );
+        }
+        else
+        {
+          normRx = sqrt( SQR(DD(i1,i2,i3,axis,0)) + SQR(DD(i1,i2,i3,axis,1)) + SQR(DD(i1,i2,i3,axis,2)) );
+        }
+
+        nCoeffr(m1,m2,m3) = -is*normRx*rCoeff(m0,i1,i2,i3);  // approximation to D_n 
+      }
+
+      int ghost=1; 
+      int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // first ghost point          
+      getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+
+      if( maskLocal(i1,i2,i3)>0 )
+      {
+
+       // --- loop over stencil ---
+        ForStencil(iw1,iw2,iw3)
+        {
+          Real coeffn= nCoeffr(iw1,iw2,iw3);
+          if( coeffn != 0. )
+          {
+             getGlobalIndexMacro( i1+iw1,i2+iw2,i3+iw3,n, ig );
+             ierr = MatSetValue(A,ig0,ig,coeffn,INSERT_VALUES);CHKERRQ(ierr);
+             // printF("EM (side,axis)=(%d,%d) fill A with DeltaEM (i1,i2)=(%3d,%3d) (iw1,iw2)=(%2d,%2d) coeffLap=%10.2e\n",side,axis,i1,i2,iw1,iw2,coeffLap);
+          }
+
+          if( iCoeff(iw1,iw2,iw3) != 0. )
+          {
+            //   w.t --> psi 
+            getGlobalIndexMacro( i1+iw1,i2+iw2,i3+iw3,n, ig );
+            Real coeffi= iCoeff(iw1,iw2,iw3);
+            // Adjust "column" index: (shift from phi to psi=nu*phi)
+            ierr = MatSetValue(A,ig0,ig+psiStart,coeffi,INSERT_VALUES);CHKERRQ(ierr);
+
+            // printF("EM (side,axis)=(%d,%d) fill A with psi.x (i1,i2)=(%3d,%3d) (iw1,iw2)=(%2d,%2d) coeffx=%10.2e\n",side,axis,i1,i2,iw1,iw2,coeffx);
+          }                
+
+        }
+
+        // Fill additional ghost with extrapolation
+        for( int ghost=startGhost; ghost<=numGhost; ghost++ )
+        {
+          int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+          getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+
+          // extrapolate      
+          for( int k=0; k<=extrapOrder; k++ )
+          {
+            getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3+is3*k,n, ig);
+            ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+          }
+        }         
+      }
+      else if( maskLocal(i1,i2,i3)==0 )
+      {
+        // unused point : set A = I 
+        ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+      }
+    } // end for3d
+
+    if( orderOfAccuracy==4 )
+    {
+
+      // ---- Assign the first CBC ----
+      printF("fillMatrixLaplacianComplex: FILL SOMMERFELD RBC on a curvlinear grid ORDER 4 CBC : grid=%d (side,axis)=(%d,%d)\n",grid,side,axis);
+      printF("   >>> USE EXTRAP FOR CBC FOR NOW, extrapOrder=%d\n",extrapOrder);
+
+      // OV_ABORT("finish me");
+
+      FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+      {
+        int ghost=2; 
+        int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // first ghost point          
+        getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+
+        if( maskLocal(i1,i2,i3)>0 )
+        {
+          // --- loop over stencil ---
+
+          // Fill additional ghost with extrapolation
+          int startGhost=2; // ** FIX ME ***
+          for( int ghost=startGhost; ghost<=numGhost; ghost++ )
+          {
+            int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+            getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+
+            // extrapolate      
+            for( int k=0; k<=extrapOrder; k++ )
+            {
+              getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3+is3*k,n, ig);
+              ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+            }
+          }         
+        }
+        else if( maskLocal(i1,i2,i3)==0 )
+        {
+          // unused point : set A = I 
+          ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);
+        }
+      } // end for3d
+
+
+    }    
+
+  }  // end if curviliinear
 #endMacro
 
 
@@ -987,6 +1823,9 @@ fillMatrixLaplacianComplex( int orderOfAccuracy, realCompositeGridFunction & ucg
 {
 
   printF("----- ENTERING fillMatrixLaplacianComplex ------\n");
+
+  const RadiationBoundaryConditionEnum & rbc = dbase.get<RadiationBoundaryConditionEnum>("rbc");
+
 
   CompositeGrid & cg = *ucg.getCompositeGrid();
 
@@ -1130,15 +1969,18 @@ fillMatrixLaplacianComplex( int orderOfAccuracy, realCompositeGridFunction & ucg
   int ig0, ig; // holds global index numbers
   if( true )
   {
+
     for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
     {
       MappedGrid & mg = cg[grid];
       const IntegerArray & gid = mg.gridIndexRange();
       // const IntegerArray & dim = mg.dimension();
-      // const IntegerArray & bc = mg.boundaryCondition();
+      const IntegerArray & bc = mg.boundaryCondition();
 
       mg.update(MappedGrid::THEmask );
       OV_GET_SERIAL_ARRAY(int,mg.mask(),maskLocal);
+
+      const bool isRectangular = mg.isRectangular();
 
       // ---- Find the index range for the interior equations ----
       getInteriorIndexRange( Iv );
@@ -1161,6 +2003,8 @@ fillMatrixLaplacianComplex( int orderOfAccuracy, realCompositeGridFunction & ucg
       // ---  boundaries and ghost ----
       ForBoundary(side,axis)
       {
+        // printF("ALLOC SPACE bc(%d,%d)=%d (characteristic=%d)\n",side,axis,bc(side,axis),(int)characteristic);
+
         const int is = 1 - 2*side; 
         for( int ghost=0; ghost<=numGhost; ghost++ )
         {
@@ -1173,13 +2017,19 @@ fillMatrixLaplacianComplex( int orderOfAccuracy, realCompositeGridFunction & ucg
             if( maskLocal(i1,i2,i3)>0 )
             {
               // assert( ig0>=0 && ig0<numberOfEquations );
-              nzzAlloc[ig0]=stencilSize;              
+              nzzAlloc[ig0]=stencilSize;   
+              if( !isRectangular && bc(side,axis)==characteristic )
+              {
+                nzzAlloc[ig0]=stencilSize*2; 
+                 // printF("Alloc non-zeros: (side,axis)=(%d,%d) (i1,i2)=(%3d,%3d) ghost=%d bc=characteristic ig0=%d zzAlloc[ig0]=%d\n",side,axis,i1,i2,ghost,ig0,nzzAlloc[ig0]);
+              }           
               // nzzAlloc[ig0]=stencilSize+1;  // do this for now : could improve for extrapolation
             }
             else if( maskLocal(i1,i2,i3)<0 ) 
             {
               nzzAlloc[ig0]=stencilSize+1; // interpolation point 
-            }   
+            }  
+
           }
         }
       }
@@ -1369,6 +2219,8 @@ fillMatrixLaplacianComplex( int orderOfAccuracy, realCompositeGridFunction & ucg
         is1=is2=is3=0;  isv[axis]=1-2*side;   // +1 on left and -1 on right    
         const int is = 1-2*side;
 
+        // printF("FILL BOUNDARY CONDITIONS bc(%d,%d)=%d (characteristic=%d)\n",side,axis,bc(side,axis),(int)characteristic);
+
         if( bc(side,axis)==dirichlet )
         {
           getAdjustedBoundaryIndex( mg, side, axis, Ib1,Ib2,Ib3 ); // extended boundary
@@ -1424,14 +2276,52 @@ fillMatrixLaplacianComplex( int orderOfAccuracy, realCompositeGridFunction & ucg
         else if( bc(side,axis)==neumann )
         {
           // ========== NEUMANN =======
-          fillCoeffNeumann();
+          fillCoeffNeumann()
 
         }
         else if( bc(side,axis)==characteristic )
         {
-          // ---- Engquist-Majda radiation boundary condition ----
-          fillCoeffCharacteristic();
+          if( rbc==engquistMajda )
+          {
+            // ---- Engquist-Majda radiation boundary condition ----
+            printF("Before call fillCoeffEM: bc(%d,%d)=characteristic\n",side,axis,bc(side,axis));
+            fillCoeffEngquistMajdaRBC()
+          }
+          else if( rbc==sommerfeld )
+          {
+            // ---- SOMMERFELD RBC -----
+            fillCoeffSommerfeldRBC()
 
+          }
+          else
+          {
+             OV_ABORT("ERROR unknown RBC");
+          }
+
+        }
+        else if( bc(side,axis)==0 )
+        {
+          // *wdh* May 22, 2026 
+          
+          // ----- ghost points ----
+          for( int ghost=1; ghost<=numGhost; ghost++ )
+          {
+            getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3,ghost);
+            FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+            {
+              if( maskLocal(i1,i2,i3)==0 )
+              {
+                // unused point -- set to identity equation
+                getGlobalIndexMacro( i1,i2,i3,n, ig0 );
+                ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+              } 
+              else if( maskLocal(i1,i2,i3)>0 )
+              {
+                printF("ERROR: grid=%d, bc(%d,%d)=0 but mask at ghost point !=0, (i1,i2,i3)=(%d,%d,%d) mask=%d \n",grid,side,axis,i1,i2,i3,maskLocal(i1,i2,i3));
+                OV_ABORT("ERROR");
+              }
+            }
+          } // end for ghost           
         }
         else if( bc(side,axis)>0 )
         {
@@ -1498,243 +2388,243 @@ fillMatrixLaplacianComplex( int orderOfAccuracy, realCompositeGridFunction & ucg
       }      
 
     } 
-    else if( 1==0 )
-    {
+    // else if( 1==0 )
+    // {
 
-      // ** START OLD WAY  ***
+    //   // ** START OLD WAY  ***
 
-      // --- fill in boundary points (constraints) ----
-      ForBoundary(side,axis)
-      {
-        if( bc(side,axis) > 0 )
-        {
-          getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
-          FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
-          {
-            if( maskLocal(i1,i2,i3)>0 )
-            {  
+    //   // --- fill in boundary points (constraints) ----
+    //   ForBoundary(side,axis)
+    //   {
+    //     if( bc(side,axis) > 0 )
+    //     {
+    //       getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+    //       FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+    //       {
+    //         if( maskLocal(i1,i2,i3)>0 )
+    //         {  
 
-              getGlobalIndexMacro( i1,i2,i3,n, ig0 );
-              // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+    //           getGlobalIndexMacro( i1,i2,i3,n, ig0 );
+    //           // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
 
-              if( bc(side,axis)==dirichlet ) 
-              // bc(side,axis)==characteristic )  
-              {
-                ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-              }
-              else if( bc(side,axis)==neumann ||
-                       bc(side,axis)==characteristic )
-              {
-                // .. Done below ..
-              }
-              else
-              {
-                printF("fillMatrixLaplacianComplex: grid=%d, side=%d, axis=%d, bc=%d is unknown!\n",grid,side,axis,bc(side,axis));
-                ::display(bc,"bc");
-                OV_ABORT("fillMatrixLaplacianComplex: unknown bc");
-              }
+    //           if( bc(side,axis)==dirichlet ) 
+    //           // bc(side,axis)==characteristic )  
+    //           {
+    //             ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+    //           }
+    //           else if( bc(side,axis)==neumann ||
+    //                    bc(side,axis)==characteristic )
+    //           {
+    //             // .. Done below ..
+    //           }
+    //           else
+    //           {
+    //             printF("fillMatrixLaplacianComplex: grid=%d, side=%d, axis=%d, bc=%d is unknown!\n",grid,side,axis,bc(side,axis));
+    //             ::display(bc,"bc");
+    //             OV_ABORT("fillMatrixLaplacianComplex: unknown bc");
+    //           }
 
-            }
-            else if( maskLocal(i1,i2,i3)==0 )
-            {
-              // unused point -- set to identity equation
-              getGlobalIndexMacro( i1,i2,i3,n, ig0 );
-              ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-            }
+    //         }
+    //         else if( maskLocal(i1,i2,i3)==0 )
+    //         {
+    //           // unused point -- set to identity equation
+    //           getGlobalIndexMacro( i1,i2,i3,n, ig0 );
+    //           ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+    //         }
 
-          } 
-        }
+    //       } 
+    //     }
    
-      } 
+    //   } 
 
-      // --- periodic boundaries ----
-      ForBoundary(side,axis)
-      {
-        if( bc(side,axis) < 0 )
-        {
-          // periodic boundary 
+    //   // --- periodic boundaries ----
+    //   ForBoundary(side,axis)
+    //   {
+    //     if( bc(side,axis) < 0 )
+    //     {
+    //       // periodic boundary 
 
-          const int is = 1 - 2*side;
-          const int ndp = gid(1,axis) - gid(0,axis); 
-          const int startGhost = side==0 ? 1 : 0;       
-          for( int ghost=startGhost; ghost<=numGhost; ghost++ )
-          {
-            getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3,ghost);
-            for( int dir=0; dir<3; dir++ )
-            { // Include ghost in tangential directions for non periodic adjacent sides
-              if( dir!=axis && bc(0,dir)>=0 )
-                Igv[dir] = Range( gid(0,dir)-numGhost, gid(1,dir)+numGhost ); 
-            }
+    //       const int is = 1 - 2*side;
+    //       const int ndp = gid(1,axis) - gid(0,axis); 
+    //       const int startGhost = side==0 ? 1 : 0;       
+    //       for( int ghost=startGhost; ghost<=numGhost; ghost++ )
+    //       {
+    //         getGhostIndex(mg.gridIndexRange(),side,axis,Ig1,Ig2,Ig3,ghost);
+    //         for( int dir=0; dir<3; dir++ )
+    //         { // Include ghost in tangential directions for non periodic adjacent sides
+    //           if( dir!=axis && bc(0,dir)>=0 )
+    //             Igv[dir] = Range( gid(0,dir)-numGhost, gid(1,dir)+numGhost ); 
+    //         }
          
 
-            FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
-            {
-              // NOTE: some periodic points may have mask<0 but not be interp points *check me* 
-              //          |  |  |  |  |  
-              //   :   P--X--+--+--+--X--P  <- lower boundary is interpolation 
-              //          |  |  |  |  |  
-              //   :   P--I--I--I--I--B--P  <- ghost points below lower boundary 
-              //  
-              // Point B on right side has mask<0 but is not an interpolation point (I) *check me*
-              // It should be a periodic point 
-              //            
-              // if( maskLocal(i1,i2,i3)>0 )
-              if( maskLocal(i1,i2,i3) !=0  )    // NOTE
-              {          
-                getGlobalIndexMacro( i1,i2,i3,n, ig0 );
-                // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
-                ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+    //         FOR_3D(i1,i2,i3,Ig1,Ig2,Ig3) 
+    //         {
+    //           // NOTE: some periodic points may have mask<0 but not be interp points *check me* 
+    //           //          |  |  |  |  |  
+    //           //   :   P--X--+--+--+--X--P  <- lower boundary is interpolation 
+    //           //          |  |  |  |  |  
+    //           //   :   P--I--I--I--I--B--P  <- ghost points below lower boundary 
+    //           //  
+    //           // Point B on right side has mask<0 but is not an interpolation point (I) *check me*
+    //           // It should be a periodic point 
+    //           //            
+    //           // if( maskLocal(i1,i2,i3)>0 )
+    //           if( maskLocal(i1,i2,i3) !=0  )    // NOTE
+    //           {          
+    //             getGlobalIndexMacro( i1,i2,i3,n, ig0 );
+    //             // printF("Boundary: ig0=%d, i1=%d, i2=%d\n",ig0,i1,i2);
+    //             ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
 
-                j1=i1; j2=i2; j3=i3;
-                jv[axis] += is*( ndp ); // periodic image 
+    //             j1=i1; j2=i2; j3=i3;
+    //             jv[axis] += is*( ndp ); // periodic image 
 
-                getGlobalIndexMacro( j1,j2,j3,n, ig  );
-                ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);            
-              }
-              else if( maskLocal(i1,i2,i3)==0 )
-              {
-                // unused point -- set to identity equation
-                getGlobalIndexMacro( i1,i2,i3,n, ig0 );
-                ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-              }
-            } 
-          }        
-        }         
-      }
+    //             getGlobalIndexMacro( j1,j2,j3,n, ig  );
+    //             ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);            
+    //           }
+    //           else if( maskLocal(i1,i2,i3)==0 )
+    //           {
+    //             // unused point -- set to identity equation
+    //             getGlobalIndexMacro( i1,i2,i3,n, ig0 );
+    //             ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+    //           }
+    //         } 
+    //       }        
+    //     }         
+    //   }
 
 
-      // --- fill in ghost points (constraints) ----
-      ForBoundary(side,axis)
-      {
-        is1=is2=is3=0;  isv[axis]=1-2*side;   // +1 on left and -1 on right     
+    //   // --- fill in ghost points (constraints) ----
+    //   ForBoundary(side,axis)
+    //   {
+    //     is1=is2=is3=0;  isv[axis]=1-2*side;   // +1 on left and -1 on right     
           
-        if( !isRectangular  )
-        {
-          // ========== CURVILINEAR ========
-          if( mg.boundaryCondition(side,axis)==neumann )
-          {
-            // --- Neumann BC -- curvilinear grid ---
+    //     if( !isRectangular  )
+    //     {
+    //       // ========== CURVILINEAR ========
+    //       if( mg.boundaryCondition(side,axis)==neumann )
+    //       {
+    //         // --- Neumann BC -- curvilinear grid ---
 
-            mg.update(MappedGrid::THEvertexBoundaryNormal);
-            OV_GET_VERTEX_BOUNDARY_NORMAL(mg,side,axis,normal); 
+    //         mg.update(MappedGrid::THEvertexBoundaryNormal);
+    //         OV_GET_VERTEX_BOUNDARY_NORMAL(mg,side,axis,normal); 
 
-            getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+    //         getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
             
-            // Get coefficient matrices on boundary needed for the normal derivative
-            realSerialArray xCoeff(M0,Ib1,Ib2,Ib3), yCoeff(M0,Ib1,Ib2,Ib3), zCoeff; 
-            mgop.assignCoefficients(MappedGridOperators::xDerivative ,xCoeff, Ib1,Ib2,Ib3,0,0);
-            mgop.assignCoefficients(MappedGridOperators::yDerivative ,yCoeff, Ib1,Ib2,Ib3,0,0);
-            if( numberOfDimensions==3 )
-            {
-              zCoeff.redim(M0,Ib1,Ib2,Ib3);
-              mgop.assignCoefficients(MappedGridOperators::zDerivative ,zCoeff, Ib1,Ib2,Ib3,0,0);
-            }  
+    //         // Get coefficient matrices on boundary needed for the normal derivative
+    //         realSerialArray xCoeff(M0,Ib1,Ib2,Ib3), yCoeff(M0,Ib1,Ib2,Ib3), zCoeff; 
+    //         mgop.assignCoefficients(MappedGridOperators::xDerivative ,xCoeff, Ib1,Ib2,Ib3,0,0);
+    //         mgop.assignCoefficients(MappedGridOperators::yDerivative ,yCoeff, Ib1,Ib2,Ib3,0,0);
+    //         if( numberOfDimensions==3 )
+    //         {
+    //           zCoeff.redim(M0,Ib1,Ib2,Ib3);
+    //           mgop.assignCoefficients(MappedGridOperators::zDerivative ,zCoeff, Ib1,Ib2,Ib3,0,0);
+    //         }  
 
-            FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) // loop over points on the boundary
-            {
-              int ghost=1; 
-              int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // first ghost point          
-              getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+    //         FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) // loop over points on the boundary
+    //         {
+    //           int ghost=1; 
+    //           int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // first ghost point          
+    //           getGlobalIndexMacro( j1,j2,j3,n, ig0 );
 
-              if( maskLocal(i1,i2,i3)>0 )
-              {               
-                ForStencil(m1,m2,m3)
-                {
-                  const int m  = M123(m1,m2,m3);        // the single-component coeff-index
-                  Real coeff123 = normal(i1,i2,i3,0)*xCoeff(m,i1,i2,i3) + normal(i1,i2,i3,1)*yCoeff(m,i1,i2,i3);
-                  if( numberOfDimensions==3 )
-                    coeff123 += normal(i1,i2,i3,2)*zCoeff(m,i1,i2,i3);
+    //           if( maskLocal(i1,i2,i3)>0 )
+    //           {               
+    //             ForStencil(m1,m2,m3)
+    //             {
+    //               const int m  = M123(m1,m2,m3);        // the single-component coeff-index
+    //               Real coeff123 = normal(i1,i2,i3,0)*xCoeff(m,i1,i2,i3) + normal(i1,i2,i3,1)*yCoeff(m,i1,i2,i3);
+    //               if( numberOfDimensions==3 )
+    //                 coeff123 += normal(i1,i2,i3,2)*zCoeff(m,i1,i2,i3);
 
-                  if( coeff123 != 0. )
-                  {
-                    getGlobalIndexMacro( i1+m1,i2+m2,i3+m3,n, ig );
-                    ierr = MatSetValue(A,ig0,ig,coeff123,INSERT_VALUES);CHKERRQ(ierr);
-                  }            
+    //               if( coeff123 != 0. )
+    //               {
+    //                 getGlobalIndexMacro( i1+m1,i2+m2,i3+m3,n, ig );
+    //                 ierr = MatSetValue(A,ig0,ig,coeff123,INSERT_VALUES);CHKERRQ(ierr);
+    //               }            
 
-                } // end for stencil 
+    //             } // end for stencil 
 
-                // Fill additional ghost with extrapolation
-                for( int ghost=2; ghost<=numGhost; ghost++ )
-                {
-                  int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
-                  getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+    //             // Fill additional ghost with extrapolation
+    //             for( int ghost=2; ghost<=numGhost; ghost++ )
+    //             {
+    //               int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+    //               getGlobalIndexMacro( j1,j2,j3,n, ig0 );
 
-                  // extrapolate      
-                  for( int k=0; k<=extrapOrder; k++ )
-                  {
-                    getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3+is3*k,n, ig);
-                    ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
-                  }
-                }  
+    //               // extrapolate      
+    //               for( int k=0; k<=extrapOrder; k++ )
+    //               {
+    //                 getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3+is3*k,n, ig);
+    //                 ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+    //               }
+    //             }  
 
-              }
-              else
-              {
-                // unused point : set A = I 
-                ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);            
-              }
+    //           }
+    //           else
+    //           {
+    //             // unused point : set A = I 
+    //             ierr = MatSetValue(A,ig0,ig0,1.0,INSERT_VALUES);CHKERRQ(ierr);            
+    //           }
 
-            } // end FOR_3D
-          }
-          else if( mg.boundaryCondition(side,axis)==characteristic ) 
-          {
-            printF("fillMatrixLaplacianComplex:ERROR: characteristic BC on a curvlinear grid -- FINISH ME Bill\n");
-            OV_ABORT("ERROR");
+    //         } // end FOR_3D
+    //       }
+    //       else if( mg.boundaryCondition(side,axis)==characteristic ) 
+    //       {
+    //         printF("fillMatrixLaplacianComplex:ERROR: characteristic BC on a curvlinear grid -- FINISH ME Bill\n");
+    //         OV_ABORT("ERROR");
 
-          }
-        }  // end if curvilinear 
+    //       }
+    //     }  // end if curvilinear 
 
 
-        if( mg.boundaryCondition(side,axis) >= 0 )  
-        {    
+    //     if( mg.boundaryCondition(side,axis) >= 0 )  
+    //     {    
 
-          getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
-          FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
-          {
-            for( int ghost=1; ghost<=numGhost; ghost++ )
-            {
-              int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
-              getGlobalIndexMacro( j1,j2,j3,n, ig0 );
-              // printF("Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
+    //       getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+    //       FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) 
+    //       {
+    //         for( int ghost=1; ghost<=numGhost; ghost++ )
+    //         {
+    //           int j1 = i1 - is1*ghost, j2 = i2 - is2*ghost,  j3 = i3 - is3*ghost;  // ghost point
+    //           getGlobalIndexMacro( j1,j2,j3,n, ig0 );
+    //           // printF("Ghost: ig0=%d, j1=%d, j2=%d, j3=%d\n",ig0,j1,j2,j3);
 
-              if( maskLocal(j1,j2,j3)>0 )  
-              {
-                if( bc(side,axis)==neumann )   
-                {
-                  // Note : curvilinear case is done above 
-                  if( isRectangular )
-                  {
-                    // --- even symmetry for Cartesian ----
-                    //   u(-g) -   u(g) = 0 
-                    ierr = MatSetValue(A,ig0,ig0,1.,INSERT_VALUES);CHKERRQ(ierr);
+    //           if( maskLocal(j1,j2,j3)>0 )  
+    //           {
+    //             if( bc(side,axis)==neumann )   
+    //             {
+    //               // Note : curvilinear case is done above 
+    //               if( isRectangular )
+    //               {
+    //                 // --- even symmetry for Cartesian ----
+    //                 //   u(-g) -   u(g) = 0 
+    //                 ierr = MatSetValue(A,ig0,ig0,1.,INSERT_VALUES);CHKERRQ(ierr);
 
-                    j1 = i1 + is1*ghost; j2 = i2 + is2*ghost;  j3 = i3 + is3*ghost;  // point inside 
-                    getGlobalIndexMacro( j1,j2,j3,n, ig );
-                    ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
-                  }
-                }   
-                else
-                { 
-                  // ALL other boundaries : extrapolate ghost      
-                  for( int k=0; k<=extrapOrder; k++ )
-                  {
-                    // getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3,n, ig); 
-                    getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3+is3*k,n, ig);  // *wdh* bug fixed Sept 1, 2024 
-                    ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
-                  }
-                }
-              }
-              else if( maskLocal(j1,j2,j3)==0 )
-              {
-                // unused point -- set to identity equation
-                ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
-              }            
+    //                 j1 = i1 + is1*ghost; j2 = i2 + is2*ghost;  j3 = i3 + is3*ghost;  // point inside 
+    //                 getGlobalIndexMacro( j1,j2,j3,n, ig );
+    //                 ierr = MatSetValue(A,ig0,ig ,-1.,INSERT_VALUES);CHKERRQ(ierr);                 
+    //               }
+    //             }   
+    //             else
+    //             { 
+    //               // ALL other boundaries : extrapolate ghost      
+    //               for( int k=0; k<=extrapOrder; k++ )
+    //               {
+    //                 // getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3,n, ig); 
+    //                 getGlobalIndexMacro( j1+is1*k,j2+is2*k,j3+is3*k,n, ig);  // *wdh* bug fixed Sept 1, 2024 
+    //                 ierr = MatSetValue(A,ig0,ig,extraplapCoeff[k],INSERT_VALUES);CHKERRQ(ierr);  
+    //               }
+    //             }
+    //           }
+    //           else if( maskLocal(j1,j2,j3)==0 )
+    //           {
+    //             // unused point -- set to identity equation
+    //             ierr = MatSetValue(A,ig0,ig0, 1.,INSERT_VALUES);CHKERRQ(ierr);  
+    //           }            
 
-            }
-          }
-        }          
-      }
-    } // end OLD WAY
+    //         }
+    //       }
+    //     }          
+    //   }
+    // } // end OLD WAY
 
 
     // ------ fill corners ----
@@ -2018,17 +2908,34 @@ fillMatrixLaplacianComplex( int orderOfAccuracy, realCompositeGridFunction & ucg
   delete [] nzzAlloc;
 
 
-  if( 1==0 )
+  // --- Note: use eigSolvers/matlab/displayMatrix.m to plot the matrices ---
+
+  bool outputMatrixToMatlab=0; // set to 1 to output a matlab file
+  if( outputMatrixToMatlab )
   {
-    // Ouput matrix in matlab format
+    // Output matrix in matlab format
+    PetscViewer viewer;
+    // Create an ASCII viewer
+    PetscViewerASCIIOpen(PETSC_COMM_WORLD, "SlepcMatrix.m", &viewer);
+    // Set the viewer format to MATLAB
+    PetscObjectSetName((PetscObject)A,"A");
+    PetscObjectSetName((PetscObject)B,"B");
+    PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);
+    // View the matrix
+    MatView(A, viewer);
+    MatView(B, viewer);
 
-    PetscObjectSetName((PetscObject)A,"A");    
-    PetscObjectSetName((PetscObject)B,"B");    
+    printF("\n ***** WROTE MATRIX TO FILE SlepcMatrix.m *****\n\n");
+    // // Destroy the viewer
+    // PetscViewerDestroy(&viewer);   
 
-    PetscViewerPushFormat(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_ASCII_MATLAB);
-    MatView(A,PETSC_VIEWER_STDOUT_WORLD);
-    MatView(B,PETSC_VIEWER_STDOUT_WORLD);
-    PetscViewerPopFormat(PETSC_VIEWER_STDOUT_WORLD);
+    // PetscObjectSetName((PetscObject)A,"A");    
+    // PetscObjectSetName((PetscObject)B,"B");    
+
+    // PetscViewerPushFormat(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_ASCII_MATLAB);
+    // MatView(A,PETSC_VIEWER_STDOUT_WORLD);
+    // MatView(B,PETSC_VIEWER_STDOUT_WORLD);
+    // PetscViewerPopFormat(PETSC_VIEWER_STDOUT_WORLD);
 
   }
 

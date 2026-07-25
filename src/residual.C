@@ -33,6 +33,8 @@ Real Ogev::getEigenPairResidual( Real lambdar, Real lambdai, realCompositeGridFu
 
   // realCompositeGridFunction res(cg);   // ***** do this for now ... is there a work space we can use instead?
 
+    const RadiationBoundaryConditionEnum & rbc = dbase.get<RadiationBoundaryConditionEnum>("rbc");
+
     CompositeGrid & cg = *v.getCompositeGrid();
     const int numberOfDimensions = cg.numberOfDimensions();
 
@@ -101,6 +103,8 @@ Real Ogev::getEigenPairResidual( Real lambdar, Real lambdai, realCompositeGridFu
         //
         //  lambda^2 = (lambdar + i*lambdai )^2 = lambdar^2 - lambdai^2 + i * 2*lambdar*lambdai
         //  
+                const bool isRectangular = mg.isRectangular();
+
                 const int compr = comp;        // Re part
                 const int compi = comp+1;      // Im part
                 const Real lamSqr = SQR(lambdar) - SQR(lambdai);
@@ -124,359 +128,727 @@ Real Ogev::getEigenPairResidual( Real lambdar, Real lambdai, realCompositeGridFu
                 } 
 
         // --- boundary condition residuals ---
+                int isv[3], &is1=isv[0], &is2=isv[1], &is3=isv[2]; 
                 ForBoundary(side,axis)
                 {
 
                     const int is = 1-2*side;
+                    isv[0]=0; isv[1]= 0; isv[2]=0;  // holds direction to extrapolate 
+                    isv[axis]=is; 
                     if( mg.boundaryCondition(side,axis)==characteristic )
                     {
 
                         const Real c=1.0; // wave speed 
 
-                        Real cx,cy,cz, cxx,cyy,czz;
-                        cx=0.; cy=0.; cz=0; cxx=-.5*is*c; cyy=-.5*is*c; czz=-.5*is*c;
-                        if( axis==0 )
-                        {
-                            cx=1.; cxx=-is*c;
-                        }
-                        else if( axis==1 )
-                        {
-                            cy=1.; cyy=-is*c; 
-                        }
-                        else
-                        {
-                            cz=1.; czz=-is*c; 
-                        }
-
-            // RBC:
-            //  nu u_x - is*c*( u.xx + .5*u.yy ) = 0 
-            //  (lamr + i lami)*( psir + i psi)_x - is*c*( u.xx + .5*u.yy ) = 0 
-            //
-                        const int compr = comp;        // Re part
-                        const int compi = comp+1;      // Im part
-
             // getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
                         getAdjustedBoundaryIndex( mg, side, axis, Ib1,Ib2,Ib3 ); // skip ends with adjacent Dirichlet BC   
 
-                        RealArray urxLocal(Ib1,Ib2,Ib3), uryLocal(Ib1,Ib2,Ib3), uixLocal(Ib1,Ib2,Ib3), uiyLocal(Ib1,Ib2,Ib3);
-                        realSerialArray uxxLocal(Ib1,Ib2,Ib3), uyyLocal(Ib1,Ib2,Ib3);
-
-                        operators[grid].derivative(MappedGridOperators::xDerivative, vLocal,urxLocal, Ib1,Ib2,Ib3,compr); // Re(psi.x)
-                        operators[grid].derivative(MappedGridOperators::yDerivative, vLocal,uryLocal, Ib1,Ib2,Ib3,compr); // Re(psi.y) 
-
-                        operators[grid].derivative(MappedGridOperators::xDerivative, vLocal,uixLocal, Ib1,Ib2,Ib3,compi); // Im(psi.x)
-                        operators[grid].derivative(MappedGridOperators::yDerivative, vLocal,uiyLocal, Ib1,Ib2,Ib3,compi); // Im(psi.y) 
-
-                        operators[grid].derivative(MappedGridOperators::xxDerivative,vLocal,uxxLocal, Ib1,Ib2,Ib3,compr); // Re(phi.xx)
-                        operators[grid].derivative(MappedGridOperators::yyDerivative,vLocal,uyyLocal, Ib1,Ib2,Ib3,compr); // Re(phi.yy)
-
                         RealArray resr(Ib1,Ib2,Ib3), resi(Ib1,Ib2,Ib3);
-                        resr = lambdar*( cx*urxLocal + cy*uryLocal)
-                                    -lambdai*( cx*uixLocal + cy*uiyLocal) + ( cxx*uxxLocal + cyy*uyyLocal );
 
-                        operators[grid].derivative(MappedGridOperators::xxDerivative,vLocal,uxxLocal, Ib1,Ib2,Ib3,compi); // Im(phi.xx)
-                        operators[grid].derivative(MappedGridOperators::yyDerivative,vLocal,uyyLocal, Ib1,Ib2,Ib3,compi); // Im(phi.yy)            
-
-                        resi = lambdar*( cx*uixLocal + cy*uiyLocal)
-                                    +lambdai*( cx*urxLocal + cy*uryLocal) + ( cxx*uxxLocal + cyy*uyyLocal ); 
-
-                        if( numberOfDimensions==3 )
+                        if( rbc==sommerfeld )
                         {
-              // ** Check me **
-                            RealArray & urzLocal  = urxLocal; // re-use existing arrays
-                            RealArray & uizLocal  = uryLocal;
-                            RealArray & urzzLocal = uxxLocal;
-                            RealArray & uizzLocal = uyyLocal;
-                            operators[grid].derivative(MappedGridOperators::zDerivative, vLocal,urzLocal,  Ib1,Ib2,Ib3,compr); // Re(psi.z)
-                            operators[grid].derivative(MappedGridOperators::zDerivative, vLocal,uizLocal,  Ib1,Ib2,Ib3,compi); // Im(psi.z)
-                            operators[grid].derivative(MappedGridOperators::zzDerivative,vLocal,urzzLocal, Ib1,Ib2,Ib3,compr); // Re(phi.zz)
-                            operators[grid].derivative(MappedGridOperators::zzDerivative,vLocal,uizzLocal, Ib1,Ib2,Ib3,compi); // Im(phi.zz)   
-
-                            resr += lambdar*( cz*urzLocal )
-                                          -lambdai*( cz*uizLocal ) + ( czz*urzzLocal );
-                            resi += lambdar*( cz*uizLocal )
-                                          +lambdai*( cz*urzLocal ) + ( czz*uizzLocal );  
-                        }
-
-                        Real resbc1r = 0.; // max(abs(resr)); // Re(resbc)
-                        Real resbc1i = 0.; // max(abs(resi));
-                        FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3)
-                        {
-                            if( maskLocal(i1,i2,i3)>0 )
-                            {  
-                                resbc1r=max(resbc1r,fabs(resr(i1,i2,i3)));          
-                                resbc1i=max(resbc1i,fabs(resi(i1,i2,i3)));          
-                            }
-                        }
-                        Real resbc1= max(resbc1r,resbc1i); // Im(resbc)
-
-                        resbc(side,axis,0) = resbc1; // return this value
-
-                        if( 1==0 )
-                            printF("EM RBC: compr=%d compi=%d : (side,axis)=(%d,%d) : resbc1=%9.2e\n",compr,compi,side,axis,resbc1);
-            // ::display(resbc,"EM RBC: Re(resbc)");
-
-                        if( orderOfAccuracy==4 )
-                        {
-              // --- CHECK THE radiation CBC ---
-
-                            bool isRectangular = mg.isRectangular();
-                            if( !isRectangular )
+                            if( isRectangular )
                             {
-                                printF("getEigenPairResidual::ERROR: finish me for curvilinear grids\n");
-                            }
 
-                            Real dx[3]={1.,1.,1.};
-                            mg.getDeltaX(dx);
+                // ---- SOMMERFELD MAJDA RBC -----------
+                                Real cx=0., cy=0., cz=0.;
+                                if( axis==0 )
+                                    cx=-is*c; 
+                                else if( axis==1 )
+                                    cy=-is*c;
+                                else
+                                    cz=-is*c; 
+
+                // ------------------------------------------------------------------
+                // ------ SOMMERFELD RBC:
+                //  (lamr + i lami)*( psir + i psi) - is*c*( u.x + .5*u.y ) = 0 
+                // ------------------------------------------------------------------
+                //
+                                const int compr = comp;        // Re part
+                                const int compi = comp+1;      // Im part
 
 
-                            const Real dx2 = dx[0]*dx[0];
-                            const Real dx3 = dx[0]*dx[0]*dx[0];
-                            const Real dx4 = dx[0]*dx[0]*dx[0]*dx[0];
 
-                            const Real dy2 = dx[1]*dx[1];
-                            const Real dy3 = dx[1]*dx[1]*dx[1];
-                            const Real dy4 = dx[1]*dx[1]*dx[1]*dx[1];
+                                RealArray urxLocal(Ib1,Ib2,Ib3), uryLocal(Ib1,Ib2,Ib3), uixLocal(Ib1,Ib2,Ib3), uiyLocal(Ib1,Ib2,Ib3);
 
-                            const Real dz2 = dx[2]*dx[2];
-                            const Real dz3 = dx[2]*dx[2]*dx[2];
-                            const Real dz4 = dx[2]*dx[2]*dx[2]*dx[2];      
+                                operators[grid].derivative(MappedGridOperators::xDerivative, vLocal,urxLocal, Ib1,Ib2,Ib3,compr); // Re(psi.x)
+                                operators[grid].derivative(MappedGridOperators::yDerivative, vLocal,uryLocal, Ib1,Ib2,Ib3,compr); // Re(psi.y) 
 
-                            Real cxxx=0., cyyy=0., czzz=0., cxxxx=0., cyyyy=0., czzzz=0., cxxyy=0., cxxzz=0., cyyzz=0.;
-                            if( axis==0 )
-                            {
-                                cxxx = 1./(2.*dx3); cxxxx=-is*c/dx4; cxxyy=-is*c*.5/(dx2*dy2); cxxzz=-is*c*.5/(dx2*dz2);
-                            }
-                            else if( axis==1 )
-                            {
-                                cyyy = 1./(2.*dy3); cyyyy=-is*c/dy4; cxxyy=-is*c*.5/(dx2*dy2); cyyzz=-is*c*.5/(dy2*dz2);
+                                operators[grid].derivative(MappedGridOperators::xDerivative, vLocal,uixLocal, Ib1,Ib2,Ib3,compi); // Im(psi.x)
+                                operators[grid].derivative(MappedGridOperators::yDerivative, vLocal,uiyLocal, Ib1,Ib2,Ib3,compi); // Im(psi.y) 
+
+                              
+                                resr = lambdar*( vLocal(Ib1,Ib2,Ib3,compr) )
+                                            -lambdai*( vLocal(Ib1,Ib2,Ib3,compi) ) 
+                                            + ( cx*urxLocal + cy*uryLocal );
+
+                                resi = lambdar*( vLocal(Ib1,Ib2,Ib3,compi) )
+                                            +lambdai*( vLocal(Ib1,Ib2,Ib3,compr) ) 
+                                            + ( cx*uixLocal + cy*uiyLocal ); 
+
+                                if( numberOfDimensions==3 )
+                                {
+                  // ** Check me **
+                                    RealArray & urzLocal  = urxLocal; // re-use existing arrays
+                                    RealArray & uizLocal  = uryLocal;
+                                    operators[grid].derivative(MappedGridOperators::zDerivative, vLocal,urzLocal,  Ib1,Ib2,Ib3,compr); // Re(psi.z)
+                                    operators[grid].derivative(MappedGridOperators::zDerivative, vLocal,uizLocal,  Ib1,Ib2,Ib3,compi); // Im(psi.z)
+
+                                    resr += cz*urzLocal;
+                                    resi += cz*uizLocal;  
+                                }
                             }
                             else
                             {
-                                czzz = 1./(2.*dz3); czzzz=-is*c/dz4; cxxzz=-is*c*.5/(dx2*dz2); cyyzz=-is*c*.5/(dy2*dz2);
+                 // -- Sommerfeld curvilinear ---
+                // printF("**** COMPUTE RESIDUALS FOR EM RBC CURVLINEAR (side,axis)=(%d,%d) comp=%d, (compr,compi)=(%d,%d) ****\n",side,axis,comp, compr,compi);
 
-                            }
-            
-              // const Real dx2 = dx[0]*dx[0];
-              // const Real dx3 = dx[0]*dx[0]*dx[0];
-              // const Real dx4 = dx[0]*dx[0]*dx[0]*dx[0];
+                                Real dr[3]={1.,1.,1.};
+                // unit square grid spacings: 
+                                for( int dir=0; dir<3; dir++ )
+                                    dr[dir]=mg.gridSpacing(dir);           
 
-              // const Real dy2 = dx[1]*dx[1];
-              // const Real dy3 = dx[1]*dx[1]*dx[1];
-              // const Real dy4 = dx[1]*dx[1]*dx[1]*dx[1];
+                                OV_GET_SERIAL_ARRAY(Real,mg.inverseVertexDerivative(),rxLocal);
+                // macro to make the rxLocal array look 5-dimensional 
+                                #define DD(i1,i2,i3,m1,m2) rxLocal(i1,i2,i3,(m1)+numberOfDimensions*(m2))             
 
-              // Real cxxx=0., cyyy=0., cxxxx=0., cyyyy=0., cxxyy=0.;
-              // if( axis==0 )
-              // {
-              //   cxxx = 1./(2.*dx3); cxxxx=-is*c/dx4;    cyyyy=-is*c*.5/dy4; cxxyy=-is*c*.5/(dx2*dy2);
-              // }
-              // else
-              // {
-              //   cyyy = 1./(2.*dy3); cxxxx=-is*c*.5/dx4; cyyyy=-is*c/dy4;    cxxyy=-is*c*.5/(dx2*dy2);
-              // }              
+                                Range R2 = Range(compr,compi);
+                                RealArray ur(Ib1,Ib2,Ib3,R2), un(Ib1,Ib2,Ib3,R2);
 
-                            RealArray & urxxxLocal = urxLocal;
-                            RealArray & uixxxLocal = uixLocal;
-                            urxxxLocal = (    -vLocal(Ib1-2,Ib2,Ib3,compr)  
-                                                          +2.*vLocal(Ib1-1,Ib2,Ib3,compr) 
-                                                          -2.*vLocal(Ib1+1,Ib2,Ib3,compr) 
-                                                                +vLocal(Ib1+2,Ib2,Ib3,compr)
-                                                      );
-                            uixxxLocal = (    -vLocal(Ib1-2,Ib2,Ib3,compi)  
-                                                          +2.*vLocal(Ib1-1,Ib2,Ib3,compi) 
-                                                          -2.*vLocal(Ib1+1,Ib2,Ib3,compi) 
-                                                                +vLocal(Ib1+2,Ib2,Ib3,compi)
-                                                      );  
-
-                            RealArray & uryyyLocal = uryLocal;
-                            RealArray & uiyyyLocal = uiyLocal;
-                            uryyyLocal = (    -vLocal(Ib1,Ib2-2,Ib3,compr)  
-                                                          +2.*vLocal(Ib1,Ib2-1,Ib3,compr) 
-                                                          -2.*vLocal(Ib1,Ib2+1,Ib3,compr) 
-                                                                +vLocal(Ib1,Ib2+2,Ib3,compr)
-                                                      );
-                            uiyyyLocal = (    -vLocal(Ib1,Ib2-2,Ib3,compi)  
-                                                          +2.*vLocal(Ib1,Ib2-1,Ib3,compi) 
-                                                          -2.*vLocal(Ib1,Ib2+1,Ib3,compi) 
-                                                                +vLocal(Ib1,Ib2+2,Ib3,compi)
-                                                      ); 
-
-                            RealArray & urxxxxLocal = uxxLocal;
-                            RealArray & uryyyyLocal = uyyLocal;
-                            urxxxxLocal = (    +vLocal(Ib1-2,Ib2,Ib3,compr)  
-                                                            -4.*vLocal(Ib1-1,Ib2,Ib3,compr) 
-                                                            +6.*vLocal(Ib1  ,Ib2,Ib3,compr) 
-                                                            -4.*vLocal(Ib1+1,Ib2,Ib3,compr) 
-                                                                  +vLocal(Ib1+2,Ib2,Ib3,compr)
-                                                        );
-                            uryyyyLocal = (    +vLocal(Ib1,Ib2-2,Ib3,compr)  
-                                                            -4.*vLocal(Ib1,Ib2-1,Ib3,compr) 
-                                                            +6.*vLocal(Ib1,Ib2  ,Ib3,compr) 
-                                                            -4.*vLocal(Ib1,Ib2+1,Ib3,compr) 
-                                                                  +vLocal(Ib1,Ib2+2,Ib3,compr)
-                                                        );
-
-                            RealArray urxxyyLocal(Ib1,Ib2,Ib3); 
-                            urxxyyLocal = ( 
-                                                                    vLocal(Ib1-1,Ib2-1,Ib3,compr)  
-                                                                  +vLocal(Ib1+1,Ib2-1,Ib3,compr)  
-                                                            -2.*vLocal(Ib1  ,Ib2-1,Ib3,compr)  
-                                                            -2.*vLocal(Ib1-1,Ib2  ,Ib3,compr) 
-                                                            +4.*vLocal(Ib1  ,Ib2  ,Ib3,compr) 
-                                                            -2.*vLocal(Ib1+1,Ib2  ,Ib3,compr) 
-                                                            -2.*vLocal(Ib1  ,Ib2+1,Ib3,compr)
-                                                                  +vLocal(Ib1-1,Ib2+1,Ib3,compr)  
-                                                                  +vLocal(Ib1+1,Ib2+1,Ib3,compr)                               
-                                                        );                           
-
-                            resr = lambdar*( cxxx*urxxxLocal + cyyy*uryyyLocal)
-                                        -lambdai*( cxxx*uixxxLocal + cyyy*uiyyyLocal) + ( cxxxx*urxxxxLocal + cyyyy*uryyyyLocal + cxxyy*urxxyyLocal );
-
-                            RealArray & uixxxxLocal = uxxLocal;
-                            RealArray & uiyyyyLocal = uyyLocal;
-                            uixxxxLocal = (    +vLocal(Ib1-2,Ib2,Ib3,compi)  
-                                                            -4.*vLocal(Ib1-1,Ib2,Ib3,compi) 
-                                                            +6.*vLocal(Ib1  ,Ib2,Ib3,compi) 
-                                                            -4.*vLocal(Ib1+1,Ib2,Ib3,compi) 
-                                                                  +vLocal(Ib1+2,Ib2,Ib3,compi)
-                                                        );
-                            uiyyyyLocal = (    +vLocal(Ib1,Ib2-2,Ib3,compi)  
-                                                            -4.*vLocal(Ib1,Ib2-1,Ib3,compi) 
-                                                            +6.*vLocal(Ib1,Ib2  ,Ib3,compi) 
-                                                            -4.*vLocal(Ib1,Ib2+1,Ib3,compi) 
-                                                                  +vLocal(Ib1,Ib2+2,Ib3,compi)
-                                                        );
-                            RealArray uixxyyLocal(Ib1,Ib2,Ib3); 
-                            uixxyyLocal = ( 
-                                                                    vLocal(Ib1-1,Ib2-1,Ib3,compi)  
-                                                                  +vLocal(Ib1+1,Ib2-1,Ib3,compi)  
-                                                            -2.*vLocal(Ib1  ,Ib2-1,Ib3,compi)  
-                                                            -2.*vLocal(Ib1-1,Ib2  ,Ib3,compi) 
-                                                            +4.*vLocal(Ib1  ,Ib2  ,Ib3,compi) 
-                                                            -2.*vLocal(Ib1+1,Ib2  ,Ib3,compi) 
-                                                            -2.*vLocal(Ib1  ,Ib2+1,Ib3,compi)
-                                                                  +vLocal(Ib1-1,Ib2+1,Ib3,compi)  
-                                                                  +vLocal(Ib1+1,Ib2+1,Ib3,compi)  
-                                                        );
-
-                            resi = lambdar*( cxxx*uixxxLocal + cyyy*uiyyyLocal)
-                                        +lambdai*( cxxx*urxxxLocal + cyyy*uryyyLocal) + ( cxxxx*uixxxxLocal + cyyyy*uiyyyyLocal + cxxyy*uixxyyLocal ); 
-
-                            if( numberOfDimensions==3 )
-                            {
-                // ** Check me **
-                                RealArray & urzzzLocal  = urxLocal; // re-use existing arrays
-                                RealArray & uizzzLocal  = uryLocal;
-                                RealArray & urzzzzLocal = uxxLocal;
-                                RealArray & uizzzzLocal = uyyLocal;
-
-                                urzzzLocal = (    -vLocal(Ib1,Ib2,Ib3-2,compr)  
-                                                              +2.*vLocal(Ib1,Ib2,Ib3-1,compr) 
-                                                              -2.*vLocal(Ib1,Ib2,Ib3+1,compr) 
-                                                                    +vLocal(Ib1,Ib2,Ib3+2,compr)
-                                                          );
-                                uizzzLocal = (    -vLocal(Ib1,Ib2,Ib3-2,compi)  
-                                                              +2.*vLocal(Ib1,Ib2,Ib3-1,compi) 
-                                                              -2.*vLocal(Ib1,Ib2,Ib3+1,compi) 
-                                                                    +vLocal(Ib1,Ib2,Ib3+2,compi)
-                                                          );  
+                                if( axis==0 )
+                                    ur(Ib1,Ib2,Ib3,R2)  = ( vLocal(Ib1+1,Ib2,Ib3,R2)                            - vLocal(Ib1-1,Ib2,Ib3,R2) )/(2.*dr[axis]);
+                                else if( axis==1 )
+                                    ur(Ib1,Ib2,Ib3,R2)  = ( vLocal(Ib1,Ib2+1,Ib3,R2)                            - vLocal(Ib1,Ib2-1,Ib3,R2) )/(2.*dr[axis]);
+                                else
+                                    ur(Ib1,Ib2,Ib3,R2)  = ( vLocal(Ib1,Ib2,Ib3+1,R2)                            - vLocal(Ib1,Ib2,Ib3-1,R2) )/(2.*dr[axis]);
 
 
-                                urzzzzLocal = (  +vLocal(Ib1,Ib2,Ib3-2,compr)  
-                                                            -4.*vLocal(Ib1,Ib2,Ib3-1,compr) 
-                                                            +6.*vLocal(Ib1,Ib2,Ib3  ,compr) 
-                                                            -4.*vLocal(Ib1,Ib2,Ib3+1,compr) 
-                                                                  +vLocal(Ib1,Ib2,Ib3+2,compr)
-                                                            );
-                                uizzzzLocal = (  +vLocal(Ib1,Ib2,Ib3-2,compi)  
-                                                            -4.*vLocal(Ib1,Ib2,Ib3-1,compi) 
-                                                            +6.*vLocal(Ib1,Ib2,Ib3  ,compi) 
-                                                            -4.*vLocal(Ib1,Ib2,Ib3+1,compi) 
-                                                                  +vLocal(Ib1,Ib2,Ib3+2,compi)
-                                                            );
+                                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) // loop over points on the boundary
+                                {              
 
-                                RealArray urxxzzLocal(Ib1,Ib2,Ib3), uryyzzLocal(Ib1,Ib2,Ib3); 
-                                urxxzzLocal = ( 
-                                                                        vLocal(Ib1-1,Ib2,Ib3-1,compr)  
-                                                                      +vLocal(Ib1+1,Ib2,Ib3-1,compr)  
-                                                                -2.*vLocal(Ib1  ,Ib2,Ib3-1,compr)  
-                                                                -2.*vLocal(Ib1-1,Ib2,Ib3  ,compr) 
-                                                                +4.*vLocal(Ib1  ,Ib2,Ib3  ,compr) 
-                                                                -2.*vLocal(Ib1+1,Ib2,Ib3  ,compr) 
-                                                                -2.*vLocal(Ib1  ,Ib2,Ib3+1,compr)
-                                                                      +vLocal(Ib1-1,Ib2,Ib3+1,compr)  
-                                                                      +vLocal(Ib1+1,Ib2,Ib3+1,compr)                               
-                                                            );
-                                uryyzzLocal = ( 
-                                                                        vLocal(Ib1,Ib2-1,Ib3-1,compr)  
-                                                                      +vLocal(Ib1,Ib2+1,Ib3-1,compr)  
-                                                                -2.*vLocal(Ib1,Ib2  ,Ib3-1,compr)  
-                                                                -2.*vLocal(Ib1,Ib2-1,Ib3  ,compr) 
-                                                                +4.*vLocal(Ib1,Ib2  ,Ib3  ,compr) 
-                                                                -2.*vLocal(Ib1,Ib2+1,Ib3  ,compr) 
-                                                                -2.*vLocal(Ib1,Ib2  ,Ib3+1,compr)
-                                                                      +vLocal(Ib1,Ib2-1,Ib3+1,compr)  
-                                                                      +vLocal(Ib1,Ib2+1,Ib3+1,compr)                               
-                                                            );
+                                    Real normRx;
+                                    if( numberOfDimensions==2 )
+                                        normRx = sqrt( SQR(DD(i1,i2,i3,axis,0)) + SQR(DD(i1,i2,i3,axis,1)) );
+                                    else
+                                        normRx = sqrt( SQR(DD(i1,i2,i3,axis,0)) + SQR(DD(i1,i2,i3,axis,1)) + SQR(DD(i1,i2,i3,axis,2)) );
+                                
+                                    un(i1,i2,i3,R2)  =   -is*normRx*ur(i1,i2,i3,R2);  // approximation to D_n 
 
-                // resr = lambdar*( cxxx*urxxxLocal + cyyy*uryyyLocal)
-                //       -lambdai*( cxxx*uixxxLocal + cyyy*uiyyyLocal) + ( cxxxx*urxxxxLocal + cyyyy*uryyyyLocal + cxxyy*urxxyyLocal );
-                                resr += lambdar*( czzz*urzzzLocal )
-                                              -lambdai*( czzz*uizzzLocal ) + ( czzzz*urzzzzLocal + cxxzz*urxxzzLocal + cyyzz*uryyzzLocal );
+                                }
 
-                                urxxzzLocal = ( 
-                                                                        vLocal(Ib1-1,Ib2,Ib3-1,compi)  
-                                                                      +vLocal(Ib1+1,Ib2,Ib3-1,compi)  
-                                                                -2.*vLocal(Ib1  ,Ib2,Ib3-1,compi)  
-                                                                -2.*vLocal(Ib1-1,Ib2,Ib3  ,compi) 
-                                                                +4.*vLocal(Ib1  ,Ib2,Ib3  ,compi) 
-                                                                -2.*vLocal(Ib1+1,Ib2,Ib3  ,compi) 
-                                                                -2.*vLocal(Ib1  ,Ib2,Ib3+1,compi)
-                                                                      +vLocal(Ib1-1,Ib2,Ib3+1,compi)  
-                                                                      +vLocal(Ib1+1,Ib2,Ib3+1,compi)                               
-                                                            );
-                                uryyzzLocal = ( 
-                                                                        vLocal(Ib1,Ib2-1,Ib3-1,compi)  
-                                                                      +vLocal(Ib1,Ib2+1,Ib3-1,compi)  
-                                                                -2.*vLocal(Ib1,Ib2  ,Ib3-1,compi)  
-                                                                -2.*vLocal(Ib1,Ib2-1,Ib3  ,compi) 
-                                                                +4.*vLocal(Ib1,Ib2  ,Ib3  ,compi) 
-                                                                -2.*vLocal(Ib1,Ib2+1,Ib3  ,compi) 
-                                                                -2.*vLocal(Ib1,Ib2  ,Ib3+1,compi)
-                                                                      +vLocal(Ib1,Ib2-1,Ib3+1,compi)  
-                                                                      +vLocal(Ib1,Ib2+1,Ib3+1,compi)                               
-                                                            );
+                // resr = lambdar*( vLocal(Ib1,Ib2,Ib3,compr) )
+                //       -lambdai*( vLocal(Ib1,Ib2,Ib3,compi) ) 
+                //       + ( cx*urxLocal + cy*uryLocal );
 
-                                resi += lambdar*( czzz*uizzzLocal )
-                                              +lambdai*( czzz*urzzzLocal ) + ( czzzz*uizzzzLocal + cxxzz*urxxzzLocal + cyyzz*uryyzzLocal );  
-                            }
+                // resi = lambdar*( vLocal(Ib1,Ib2,Ib3,compi) )
+                //       +lambdai*( vLocal(Ib1,Ib2,Ib3,compr) ) 
+                //       + ( cx*uixLocal + cy*uiyLocal ); 
+
+                                resr = lambdar*( vLocal(Ib1,Ib2,Ib3,compr) )
+                                            -lambdai*( vLocal(Ib1,Ib2,Ib3,compi) ) + c*( un(Ib1,Ib2,Ib3,compr) );
+
+                                resi = lambdar*( vLocal(Ib1,Ib2,Ib3,compi) )
+                                            +lambdai*( vLocal(Ib1,Ib2,Ib3,compr) ) + c*( un(Ib1,Ib2,Ib3,compi) );
 
 
-                            Real resbc2r = 0.; // max(abs(resr)); // Re(resbc)
-                            Real resbc2i = 0.; // max(abs(resi));
+                            } // end SF curvilinear 
+
+
+                            Real resbc1r = 0.; // max(abs(resr)); // Re(resbc)
+                            Real resbc1i = 0.; // max(abs(resi));
                             FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3)
                             {
                                 if( maskLocal(i1,i2,i3)>0 )
                                 {  
-                                    resbc2r=max(resbc2r,fabs(resr(i1,i2,i3)));          
-                                    resbc2i=max(resbc2i,fabs(resi(i1,i2,i3)));          
+                                    resbc1r=max(resbc1r,fabs(resr(i1,i2,i3)));          
+                                    resbc1i=max(resbc1i,fabs(resi(i1,i2,i3)));          
                                 }
-                            }              
-
-                            Real resbc2= max(resbc2r,resbc2i); // Im(resbc)
-
-                            resbc(side,axis,0) = max(resbc1,resbc2); // return this value
-
-                            if( 1==0 ) printF("    resbc2r=%9.2e, resbc2i=%9.2e, resbc2=%9.2e\n",resbc2r,resbc2i,resbc2);
+                            }
+                            Real resbc1= max(resbc1r,resbc1i); // Im(resbc)
 
 
-                        } // end orderOfAccuracy==4
+                            resbc(side,axis,0) = resbc1; // return this value
 
-                    }
-                }
+                            if( orderOfAccuracy==4 )
+                            {
+                // --- CHECK THE SOMMERFELD radiation CBC ---
+
+                                resr=0.;
+                                resi=0.;
+
+                                
+                                if( !isRectangular )
+                                {
+                                    printF("residual::ERROR: finish me for curvilinear grids\n");
+                                }
+
+                                Real dx[3]={1.,1.,1.};
+                                mg.getDeltaX(dx);
+
+                                const Real dx2 = dx[0]*dx[0];
+                                const Real dx3 = dx[0]*dx[0]*dx[0];
+                // const Real dx4 = dx[0]*dx[0]*dx[0]*dx[0];
+
+                                const Real dy2 = dx[1]*dx[1];
+                                const Real dy3 = dx[1]*dx[1]*dx[1];
+                // const Real dy4 = dx[1]*dx[1]*dx[1]*dx[1];
+
+                                const Real dz2 = dx[2]*dx[2];
+                                const Real dz3 = dx[2]*dx[2]*dx[2];
+                // const Real dz4 = dx[2]*dx[2]*dx[2]*dx[2];      
+
+                                Real cxxx=0., cyyy=0., czzz=0., cxx=0., cyy=0., czz=0.;
+                                if( axis==0 )
+                                {
+                                    cxx=1.; cxxx = (-is*c/(2.*dx3)); 
+                                }
+                                else if( axis==1 )
+                                {
+                                    cyy=1.; cyyy = -is*c/(2.*dy3); 
+                                }
+                                else
+                                {
+                                    czz=1.; czzz = -is*c/(2.*dz3); 
+                                }
+                
+                                realSerialArray urxxLocal(Ib1,Ib2,Ib3), uryyLocal(Ib1,Ib2,Ib3);
+                                operators[grid].derivative(MappedGridOperators::xxDerivative,vLocal,urxxLocal, Ib1,Ib2,Ib3,compr); 
+                                operators[grid].derivative(MappedGridOperators::yyDerivative,vLocal,uryyLocal, Ib1,Ib2,Ib3,compr); 
+
+                                realSerialArray uixxLocal(Ib1,Ib2,Ib3), uiyyLocal(Ib1,Ib2,Ib3);
+                                operators[grid].derivative(MappedGridOperators::xxDerivative,vLocal,uixxLocal, Ib1,Ib2,Ib3,compi); 
+                                operators[grid].derivative(MappedGridOperators::yyDerivative,vLocal,uiyyLocal, Ib1,Ib2,Ib3,compi); 
 
 
-            }
+                                RealArray urxxxLocal(Ib1,Ib2,Ib3);
+                                RealArray uixxxLocal(Ib1,Ib2,Ib3);
+                                urxxxLocal = (    -vLocal(Ib1-2,Ib2,Ib3,compr)  
+                                                              +2.*vLocal(Ib1-1,Ib2,Ib3,compr) 
+                                                              -2.*vLocal(Ib1+1,Ib2,Ib3,compr) 
+                                                                    +vLocal(Ib1+2,Ib2,Ib3,compr)
+                                                          );
+                                uixxxLocal = (    -vLocal(Ib1-2,Ib2,Ib3,compi)  
+                                                              +2.*vLocal(Ib1-1,Ib2,Ib3,compi) 
+                                                              -2.*vLocal(Ib1+1,Ib2,Ib3,compi) 
+                                                                    +vLocal(Ib1+2,Ib2,Ib3,compi)
+                                                          );  
+
+                                RealArray uryyyLocal(Ib1,Ib2,Ib3);
+                                RealArray uiyyyLocal(Ib1,Ib2,Ib3);
+                                uryyyLocal = (    -vLocal(Ib1,Ib2-2,Ib3,compr)  
+                                                              +2.*vLocal(Ib1,Ib2-1,Ib3,compr) 
+                                                              -2.*vLocal(Ib1,Ib2+1,Ib3,compr) 
+                                                                    +vLocal(Ib1,Ib2+2,Ib3,compr)
+                                                          );
+                                uiyyyLocal = (    -vLocal(Ib1,Ib2-2,Ib3,compi)  
+                                                              +2.*vLocal(Ib1,Ib2-1,Ib3,compi) 
+                                                              -2.*vLocal(Ib1,Ib2+1,Ib3,compi) 
+                                                                    +vLocal(Ib1,Ib2+2,Ib3,compi)
+                                                          ); 
+
+                // resr = lambdar*( vLocal(Ib1,Ib2,Ib3,compr) )
+                //       -lambdai*( vLocal(Ib1,Ib2,Ib3,compi) ) 
+                //       + ( cx*urxLocal + cy*uryLocal );
+
+                // resi = lambdar*( vLocal(Ib1,Ib2,Ib3,compi) )
+                //       +lambdai*( vLocal(Ib1,Ib2,Ib3,compr) ) 
+                //       + ( cx*uixLocal + cy*uiyLocal ); 
+
+
+                                resr = lambdar*( cxx*urxxLocal + cyy*uryyLocal )
+                                            -lambdai*( cxx*uixxLocal + cyy*uiyyLocal ) 
+                                            + ( cxxx*urxxxLocal + cyyy*uryyyLocal );
+
+                                resi = lambdar*( cxx*uixxLocal + cyy*uiyyLocal )
+                                            +lambdai*( cxx*urxxLocal + cyy*uryyLocal )
+                                            + ( cxxx*uixxxLocal + cyyy*uiyyyLocal ); 
+
+                                if( numberOfDimensions==3 )
+                                {
+                                    RealArray urzzzLocal(Ib1,Ib2,Ib3);
+                                    RealArray uizzzLocal(Ib1,Ib2,Ib3);
+                                    RealArray urzzLocal(Ib1,Ib2,Ib3);
+                                    RealArray uizzLocal(Ib1,Ib2,Ib3);
+
+                                    operators[grid].derivative(MappedGridOperators::zzDerivative,vLocal,urzzLocal, Ib1,Ib2,Ib3,compr); 
+                                    operators[grid].derivative(MappedGridOperators::xxDerivative,vLocal,uizzLocal, Ib1,Ib2,Ib3,compi); 
+
+                                    urzzzLocal = (    -vLocal(Ib1,Ib2,Ib3-2,compr)  
+                                                                  +2.*vLocal(Ib1,Ib2,Ib3-1,compr) 
+                                                                  -2.*vLocal(Ib1,Ib2,Ib3+1,compr) 
+                                                                        +vLocal(Ib1,Ib2,Ib3+2,compr)
+                                                              );
+                                    uizzzLocal = (    -vLocal(Ib1,Ib2,Ib3-2,compi)  
+                                                                  +2.*vLocal(Ib1,Ib2,Ib3-1,compi) 
+                                                                  -2.*vLocal(Ib1,Ib2,Ib3+1,compi) 
+                                                                        +vLocal(Ib1,Ib2,Ib3+2,compi)
+                                                              );  
+
+
+                                    resr += lambdar*( czz*urzzLocal )
+                                                  -lambdai*( czz*uizzLocal ) 
+                                                  + ( czzz*urzzzLocal  );
+
+                                    resi += lambdar*( czz*uizzLocal )
+                                                  +lambdai*( czz*urzzLocal )
+                                                  + ( czzz*uizzzLocal );  
+                                }
+
+
+                                Real resbc2r = 0.; // max(abs(resr)); // Re(resbc)
+                                Real resbc2i = 0.; // max(abs(resi));
+                                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3)
+                                {
+                                    if( maskLocal(i1,i2,i3)>0 )
+                                    {  
+                                        resbc2r=max(resbc2r,fabs(resr(i1,i2,i3)));          
+                                        resbc2i=max(resbc2i,fabs(resi(i1,i2,i3)));          
+                                    }
+                                }              
+
+                                Real resbc2= max(resbc2r,resbc2i); // Im(resbc)
+
+                                resbc(side,axis,0) = max(resbc1,resbc2); // return this value
+
+                                if( 1==0 ) printF("    resbc2r=%9.2e, resbc2i=%9.2e, resbc2=%9.2e\n",resbc2r,resbc2i,resbc2);
+
+                                if( false )
+                                {
+                                    ::display(resr,"CBC resr","%9.2e");
+                                    ::display(resi,"CBC resi","%9.2e");
+                                    OV_ABORT("stop here for now");
+                                }
+
+                            } // end orderOfAccuracy==4
+
+                        }     // --- END SOMMERFELD ---       
+                        else
+                        {
+              // ---- ENGQUIST MAJDA RBC -----------
+
+              // RBC:
+              //  nu u_x - is*c*( u.xx + .5*u.yy ) = 0 
+              //  (lamr + i lami)*( psir + i psi)_x - is*c*( u.xx + .5*u.yy ) = 0 
+              //
+                            const int compr = comp;        // Re part
+                            const int compi = comp+1;      // Im part
+
+              // getBoundaryIndex(mg.gridIndexRange(),side,axis,Ib1,Ib2,Ib3);
+                            getAdjustedBoundaryIndex( mg, side, axis, Ib1,Ib2,Ib3 ); // skip ends with adjacent Dirichlet BC   
+
+                            RealArray resr(Ib1,Ib2,Ib3), resi(Ib1,Ib2,Ib3);
+
+                            if( isRectangular )
+                            {
+                                Real cx,cy,cz, cxx,cyy,czz;
+                                cx=0.; cy=0.; cz=0; cxx=-.5*is*c; cyy=-.5*is*c; czz=-.5*is*c;
+                                if( axis==0 )
+                                {
+                                    cx=1.; cxx=-is*c;
+                                }
+                                else if( axis==1 )
+                                {
+                                    cy=1.; cyy=-is*c; 
+                                }
+                                else
+                                {
+                                    cz=1.; czz=-is*c; 
+                                }
+
+                                RealArray urxLocal(Ib1,Ib2,Ib3), uryLocal(Ib1,Ib2,Ib3), uixLocal(Ib1,Ib2,Ib3), uiyLocal(Ib1,Ib2,Ib3);
+                                realSerialArray uxxLocal(Ib1,Ib2,Ib3), uyyLocal(Ib1,Ib2,Ib3);
+
+                                operators[grid].derivative(MappedGridOperators::xDerivative, vLocal,urxLocal, Ib1,Ib2,Ib3,compr); // Re(psi.x)
+                                operators[grid].derivative(MappedGridOperators::yDerivative, vLocal,uryLocal, Ib1,Ib2,Ib3,compr); // Re(psi.y) 
+
+                                operators[grid].derivative(MappedGridOperators::xDerivative, vLocal,uixLocal, Ib1,Ib2,Ib3,compi); // Im(psi.x)
+                                operators[grid].derivative(MappedGridOperators::yDerivative, vLocal,uiyLocal, Ib1,Ib2,Ib3,compi); // Im(psi.y) 
+
+                                operators[grid].derivative(MappedGridOperators::xxDerivative,vLocal,uxxLocal, Ib1,Ib2,Ib3,compr); // Re(phi.xx)
+                                operators[grid].derivative(MappedGridOperators::yyDerivative,vLocal,uyyLocal, Ib1,Ib2,Ib3,compr); // Re(phi.yy)
+
+
+                                resr = lambdar*( cx*urxLocal + cy*uryLocal)
+                                            -lambdai*( cx*uixLocal + cy*uiyLocal) + ( cxx*uxxLocal + cyy*uyyLocal );
+
+                                operators[grid].derivative(MappedGridOperators::xxDerivative,vLocal,uxxLocal, Ib1,Ib2,Ib3,compi); // Im(phi.xx)
+                                operators[grid].derivative(MappedGridOperators::yyDerivative,vLocal,uyyLocal, Ib1,Ib2,Ib3,compi); // Im(phi.yy)            
+
+                                resi = lambdar*( cx*uixLocal + cy*uiyLocal)
+                                            +lambdai*( cx*urxLocal + cy*uryLocal) + ( cxx*uxxLocal + cyy*uyyLocal ); 
+
+                                if( numberOfDimensions==3 )
+                                {
+                  // ** Check me **
+                                    RealArray & urzLocal  = urxLocal; // re-use existing arrays
+                                    RealArray & uizLocal  = uryLocal;
+                                    RealArray & urzzLocal = uxxLocal;
+                                    RealArray & uizzLocal = uyyLocal;
+                                    operators[grid].derivative(MappedGridOperators::zDerivative, vLocal,urzLocal,  Ib1,Ib2,Ib3,compr); // Re(psi.z)
+                                    operators[grid].derivative(MappedGridOperators::zDerivative, vLocal,uizLocal,  Ib1,Ib2,Ib3,compi); // Im(psi.z)
+                                    operators[grid].derivative(MappedGridOperators::zzDerivative,vLocal,urzzLocal, Ib1,Ib2,Ib3,compr); // Re(phi.zz)
+                                    operators[grid].derivative(MappedGridOperators::zzDerivative,vLocal,uizzLocal, Ib1,Ib2,Ib3,compi); // Im(phi.zz)   
+
+                                    resr += lambdar*( cz*urzLocal )
+                                                  -lambdai*( cz*uizLocal ) + ( czz*urzzLocal );
+                                    resi += lambdar*( cz*uizLocal )
+                                                  +lambdai*( cz*urzLocal ) + ( czz*uizzLocal );  
+                                }
+
+                            }
+                            else
+                            {
+                // ---- EM CURVILINEAR  ----
+
+                // printF("**** COMPUTE RESIDUALS FOR EM RBC CURVLINEAR (side,axis)=(%d,%d) comp=%d, (compr,compi)=(%d,%d) ****\n",side,axis,comp, compr,compi);
+
+                                Real dr[3]={1.,1.,1.};
+                // unit square grid spacings: 
+                                for( int dir=0; dir<3; dir++ )
+                                    dr[dir]=mg.gridSpacing(dir);           
+
+
+                                OV_GET_SERIAL_ARRAY(Real,mg.inverseVertexDerivative(),rxLocal);
+                // macro to make the rxLocal array look 5-dimensional 
+                                #define DD(i1,i2,i3,m1,m2) rxLocal(i1,i2,i3,(m1)+numberOfDimensions*(m2))             
+
+                                Range R2 = Range(compr,compi);
+                                RealArray ur(Ib1,Ib2,Ib3,R2), urr(Ib1,Ib2,Ib3,R2), uLap(Ib1,Ib2,Ib3,R2), un(Ib1,Ib2,Ib3,R2), unn(Ib1,Ib2,Ib3,R2);
+
+                                if( axis==0 )
+                                {
+                                    ur(Ib1,Ib2,Ib3,R2)  = ( vLocal(Ib1+1,Ib2,Ib3,R2)                            - vLocal(Ib1-1,Ib2,Ib3,R2) )/(2.*dr[axis]);
+                                    urr(Ib1,Ib2,Ib3,R2) = ( vLocal(Ib1+1,Ib2,Ib3,R2) -2.*vLocal(Ib1,Ib2,Ib3,R2) + vLocal(Ib1-1,Ib2,Ib3,R2) )/(dr[axis]*dr[axis]);
+                                }
+                                else if( axis==1 )
+                                {
+                                    ur(Ib1,Ib2,Ib3,R2)  = ( vLocal(Ib1,Ib2+1,Ib3,R2)                            - vLocal(Ib1,Ib2-1,Ib3,R2) )/(2.*dr[axis]);
+                                    urr(Ib1,Ib2,Ib3,R2) = ( vLocal(Ib1,Ib2+1,Ib3,R2) -2.*vLocal(Ib1,Ib2,Ib3,R2) + vLocal(Ib1,Ib2-1,Ib3,R2) )/(dr[axis]*dr[axis]);            
+                                }
+                                else
+                                {
+                                    ur(Ib1,Ib2,Ib3,R2)  = ( vLocal(Ib1,Ib2,Ib3+1,R2)                            - vLocal(Ib1,Ib2,Ib3-1,R2) )/(2.*dr[axis]);
+                                    urr(Ib1,Ib2,Ib3,R2) = ( vLocal(Ib1,Ib2,Ib3+1,R2) -2.*vLocal(Ib1,Ib2,Ib3,R2) + vLocal(Ib1,Ib2,Ib3-1,R2) )/(dr[axis]*dr[axis]);                    
+                                }
+
+                                operators[grid].derivative(MappedGridOperators::laplacianOperator,vLocal,uLap,Ib1,Ib2,Ib3,R2);
+
+                                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3) // loop over points on the boundary
+                                {              
+
+                                    Real normRx;
+                                    if( numberOfDimensions==2 )
+                                        normRx = sqrt( SQR(DD(i1,i2,i3,axis,0)) + SQR(DD(i1,i2,i3,axis,1)) );
+                                    else
+                                        normRx = sqrt( SQR(DD(i1,i2,i3,axis,0)) + SQR(DD(i1,i2,i3,axis,1)) + SQR(DD(i1,i2,i3,axis,2)) );
+                                
+                                    un(i1,i2,i3,R2)  =   -is*normRx*ur(i1,i2,i3,R2);  // approximation to D_n 
+                                    unn(i1,i2,i3,R2) = SQR(normRx)*urr(i1,i2,i3,R2);  // D_n^2 
+
+                                }
+
+                // resr = lambdar*( cx*urxLocal + cy*uryLocal)
+                //       -lambdai*( cx*uixLocal + cy*uiyLocal) + ( cxx*uxxLocal + cyy*uyyLocal );
+                // resi = lambdar*( cx*uixLocal + cy*uiyLocal)
+                //       +lambdai*( cx*urxLocal + cy*uryLocal) + ( cxx*uxxLocal + cyy*uyyLocal ); 
+
+                // Check sign
+                                resr = lambdar*( un(Ib1,Ib2,Ib3,compr) )
+                                            -lambdai*( un(Ib1,Ib2,Ib3,compi) ) + c*( unn(Ib1,Ib2,Ib3,compr) + .5*( uLap(Ib1,Ib2,Ib3,compr) - unn(Ib1,Ib2,Ib3,compr) ) );
+
+                                resi = lambdar*( un(Ib1,Ib2,Ib3,compi) )
+                                            +lambdai*( un(Ib1,Ib2,Ib3,compr) ) + c*( unn(Ib1,Ib2,Ib3,compi) + .5*( uLap(Ib1,Ib2,Ib3,compi) - unn(Ib1,Ib2,Ib3,compi) ) );
+
+
+                // resLocal(Ig1,Ig2,Ig3,0) = ( omegaSign*omega*un(Ib1,Ib2,Ib3,1)) - .5*c*( unn(Ib1,Ib2,Ib3,0) + uLap(Ib1,Ib2,Ib3,0) );
+                // resLocal(Ig1,Ig2,Ig3,1) = (-omegaSign*omega*un(Ib1,Ib2,Ib3,0)) - .5*c*( unn(Ib1,Ib2,Ib3,1) + uLap(Ib1,Ib2,Ib3,1) );
+
+                            } // end EM curvilinear 
+
+                            Real resbc1r = 0.; // max(abs(resr)); // Re(resbc)
+                            Real resbc1i = 0.; // max(abs(resi));
+                            FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3)
+                            {
+                                if( maskLocal(i1,i2,i3)>0 )
+                                {  
+                                    resbc1r=max(resbc1r,fabs(resr(i1,i2,i3)));          
+                                    resbc1i=max(resbc1i,fabs(resi(i1,i2,i3)));          
+                                }
+                            }
+                            Real resbc1= max(resbc1r,resbc1i); // Im(resbc)
+
+                            resbc(side,axis,0) = resbc1; // return this value
+
+                            if( 1==0 )
+                                printF("EM RBC: compr=%d compi=%d : (side,axis)=(%d,%d) : resbc1=%9.2e\n",compr,compi,side,axis,resbc1);
+              // ::display(resbc,"EM RBC: Re(resbc)");
+
+                            if( orderOfAccuracy==4 )
+                            {
+                // --- CHECK THE radiation CBC ---
+
+                                bool isRectangular = mg.isRectangular();
+                                if( isRectangular )
+                                {
+                  // printF("getEigenPairResidual:: check residual in the EM CBC : finish me for curvilinear grids\n");
+
+                                    Real dx[3]={1.,1.,1.};
+                                    mg.getDeltaX(dx);
+
+
+                                    const Real dx2 = dx[0]*dx[0];
+                                    const Real dx3 = dx[0]*dx[0]*dx[0];
+                                    const Real dx4 = dx[0]*dx[0]*dx[0]*dx[0];
+
+                                    const Real dy2 = dx[1]*dx[1];
+                                    const Real dy3 = dx[1]*dx[1]*dx[1];
+                                    const Real dy4 = dx[1]*dx[1]*dx[1]*dx[1];
+
+                                    const Real dz2 = dx[2]*dx[2];
+                                    const Real dz3 = dx[2]*dx[2]*dx[2];
+                                    const Real dz4 = dx[2]*dx[2]*dx[2]*dx[2];      
+
+                                    Real cxxx=0., cyyy=0., czzz=0., cxxxx=0., cyyyy=0., czzzz=0., cxxyy=0., cxxzz=0., cyyzz=0.;
+                                    if( axis==0 )
+                                    {
+                                        cxxx = 1./(2.*dx3); cxxxx=-is*c/dx4; cxxyy=-is*c*.5/(dx2*dy2); cxxzz=-is*c*.5/(dx2*dz2);
+                                    }
+                                    else if( axis==1 )
+                                    {
+                                        cyyy = 1./(2.*dy3); cyyyy=-is*c/dy4; cxxyy=-is*c*.5/(dx2*dy2); cyyzz=-is*c*.5/(dy2*dz2);
+                                    }
+                                    else
+                                    {
+                                        czzz = 1./(2.*dz3); czzzz=-is*c/dz4; cxxzz=-is*c*.5/(dx2*dz2); cyyzz=-is*c*.5/(dy2*dz2);
+
+                                    }
+                    
+
+                                    RealArray urxxxLocal(Ib1,Ib2,Ib3);
+                                    RealArray uixxxLocal(Ib1,Ib2,Ib3);
+                                    urxxxLocal = (    -vLocal(Ib1-2,Ib2,Ib3,compr)  
+                                                                  +2.*vLocal(Ib1-1,Ib2,Ib3,compr) 
+                                                                  -2.*vLocal(Ib1+1,Ib2,Ib3,compr) 
+                                                                        +vLocal(Ib1+2,Ib2,Ib3,compr)
+                                                              );
+                                    uixxxLocal = (    -vLocal(Ib1-2,Ib2,Ib3,compi)  
+                                                                  +2.*vLocal(Ib1-1,Ib2,Ib3,compi) 
+                                                                  -2.*vLocal(Ib1+1,Ib2,Ib3,compi) 
+                                                                        +vLocal(Ib1+2,Ib2,Ib3,compi)
+                                                              );  
+
+                                    RealArray uryyyLocal(Ib1,Ib2,Ib3);
+                                    RealArray uiyyyLocal(Ib1,Ib2,Ib3);
+                                    uryyyLocal = (    -vLocal(Ib1,Ib2-2,Ib3,compr)  
+                                                                  +2.*vLocal(Ib1,Ib2-1,Ib3,compr) 
+                                                                  -2.*vLocal(Ib1,Ib2+1,Ib3,compr) 
+                                                                        +vLocal(Ib1,Ib2+2,Ib3,compr)
+                                                              );
+                                    uiyyyLocal = (    -vLocal(Ib1,Ib2-2,Ib3,compi)  
+                                                                  +2.*vLocal(Ib1,Ib2-1,Ib3,compi) 
+                                                                  -2.*vLocal(Ib1,Ib2+1,Ib3,compi) 
+                                                                        +vLocal(Ib1,Ib2+2,Ib3,compi)
+                                                              ); 
+
+                                    RealArray urxxxxLocal(Ib1,Ib2,Ib3);
+                                    RealArray uryyyyLocal(Ib1,Ib2,Ib3);
+                                    urxxxxLocal = (    +vLocal(Ib1-2,Ib2,Ib3,compr)  
+                                                                    -4.*vLocal(Ib1-1,Ib2,Ib3,compr) 
+                                                                    +6.*vLocal(Ib1  ,Ib2,Ib3,compr) 
+                                                                    -4.*vLocal(Ib1+1,Ib2,Ib3,compr) 
+                                                                          +vLocal(Ib1+2,Ib2,Ib3,compr)
+                                                                );
+                                    uryyyyLocal = (    +vLocal(Ib1,Ib2-2,Ib3,compr)  
+                                                                    -4.*vLocal(Ib1,Ib2-1,Ib3,compr) 
+                                                                    +6.*vLocal(Ib1,Ib2  ,Ib3,compr) 
+                                                                    -4.*vLocal(Ib1,Ib2+1,Ib3,compr) 
+                                                                          +vLocal(Ib1,Ib2+2,Ib3,compr)
+                                                                );
+
+                                    RealArray urxxyyLocal(Ib1,Ib2,Ib3); 
+                                    urxxyyLocal = ( 
+                                                                            vLocal(Ib1-1,Ib2-1,Ib3,compr)  
+                                                                          +vLocal(Ib1+1,Ib2-1,Ib3,compr)  
+                                                                    -2.*vLocal(Ib1  ,Ib2-1,Ib3,compr)  
+                                                                    -2.*vLocal(Ib1-1,Ib2  ,Ib3,compr) 
+                                                                    +4.*vLocal(Ib1  ,Ib2  ,Ib3,compr) 
+                                                                    -2.*vLocal(Ib1+1,Ib2  ,Ib3,compr) 
+                                                                    -2.*vLocal(Ib1  ,Ib2+1,Ib3,compr)
+                                                                          +vLocal(Ib1-1,Ib2+1,Ib3,compr)  
+                                                                          +vLocal(Ib1+1,Ib2+1,Ib3,compr)                               
+                                                                );                           
+
+                                    resr = lambdar*( cxxx*urxxxLocal + cyyy*uryyyLocal)
+                                                -lambdai*( cxxx*uixxxLocal + cyyy*uiyyyLocal) + ( cxxxx*urxxxxLocal + cyyyy*uryyyyLocal + cxxyy*urxxyyLocal );
+
+                                    RealArray uixxxxLocal(Ib1,Ib2,Ib3);
+                                    RealArray uiyyyyLocal(Ib1,Ib2,Ib3);
+                                    uixxxxLocal = (    +vLocal(Ib1-2,Ib2,Ib3,compi)  
+                                                                    -4.*vLocal(Ib1-1,Ib2,Ib3,compi) 
+                                                                    +6.*vLocal(Ib1  ,Ib2,Ib3,compi) 
+                                                                    -4.*vLocal(Ib1+1,Ib2,Ib3,compi) 
+                                                                          +vLocal(Ib1+2,Ib2,Ib3,compi)
+                                                                );
+                                    uiyyyyLocal = (    +vLocal(Ib1,Ib2-2,Ib3,compi)  
+                                                                    -4.*vLocal(Ib1,Ib2-1,Ib3,compi) 
+                                                                    +6.*vLocal(Ib1,Ib2  ,Ib3,compi) 
+                                                                    -4.*vLocal(Ib1,Ib2+1,Ib3,compi) 
+                                                                          +vLocal(Ib1,Ib2+2,Ib3,compi)
+                                                                );
+                                    RealArray uixxyyLocal(Ib1,Ib2,Ib3); 
+                                    uixxyyLocal = ( 
+                                                                            vLocal(Ib1-1,Ib2-1,Ib3,compi)  
+                                                                          +vLocal(Ib1+1,Ib2-1,Ib3,compi)  
+                                                                    -2.*vLocal(Ib1  ,Ib2-1,Ib3,compi)  
+                                                                    -2.*vLocal(Ib1-1,Ib2  ,Ib3,compi) 
+                                                                    +4.*vLocal(Ib1  ,Ib2  ,Ib3,compi) 
+                                                                    -2.*vLocal(Ib1+1,Ib2  ,Ib3,compi) 
+                                                                    -2.*vLocal(Ib1  ,Ib2+1,Ib3,compi)
+                                                                          +vLocal(Ib1-1,Ib2+1,Ib3,compi)  
+                                                                          +vLocal(Ib1+1,Ib2+1,Ib3,compi)  
+                                                                );
+
+                                    resi = lambdar*( cxxx*uixxxLocal + cyyy*uiyyyLocal)
+                                                +lambdai*( cxxx*urxxxLocal + cyyy*uryyyLocal) + ( cxxxx*uixxxxLocal + cyyyy*uiyyyyLocal + cxxyy*uixxyyLocal ); 
+
+                                    if( numberOfDimensions==3 )
+                                    {
+                    // ** Check me **
+                                        RealArray urzzzLocal(Ib1,Ib2,Ib3);
+                                        RealArray uizzzLocal(Ib1,Ib2,Ib3);
+                                        RealArray urzzzzLocal(Ib1,Ib2,Ib3);
+                                        RealArray uizzzzLocal(Ib1,Ib2,Ib3);
+
+                                        urzzzLocal = (    -vLocal(Ib1,Ib2,Ib3-2,compr)  
+                                                                      +2.*vLocal(Ib1,Ib2,Ib3-1,compr) 
+                                                                      -2.*vLocal(Ib1,Ib2,Ib3+1,compr) 
+                                                                            +vLocal(Ib1,Ib2,Ib3+2,compr)
+                                                                  );
+                                        uizzzLocal = (    -vLocal(Ib1,Ib2,Ib3-2,compi)  
+                                                                      +2.*vLocal(Ib1,Ib2,Ib3-1,compi) 
+                                                                      -2.*vLocal(Ib1,Ib2,Ib3+1,compi) 
+                                                                            +vLocal(Ib1,Ib2,Ib3+2,compi)
+                                                                  );  
+
+
+                                        urzzzzLocal = (  +vLocal(Ib1,Ib2,Ib3-2,compr)  
+                                                                    -4.*vLocal(Ib1,Ib2,Ib3-1,compr) 
+                                                                    +6.*vLocal(Ib1,Ib2,Ib3  ,compr) 
+                                                                    -4.*vLocal(Ib1,Ib2,Ib3+1,compr) 
+                                                                          +vLocal(Ib1,Ib2,Ib3+2,compr)
+                                                                    );
+                                        uizzzzLocal = (  +vLocal(Ib1,Ib2,Ib3-2,compi)  
+                                                                    -4.*vLocal(Ib1,Ib2,Ib3-1,compi) 
+                                                                    +6.*vLocal(Ib1,Ib2,Ib3  ,compi) 
+                                                                    -4.*vLocal(Ib1,Ib2,Ib3+1,compi) 
+                                                                          +vLocal(Ib1,Ib2,Ib3+2,compi)
+                                                                    );
+
+                                        RealArray urxxzzLocal(Ib1,Ib2,Ib3), uryyzzLocal(Ib1,Ib2,Ib3); 
+                                        urxxzzLocal = ( 
+                                                                                vLocal(Ib1-1,Ib2,Ib3-1,compr)  
+                                                                              +vLocal(Ib1+1,Ib2,Ib3-1,compr)  
+                                                                        -2.*vLocal(Ib1  ,Ib2,Ib3-1,compr)  
+                                                                        -2.*vLocal(Ib1-1,Ib2,Ib3  ,compr) 
+                                                                        +4.*vLocal(Ib1  ,Ib2,Ib3  ,compr) 
+                                                                        -2.*vLocal(Ib1+1,Ib2,Ib3  ,compr) 
+                                                                        -2.*vLocal(Ib1  ,Ib2,Ib3+1,compr)
+                                                                              +vLocal(Ib1-1,Ib2,Ib3+1,compr)  
+                                                                              +vLocal(Ib1+1,Ib2,Ib3+1,compr)                               
+                                                                    );
+                                        uryyzzLocal = ( 
+                                                                                vLocal(Ib1,Ib2-1,Ib3-1,compr)  
+                                                                              +vLocal(Ib1,Ib2+1,Ib3-1,compr)  
+                                                                        -2.*vLocal(Ib1,Ib2  ,Ib3-1,compr)  
+                                                                        -2.*vLocal(Ib1,Ib2-1,Ib3  ,compr) 
+                                                                        +4.*vLocal(Ib1,Ib2  ,Ib3  ,compr) 
+                                                                        -2.*vLocal(Ib1,Ib2+1,Ib3  ,compr) 
+                                                                        -2.*vLocal(Ib1,Ib2  ,Ib3+1,compr)
+                                                                              +vLocal(Ib1,Ib2-1,Ib3+1,compr)  
+                                                                              +vLocal(Ib1,Ib2+1,Ib3+1,compr)                               
+                                                                    );
+
+                    // resr = lambdar*( cxxx*urxxxLocal + cyyy*uryyyLocal)
+                    //       -lambdai*( cxxx*uixxxLocal + cyyy*uiyyyLocal) + ( cxxxx*urxxxxLocal + cyyyy*uryyyyLocal + cxxyy*urxxyyLocal );
+                                        resr += lambdar*( czzz*urzzzLocal )
+                                                      -lambdai*( czzz*uizzzLocal ) + ( czzzz*urzzzzLocal + cxxzz*urxxzzLocal + cyyzz*uryyzzLocal );
+
+                                        urxxzzLocal = ( 
+                                                                                vLocal(Ib1-1,Ib2,Ib3-1,compi)  
+                                                                              +vLocal(Ib1+1,Ib2,Ib3-1,compi)  
+                                                                        -2.*vLocal(Ib1  ,Ib2,Ib3-1,compi)  
+                                                                        -2.*vLocal(Ib1-1,Ib2,Ib3  ,compi) 
+                                                                        +4.*vLocal(Ib1  ,Ib2,Ib3  ,compi) 
+                                                                        -2.*vLocal(Ib1+1,Ib2,Ib3  ,compi) 
+                                                                        -2.*vLocal(Ib1  ,Ib2,Ib3+1,compi)
+                                                                              +vLocal(Ib1-1,Ib2,Ib3+1,compi)  
+                                                                              +vLocal(Ib1+1,Ib2,Ib3+1,compi)                               
+                                                                    );
+                                        uryyzzLocal = ( 
+                                                                                vLocal(Ib1,Ib2-1,Ib3-1,compi)  
+                                                                              +vLocal(Ib1,Ib2+1,Ib3-1,compi)  
+                                                                        -2.*vLocal(Ib1,Ib2  ,Ib3-1,compi)  
+                                                                        -2.*vLocal(Ib1,Ib2-1,Ib3  ,compi) 
+                                                                        +4.*vLocal(Ib1,Ib2  ,Ib3  ,compi) 
+                                                                        -2.*vLocal(Ib1,Ib2+1,Ib3  ,compi) 
+                                                                        -2.*vLocal(Ib1,Ib2  ,Ib3+1,compi)
+                                                                              +vLocal(Ib1,Ib2-1,Ib3+1,compi)  
+                                                                              +vLocal(Ib1,Ib2+1,Ib3+1,compi)                               
+                                                                    );
+
+                                        resi += lambdar*( czzz*uizzzLocal )
+                                                      +lambdai*( czzz*urzzzLocal ) + ( czzzz*uizzzzLocal + cxxzz*urxxzzLocal + cyyzz*uryyzzLocal );  
+                                    }
+                                }
+                                else
+                                {
+                   // CBC -- curvilinear 
+
+                   // check extrapolation of 2nd ghost 
+                                    resr =     vLocal(Ib1-2*is1,Ib2-2*is2,Ib3-2*is3,compr)
+                                                  -5.*vLocal(Ib1-1*is1,Ib2-1*is2,Ib3-1*is3,compr)
+                                                +10.*vLocal(Ib1+0*is1,Ib2+0*is2,Ib3+0*is3,compr)
+                                                -10.*vLocal(Ib1+1*is1,Ib2+1*is2,Ib3+1*is3,compr)
+                                                  +5.*vLocal(Ib1+2*is1,Ib2+2*is2,Ib3+2*is3,compr)
+                                                      - vLocal(Ib1+3*is1,Ib2+3*is2,Ib3+3*is3,compr);                  
+
+                                    resi =     vLocal(Ib1-2*is1,Ib2-2*is2,Ib3-2*is3,compi)
+                                                  -5.*vLocal(Ib1-1*is1,Ib2-1*is2,Ib3-1*is3,compi)
+                                                +10.*vLocal(Ib1+0*is1,Ib2+0*is2,Ib3+0*is3,compi)
+                                                -10.*vLocal(Ib1+1*is1,Ib2+1*is2,Ib3+1*is3,compi)
+                                                  +5.*vLocal(Ib1+2*is1,Ib2+2*is2,Ib3+2*is3,compi)
+                                                      - vLocal(Ib1+3*is1,Ib2+3*is2,Ib3+3*is3,compi); 
+
+                                } // end curvilinear
+                
+
+                                Real resbc2r = 0.; // max(abs(resr)); // Re(resbc)
+                                Real resbc2i = 0.; // max(abs(resi));
+                                FOR_3D(i1,i2,i3,Ib1,Ib2,Ib3)
+                                {
+                                    if( maskLocal(i1,i2,i3)>0 )
+                                    {  
+                                        resbc2r=max(resbc2r,fabs(resr(i1,i2,i3)));          
+                                        resbc2i=max(resbc2i,fabs(resi(i1,i2,i3)));          
+                                    }
+                                }              
+
+                                Real resbc2= max(resbc2r,resbc2i); // Im(resbc)
+
+                                resbc(side,axis,0) = max(resbc1,resbc2); // return this value
+
+                                if( 1==0 ) printF("    resbc2r=%9.2e, resbc2i=%9.2e, resbc2=%9.2e\n",resbc2r,resbc2i,resbc2);
+
+
+                            } // end orderOfAccuracy==4
+
+                        } // end EM RBC 
+                    
+                    } // end characteristic 
+                } // end ForBoundary
+
+
+            } // end complex case
 
         }
     }

@@ -8,12 +8,20 @@
 #
 $show="diskEigsEve32.show"; $dsf=.1; $cf=1; 
 $numToSave=4; $start=0; $stride=1; $lines=1; 
+$comp="absphi"; 
 # get command line arguments
 GetOptions( "show=s"=>\$show, "name=s"=>\$name, "solution=i"=>\$solution,"dsf=f"=>\$dsf,"cf=i"=>\$cf,\
       "numPerTime=i"=>\$numPerTime, "numToSave=i"=>\$numToSave,"start=i"=>\$start,"stride=i"=>\$stride,\
-      "field=s"=>\$field,"vmin=f"=>\$vmin,"vmax=f"=>\$vmax,"lines=i"=>\$lines );
+      "comp=s"=>\$comp,"vmin=f"=>\$vmin,"vmax=f"=>\$vmax,"lines=i"=>\$lines );
 #
 $show
+#
+derived types
+absoluteValue
+all
+exit
+plot:$comp
+# 
 contour
   coarsening factor 1
   if( $lines eq "0" ){ $cmd="plot contour lines (toggle)"; }else{ $cmd="#"; }
@@ -27,7 +35,7 @@ solution: $start
 stride: $stride
 $cmd = "";
 for( $i=$start; $i < $start+$numToSave; $i=$i+$stride ){\
-  $plotName = $name . "EigenVector$i.ps"; \
+  $plotName = $name . "EigenVector$comp$i.ps"; \
   $cmd .= "hardcopy file name:0 $plotName\n"; \
   $cmd .= "hardcopy save:0\n"; \
   $cmd .= "next\n"; \

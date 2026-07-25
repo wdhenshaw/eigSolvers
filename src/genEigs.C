@@ -232,6 +232,8 @@ int main(int argc,char **argv)
 
     int orthogonalize=true;            // if true, count multiplicities, orthogonalize eigenvectors, choose a basis of EVs for multiple eigs *new* Sept 3, 2024
 
+    int saveInvalidEigenVectorsToShowFile=0; // by default, do not save invalid eigenvectors to the show file
+
     int interpWidth=-1;             // interpolation width for coarse-to-fine (-1=use default = orderOfAccuracy+1)
 
     int useAccurateInnerProduct=false; // if true, use an accurate inner product
@@ -277,6 +279,8 @@ int main(int argc,char **argv)
     IntegerArray bcNumber(numberOfBoundaryConditions+1); 
     bcNumber = Ogev::dirichlet;   // default boundary condition
 
+    Ogev::RadiationBoundaryConditionEnum rbc = Ogev::engquistMajda; // default radiation BC
+
     aString matlabFileName = "genEigs"; 
 
     if( argc<=1 )
@@ -285,7 +289,7 @@ int main(int argc,char **argv)
           "Usage:\n"
           "  genEigs [-noplot] eigs.cmd -problem=<s> -eigCase=<s> -g=<s> -numEigenValues=<i> -tol=<f> \n"
           "          -bc[123456]=[d|n] -show=<s> -matlab=<s> -table=<s> -orthogonalize=[0|1] \n"
-          "          -discreteEigenValues=[0|1] -solveComplex=[0|1] -go=<s>\n"
+          "          -discreteEigenValues=[0|1] -solveComplex=[0|1] -rbc=[sf|em] -go=<s>\n"
           "  \n"
           "   -noplot : run without graphics\n"
           "   -problem=[laplace|ile] : laplace = (negative) laplacian\n"
@@ -307,6 +311,7 @@ int main(int argc,char **argv)
           "   -show=showFileName : save results to a show file with this name. e.g. -show=myShowFile.show \n"
           "                        (use plotStuff to display results from the show file).\n" 
           "   -evFile=evFileName  : read eigenvectors from a show file.\n" 
+          "   -rbc=[sf|em] : Sommerfeld or Engquist-Majda radiation boundary condition.\n" 
           "   -go=[go|og] : -go=go : run and exit. -go=og (open graphics) : when running with -noplot,\n" 
           "         open graphics windows after commands have been read.   \n" 
           "---------------------------------------------------------------------------------------------------------\n");  
@@ -356,7 +361,27 @@ int main(int argc,char **argv)
             {
                 tableFileName = arg(len,arg.length()-1);
                 printF("Setting tableFileName=[%s.tex] (name of LateX table output file)\n",(const char*)tableFileName);
-            }            
+            }
+            else if( (len=arg.matches("-rbc="))  )
+            {
+                aString rbcName = arg(len,arg.length()-1);
+                if( rbcName == "SF" || rbcName == "sf" || rbcName=="s" )
+                {
+                    rbc = Ogev::sommerfeld;
+                    printF("Setting the radiation BC to Sommerfeld\n");
+                }
+                else if( rbcName == "EM" || rbcName == "em" )
+                {
+                    rbc = Ogev::engquistMajda;
+                    printF("Setting the radiation BC to Engquist-Majda\n");
+                }
+                else
+                {
+                    printF("ERROR: unknown rbc=[%s]\n",(const char*)rbcName);
+                }
+
+
+            }                   
             else if( (len=arg.matches("-includePressure="))  )
             {
                 sScanF(arg(len,arg.length()-1),"%i",&includePressure);
@@ -852,10 +877,13 @@ int main(int argc,char **argv)
   // Optionally shift eigen problem to avoid a singular matrix
     ogev.setShift( shift );
 
+    ogev.setRadiationBoundaryCondition( rbc );
+
     cg.update(MappedGrid::THEmask | MappedGrid::THEvertex | MappedGrid::THEcenter);  
 
 
     aString & eigenSolver = ogev.dbase.get<aString>("eigenSolver"); // do this for now, *fix me*
+    aString & rbcName     = ogev.dbase.get<aString>("rbcName"); 
 
   // MappedGrid & mg = cg[0]; // *** DO THIS FOR NOW ***
 
@@ -904,6 +932,8 @@ int main(int argc,char **argv)
 
     
     Real time=0.; // plot curve at this time
+
+    Real eigTol=1e-5; // tolerance for checking if two eigenvalues are equal (used to determine the multiplicity)
     
   // ========== create the GUI and dialog ================
     GUIState dialog;
@@ -943,6 +973,9 @@ int main(int argc,char **argv)
     textLabels[nt] = "show file:";        sPrintF(textStrings[nt],"%s",(const char*)nameOfShowFile);  nt++; 
     textLabels[nt] = "flush frequency:";  sPrintF(textStrings[nt],"%i",flushFrequency);  nt++; 
     textLabels[nt] = "eigenvector input file:";  sPrintF(textStrings[nt],"%s",(const char*)evFileName);  nt++; 
+    textLabels[nt] = "multiple eigenvalue tol:";  sPrintF(textStrings[nt],"%g",eigTol);  nt++; 
+
+    
   // null strings terminal list
     textLabels[nt]="";   textStrings[nt]="";  assert( nt<numberOfTextStrings );
     dialog.setTextBoxes(textLabels, textLabels, textStrings);
@@ -960,9 +993,13 @@ int main(int argc,char **argv)
     bool eigenValuesAreKnown=false;
 
     IntegerArray eigMultiplicity, eigStartIndex;  
+
+  // eigIsValid(ie) : indicates whether an eigen-pair is valid (after sometimes a multiple eig will not have enough linearly independent eigenvectors)
+    IntegerArray eigIsValid;
   
     bool eigenvectorsHaveBeenOrthogonalized=false;
     bool eigenvectorsHaveBeenComputed=false; 
+    int numberOfInvalidEigenVectors=0;  // counts invalid eigenvectors after orthogonalization
 
     aString answer,buff;  
     for( ;; )
@@ -1000,16 +1037,43 @@ int main(int argc,char **argv)
                 Range all;
                 realCompositeGridFunction res(cg,all,all,all,numEigenVectors);
                 RealArray resMax(numEigenVectors), resbcMax(numEigenVectors), resbc;
+
+                eigIsValid.redim(numEigenVectors);
+                eigIsValid=1; 
+                
+
                 for( int ie=0; ie<numEigenVectors; ie++ )
                 {
                     Real lambdar = eig(0,ie);
                     Real lambdai = eig(1,ie);
                     resMax(ie) = ogev.getEigenPairResidual( lambdar, lambdai, u, res, cgop, resbc, ie );
                     resbcMax(ie) = max(fabs(resbc));
-                    printF(" ie=%4d  eig=[%12.4e,%12.4e], mult=%d, max-norm res || Au - lambda u ||/lambda =%9.2e resbcMax=%9.2e\n",
+                    printF(" ie=%4d  eig=[%12.4e,%12.4e], mult=%d, max-norm res || Au - lambda u ||/lambda =%9.2e resbcMax=%9.2e",
                         ie,lambdar,lambdai,eigMultiplicity(ie),resMax(ie),resbcMax(ie));
+
+                    if( FALSE && resMax(ie)>1e-2 ) // TURN THIS OFF FOR NOW -- SHOULD NOT BE NEEDED
+                    {
+                        printF(" ******** ");  // mark large residual 
+                        numberOfInvalidEigenVectors++;
+                        eigIsValid(ie)=0; 
+                    }
+                    printF("\n");
                 }
                 printF("... done compute residuals\n");
+
+                Real maxRes = max(resMax);
+                if( maxRes > 1e-2 )
+                {
+                    printF("\n"
+                                  " ***************************************** ERROR ***********************************************\n"
+                                  " *** THERE ARE LARGE RESIDUALS -- THIS MAY ARISE FROM MULTIPLE EIGENVALUES *** \n"
+                                  " *** maxRes = %9.2e, there were %d invalid eigenvectors which will NOT be saved to the show file. \n"
+                                  " ************************************************************************************************\n\n",
+                                  maxRes,numberOfInvalidEigenVectors);
+
+                }
+
+
 
             }
             else
@@ -1057,6 +1121,10 @@ int main(int argc,char **argv)
             printF("\n >>>> genEigs:: compute residuals ||  A - lambda^2 u ||/|lambda|^2 ....\n");
             realCompositeGridFunction res(cg,all,all,all,numEigenVectors);
             RealArray resMax(numEigenVectors), resbcMax(numEigenVectors), resbc;
+
+            eigIsValid.redim(numEigenVectors);
+            eigIsValid=1; 
+
             for( int ie=0; ie<numEigenVectors; ie++ )
             {
                 Real lambdar = eig(0,ie);
@@ -1117,6 +1185,7 @@ int main(int argc,char **argv)
                                 grid,(const char*)mg.getName());          
                 }        
             }
+            printF(" rbc =%s\n",(const char*)rbcName);
             printF(" eigenSolver=[%s], linearSolver=%s\n",(const char*)eigenSolver, (const char*)linearSolverName);
 
             printF("===================================================================\n");
@@ -1609,6 +1678,76 @@ int main(int argc,char **argv)
 
             show.setFlushFrequency( flushFrequency ); // save this many solutions per sub-showFile
 
+      // --- Optionally remove invalid eigenpairs (from the orthogonaliztion)
+            RealArray eigValid;
+            IntegerArray  eigMultiplicityValid, eigStartIndexValid;
+
+            if( numberOfInvalidEigenVectors>0 )
+            {
+                const int numValidEigenVectors = numEigenVectors - numberOfInvalidEigenVectors;
+
+                eigValid.redim(2,numValidEigenVectors);
+                eigMultiplicityValid.redim(numValidEigenVectors);
+                eigStartIndexValid.redim(numValidEigenVectors);
+
+        // --- REMOVE THE INVALID EIGENPAIRS FOR THE SHOW FILE ----
+                printF("------- INITIAL EIGENPAIRS -----\n");
+                for( int ie=0; ie<numEigenVectors; ie++ )
+                {
+                      printF(" ie=%4d: eig=(%14.8e,%14.8e) multi=%2d eigStartIndex=%4d\n",
+                                ie,eig(0,ie),eig(1,ie),eigMultiplicity(ie),eigStartIndex(ie));
+                }        
+                
+                int ie=0, numInvalid=0;
+                for( int je=0; je<numEigenVectors; je++ )
+                {
+                    if( !eigIsValid(je) )
+                    {
+                        int iStart= eigStartIndex(je);
+                        int jStart= iStart -numInvalid;
+                        assert( eigStartIndexValid(jStart) == jStart );
+
+                        printF("Eig je=%d is invalid: eigStartIndex=%d, eigMultiplicity=%d (iStart=%d : index into valid eigs)\n",je,eigStartIndex(je),eigMultiplicity(je),iStart);
+                        
+                        assert( eigMultiplicityValid(jStart)==2 ); // DO THIS CASE FOR NOW 
+
+                        eigMultiplicityValid(jStart) -=1; // reduce multiplicity 
+                        
+            // int k=0;
+            // while( eigStartIndexValid(iStart+k) == iStart )
+            // {
+            //   printF("  ...reducing the multiplicity for iStart+k=%d\n",iStart+k);
+            //   eigMultiplicityValid(iStart+k) -=1; // reduce multiplicity 
+            //   k++; 
+            // }
+                        
+                        numInvalid++;
+                        continue;
+                    }
+                    else
+                    {
+                        eigValid(0,ie)=eig(0,je);
+                        eigValid(1,ie)=eig(1,je);
+
+                        eigMultiplicityValid(ie) = eigMultiplicity(je);
+                        eigStartIndexValid(ie)   = eigStartIndex(je) - numInvalid;
+
+                        ie++;
+                    }
+                }
+                assert( ie== numValidEigenVectors );
+
+                printF("INFO: removed %d INVALID eigenpairs from the show file\n",numInvalid);
+
+                printF("------- VALID EIGENPAIRS (saved to the show file)-----\n");
+                for( int ie=0; ie<numValidEigenVectors; ie++ )
+                {
+                      printF(" ie=%4d: eig=(%12.6e,%12.6e) multi=%2d eigStartIndex=%4d\n",
+                                ie,eigValid(0,ie),eigValid(1,ie),eigMultiplicityValid(ie),eigStartIndexValid(ie));
+                }
+
+            }
+
       // ListOfShowFileParameters showFileParams;
       // showFileParams.push_back(ShowFileParameter("u1Component",u1c));
       // showFileParams.push_back(ShowFileParameter("u2Component",u2c));
@@ -1624,14 +1763,25 @@ int main(int argc,char **argv)
 
       // save parameters that go in this frame
             HDF_DataBase & db = *dbp;
-            db.put(eig,"eig");   // computed eigenvalues 
+            if( numberOfInvalidEigenVectors==0 )
+                db.put(eig,"eig");   // computed eigenvalues 
+            else
+                db.put(eigValid,"eig");   // computed eigenvalues 
 
       // ** we should always compute multiplicities here -- see cgWave 
             if( orthogonalize )
             {
         // --- eigenvectors were orthogonalized ----
-                db.put(eigMultiplicity,"eigMultiplicity");
-                db.put(eigStartIndex,"eigStartIndex");
+                if( numberOfInvalidEigenVectors==0 )
+                {
+                    db.put(eigMultiplicity,"eigMultiplicity");
+                    db.put(eigStartIndex,"eigStartIndex");
+                }
+                else
+                {
+                    db.put(eigMultiplicityValid,"eigMultiplicity");
+                    db.put(eigStartIndexValid,"eigStartIndex");
+                }
 
         // save integration weights so we do not need to recompute
                 Integrate & integrate = ogev.dbase.get<Integrate>("integrate");
@@ -1661,6 +1811,15 @@ int main(int argc,char **argv)
             Index I1,I2,I3;
             for( int ie=0; ie<numberOfFields; ie++ )
             {
+                const int eigVector = complexProblem ? ie/2 : ie; // in the complex case we store real and imag parts
+
+                if( saveInvalidEigenVectorsToShowFile==0 && eigIsValid(eigVector)==0 )
+                {
+          // this eigenvector is invalid -- do not save in the show file
+                    printF("INFO: do not save eigenpair %d to the show file since the eigenvector is not valid\n",eigVector );
+                    continue;
+                }
+
                 for( int grid=0; grid<cg.numberOfComponentGrids(); grid++ )
                 {
                     OV_GET_SERIAL_ARRAY(real,q[grid],qLocal);
@@ -1678,14 +1837,14 @@ int main(int argc,char **argv)
                 if( complexProblem )
                 {
           // complex case 
-                    const int eigVector = ie/2; // we store real and imag parts
+          // const int eigVector = ie/2; // we store real and imag parts
           // psp.set(GI_TOP_LABEL,sPrintF(buff,"%s, eig=%.5g + (%.5g) I",(const char*)label,eig(0,eigVector),eig(1,eigVector)));
                     aString clabel = ie % 2 ==0 ? "Re" : "Im"; 
                     show.saveComment(0,sPrintF("genEigs: FD%i eig=%d lam=[%.4g, %.4g] %s",orderOfAccuracy,eigVector,eig(0,eigVector),eig(1,eigVector),(const char*)clabel));
                 }
                 else
                 {
-                    const int eigVector=ie; 
+          // const int eigVector=ie; 
                     show.saveComment(0,sPrintF("genEigs: FD%i eig=%d lam=[%.4g, %.4g]",orderOfAccuracy,eigVector,eig(0,eigVector),eig(1,eigVector)));
                 }
 
@@ -1693,15 +1852,6 @@ int main(int argc,char **argv)
                 show.endFrame();
 
             }
-
-
-      // else
-      // { // **old way** save EV's as components in one big grid function 
-
-      //   show.saveComment(0,sPrintF(buff,"genEigs: %s: order=%d",(const char*)problem,orderOfAccuracy));  
-      //   show.saveSolution( u );                                        // save the current grid function
-      //   show.endFrame(); 
-      // }  
 
             show.close(); 
             printF("Wrote show file=[%s]\n",(const char*)nameOfShowFile);
@@ -1717,11 +1867,13 @@ int main(int argc,char **argv)
             fileName = matlabFileName + ".m";
             FILE *matlabFile = fopen((const char*)fileName,"w" );     // Save some tex output here 
             fPrintF(matlabFile,"%% Eigenvalues for grid=[%s]\n",(const char*)nameOfGridFile);
-            fPrintF(matlabFile,"%% File created eig/genEigs\n");
+            fPrintF(matlabFile,"%% File [%s] created eig/genEigs\n",(const char*)fileName);
 
             aString myLabel;
             sPrintF(myLabel,"%s",(const char*)matlabFileName);  // could do better
             fPrintF(matlabFile,"myLabel='%s';\n",(const char*)myLabel);
+
+            fPrintF(matlabFile,"orderOfAccuracy=%d;",orderOfAccuracy);
 
             fPrintF(matlabFile,"lambdav=[...\n");
             const int numPerLine=10;
@@ -1914,6 +2066,12 @@ int main(int argc,char **argv)
         else if( dialog.getTextValue(answer,"show file:","%s",nameOfShowFile) ){}// 
         else if( dialog.getTextValue(answer,"eigenvector input file:","%s",evFileName) ){}// 
         else if( dialog.getTextValue(answer,"flush frequency:","%i",flushFrequency) ){}// 
+
+        else if( dialog.getTextValue(answer,"multiple eigenvalue tol:","%g",eigTol) )
+        {
+            ogev.setEigenValueTolForMultiplicity( eigTol );
+        }
+
         else if( answer=="erase" )
         {
             gi.erase();

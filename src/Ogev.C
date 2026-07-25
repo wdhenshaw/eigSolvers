@@ -98,6 +98,9 @@ Ogev::Ogev()
     dbase.put<int>("orderOfAccuracy")=2; 
 
     dbase.put<Real>("eigenValueTolForMultiplicity")=1e-5; // tolerance for checking whether eigenvalues are the same 
+
+    dbase.put<Real>("orthogonalityTol")=1e-4; // tolerance for checking whether two eigenvectors are orthogonal
+
     dbase.put<int>("numberOfEigenvectors")=0;
 
     dbase.put<int>("interpWidth")=-1;
@@ -111,6 +114,9 @@ Ogev::Ogev()
     dbase.put<aString>("eigenSolver") = "KrylovSchur"; // default eigensolver
 
     dbase.put<aString>("linearSolverName") = "LU"; // name of linear solver in PETSc used by SLEPc
+
+    dbase.put<RadiationBoundaryConditionEnum>("rbc") = engquistMajda; 
+    dbase.put<aString>("rbcName")                    = "EM"; // "SF" or "EM" for Sommerfeld or Engquist-Majda radiation BC
 
     dbase.put<Real>("cpuTotal") =0.; // total CPU to compute eigs
 
@@ -193,6 +199,16 @@ int Ogev::setInterpolationWidth( int interpolationWidth )
 }
 
 // ==============================================================================
+/// \brief Set the tolerance for checking if two eigenvalues are equal (used to determine the multiplicity)
+// ==============================================================================
+int Ogev::setEigenValueTolForMultiplicity( Real eigTol )
+{
+    dbase.get<Real>("eigenValueTolForMultiplicity") = eigTol;
+    return 0;
+}
+
+
+// ==============================================================================
 /// \brief Return the name of the boundary condition. **put this here for now**
 // ==============================================================================
 aString Ogev::bcName( int bc )
@@ -210,6 +226,20 @@ aString Ogev::bcName( int bc )
 
 }
 
+// ==============================================================================
+/// \brief Set the type of Radiation BC
+// ==============================================================================
+int Ogev::setRadiationBoundaryCondition( RadiationBoundaryConditionEnum rbc )
+{
+    dbase.get<RadiationBoundaryConditionEnum>("rbc") = rbc;
+    
+    if( rbc==engquistMajda )
+        dbase.get<aString>("rbcName") = "EM";
+    else
+        dbase.get<aString>("rbcName") = "SF";
+
+    return 0;
+}
 
 // ----------------------------------------------------------------------------------------------
 /// \brief Return the adjusted boundary index
